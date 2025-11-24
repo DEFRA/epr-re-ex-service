@@ -1,0 +1,263 @@
+services:
+  proxy:
+    image: nginxproxy/nginx-proxy:1.4
+    ports:
+      - '7300:80'
+    environment:
+      - ENABLE_IPV6=true
+      - DEFAULT_ROOT="418"
+      - DEFAULT_HOST=~^uploader\..*\.sslip\.io
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - cdp-tenant
+
+  localstack:
+    image: localstack/localstack:3.0.2
+    ports:
+      - '4566:4566' # LocalStack Gateway
+      - '4510-4559:4510-4559' # external services port range
+    env_file:
+      - ./compose/aws.env
+    environment:
+      DEBUG: ${DEBUG:-1}
+      LS_LOG: WARN # Localstack DEBUG Level
+      SERVICES: s3,sqs,sns,firehose
+      LOCALSTACK_HOST: 127.0.0.1
+    volumes:
+      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
+      - ./compose/01-start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+    healthcheck:
+      test: ['CMD', 'curl', 'localhost:4566']
+      interval: 5s
+      start_period: 5s
+      retries: 3
+    networks:
+      - cdp-tenant
+
+  redis:
+    image: redis:7.2.11-alpine3.21
+    ports:
+      - '6379:6379'
+    restart: always
+    volumes:
+      - ./data-redis:/data
+    networks:
+      - cdp-tenant
+
+  cdp-uploader:
+    image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
+    ports:
+      - '7337:7337'
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./compose/aws.env
+    environment:
+      CONSUMER_BUCKETS: re-ex-summary-logs
+      MOCK_VIRUS_RESULT_DELAY: 3
+      MOCK_VIRUS_SCAN_ENABLED: true
+      NODE_ENV: development
+      PORT: 7337
+      REDIS_HOST: redis
+      S3_ENDPOINT: http://localstack:4566
+      SQS_ENDPOINT: http://localstack:4566
+      USE_SINGLE_INSTANCE_CACHE: true
+      VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
+      VIRTUAL_PATH: /
+      VIRTUAL_PORT: 7337
+    networks:
+      - cdp-tenant
+
+  defra-id-stub:
+    image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
+    ports:
+      - '3200:3200'
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      APP_BASE_URL: http://localhost:3200
+      NODE_ENV: development
+      OIDC_BASE_PATH: /cdp-defra-id-stub
+      OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
+      OIDC_CLIENT_SECRET: test_value
+      OIDC_SHOW_LOGIN: true
+      PORT: 3200
+      REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: redis
+      USE_SINGLE_INSTANCE_CACHE: true
+    networks:
+      - cdp-tenant
+
+
+  ################################################################################
+
+  mongodb:
+    image: mongo:6.0.13
+    networks:
+      - cdp-tenant
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data-mongo:/data
+      - ./backups-mongo:/backups
+    restart: always
+
+  epr-admin-frontend:
+    build:
+      context: ./lib/epr-re-ex-admin-frontend
+      target: development
+      dockerfile: Dockerfile
+    ports:
+      - '3002:3002'
+    extra_hosts:
+      - 'localhost:host-gateway'
+    links:
+      - 'localstack:localstack'
+      - 'redis:redis'
+    develop:
+      watch:
+        - path: ./lib/epr-re-ex-admin-frontend/src/
+          action: sync
+          target: /app/src/
+          ignore:
+            - node_modules/
+        - path: ./lib/epr-re-ex-admin-frontend/.browserslistrc
+          action: rebuild
+        - path: ./lib/epr-re-ex-admin-frontend/babel.config.cjs
+          action: rebuild
+        - path: ./lib/epr-re-ex-admin-frontend/nodemon.json
+          action: rebuild
+        - path: ./lib/epr-re-ex-admin-frontend/package.json
+          action: rebuild
+        - path: ./lib/epr-re-ex-admin-frontend/webpack.config.js
+          action: rebuild
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./compose/aws.env
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      REDIS_HOST: redis
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      USE_SINGLE_INSTANCE_CACHE: true
+      EPR_BACKEND_URL: http://localhost:3001
+      ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
+    networks:
+      - cdp-tenant
+
+  epr-frontend:
+    profiles: ['all']
+    build:
+      context: ./lib/epr-frontend
+      target: development
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    extra_hosts:
+      - 'localhost:host-gateway'
+    develop:
+      watch:
+        - path: ./lib/epr-frontend/src/
+          action: sync
+          target: /app/src/
+          ignore:
+            - node_modules/
+        - path: ./lib/epr-frontend/.browserslistrc
+          action: rebuild
+        - path: ./lib/epr-frontend/babel.config.cjs
+          action: rebuild
+        - path: ./lib/epr-frontend/nodemon.json
+          action: rebuild
+        - path: ./lib/epr-frontend/package.json
+          action: rebuild
+        - path: ./lib/epr-frontend/tsconfig.json
+          action: rebuild
+        - path: ./lib/epr-frontend/webpack.config.js
+          action: rebuild
+    depends_on:
+      defra-id-stub:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./compose/aws.env
+    environment:
+      CDP_UPLOADER_URL: http://cdp-uploader:7337
+      DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
+      DEFRA_ID_CLIENT_SECRET: test_value
+      DEFRA_ID_OIDC_CONFIGURATION_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
+      DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
+      EPR_BACKEND_URL: http://localhost:3001
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      NODE_ENV: development
+      PORT: 3000
+      REDIS_HOST: redis
+      USE_SINGLE_INSTANCE_CACHE: true
+    networks:
+      - cdp-tenant
+
+  epr-backend:
+    build:
+      context: ./lib/epr-backend
+      target: development
+      dockerfile: ./Dockerfile
+    ports:
+      - '3001:3001'
+    extra_hosts:
+      - 'localhost:host-gateway'
+    links:
+      - 'localstack:localstack'
+      - 'mongodb:mongodb'
+    depends_on:
+      localstack:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+    env_file:
+      - ./compose/aws.env
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://localstack:4566
+      MONGO_URI: mongodb://mongodb:27017/
+      GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
+      AUDIT_ENABLED: false
+      FEATURE_FLAG_SUMMARY_LOGS: true
+    secrets:
+      - govuk_notify_api_key
+    networks:
+      - cdp-tenant
+    volumes:
+      - ./lib/epr-backend/src:/home/node/src
+      - ./lib/epr-backend/package.json:/home/node/package.json
+
+################################################################################
+
+volumes:
+  backups-mongo:
+    external: true
+  data-mongo:
+    external: true
+  data-redis:
+    external: true
+
+networks:
+  cdp-tenant:
+    driver: bridge
+    name: cdp-tenant
+
+secrets:
+  govuk_notify_api_key:
+    environment: GOVUK_NOTIFY_API_KEY
