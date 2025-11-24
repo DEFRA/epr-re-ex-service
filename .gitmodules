@@ -1,9 +1,9 @@
 [submodule "lib/epr-frontend"]
 	path = lib/epr-frontend
 	url = git@github.com:DEFRA/epr-frontend.git
-[submodule "lib/epr-backend"]
-	path = lib/epr-backend
-	url = git@github.com:DEFRA/epr-backend.git
 [submodule "lib/epr-re-ex-admin-frontend"]
 	path = lib/epr-re-ex-admin-frontend
 	url = git@github.com:DEFRA/epr-re-ex-admin-frontend.git
+[submodule "lib/epr-backend"]
+	path = lib/epr-backend
+	url = git@github.com:DEFRA/epr-backend.git
