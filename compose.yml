@@ -104,8 +104,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./data-mongo:/data
-      - ./backups-mongo:/backups
+      - data-mongo:/data
+      - backups-mongo:/backups
     restart: always
 
   epr-admin-frontend:
