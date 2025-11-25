@@ -49,6 +49,8 @@ services:
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
     ports:
       - '7337:7337'
+    extra_hosts:
+      - 'localhost:host-gateway'
     depends_on:
       localstack:
         condition: service_healthy
