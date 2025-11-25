@@ -111,8 +111,7 @@ services:
   epr-admin-frontend:
     build:
       context: ./lib/epr-re-ex-admin-frontend
-      target: development
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
     ports:
       - '3002:3002'
     extra_hosts:
@@ -257,9 +256,7 @@ volumes:
   backups-mongo:
     external: true
   data-mongo:
-    external: true
   data-redis:
-    external: true
 
 networks:
   cdp-tenant:
