@@ -104,8 +104,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./data-mongo:/data
-      - ./backups-mongo:/backups
+      - mongodb-data:/data
+      - ./mongodb-backups:/backups
     restart: always
 
   epr-admin-frontend:
@@ -158,30 +158,29 @@ services:
     profiles: ['all']
     build:
       context: ./lib/epr-frontend
-      target: development
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
     ports:
       - '3000:3000'
     extra_hosts:
       - 'localhost:host-gateway'
     develop:
       watch:
-        - path: ./lib/epr-frontend/src/
+        - path: lib/epr-frontend/src/
           action: sync
           target: /app/src/
           ignore:
             - node_modules/
-        - path: ./lib/epr-frontend/.browserslistrc
+        - path: lib/epr-frontend/.browserslistrc
           action: rebuild
-        - path: ./lib/epr-frontend/babel.config.cjs
+        - path: lib/epr-frontend/babel.config.cjs
           action: rebuild
-        - path: ./lib/epr-frontend/nodemon.json
+        - path: lib/epr-frontend/nodemon.json
           action: rebuild
-        - path: ./lib/epr-frontend/package.json
+        - path: lib/epr-frontend/package.json
           action: rebuild
-        - path: ./lib/epr-frontend/tsconfig.json
+        - path: lib/epr-frontend/tsconfig.json
           action: rebuild
-        - path: ./lib/epr-frontend/webpack.config.js
+        - path: lib/epr-frontend/webpack.config.js
           action: rebuild
     depends_on:
       defra-id-stub:
@@ -253,10 +252,10 @@ services:
 ################################################################################
 
 volumes:
-  backups-mongo:
-    external: true
-  data-mongo:
   data-redis:
+  mongodb-data:
+  mongodb-backups:
+    external: true
 
 networks:
   cdp-tenant:
