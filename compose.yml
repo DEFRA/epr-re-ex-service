@@ -49,6 +49,8 @@ services:
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
     ports:
       - '7337:7337'
+    extra_hosts:
+      - 'localhost:host-gateway'
     depends_on:
       localstack:
         condition: service_healthy
@@ -234,6 +236,13 @@ services:
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       AUDIT_ENABLED: false
       FEATURE_FLAG_SUMMARY_LOGS: true
+      ADMIN_UI_ENTRA_CLIENT_ID: bd06da51-53f6-46d0-a9f0-ac562864c887
+      SERVICE_MAINTAINER_EMAILS: '["customer.test.user.2@defradev.onmicrosoft.com"]'
+      # Defra ID Stub Config
+      DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
+      DEFRA_ID_CLIENT_SECRET: test_value
+      DEFRA_ID_OIDC_WELL_KNOWN_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
+      DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
     secrets:
       - govuk_notify_api_key
     networks:
