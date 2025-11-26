@@ -1,0 +1,112 @@
+name: Check Pull Request
+
+on:
+  pull_request:
+    branches:
+      - '*'
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.check.outputs.docs-only }}
+    steps:
+      - name: Check for docs-only changes
+        id: check
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const docsOnly = files.length > 0 && files.every(file => file.filename.endsWith('.md'));
+
+            core.setOutput('docs-only', docsOnly);
+            console.log(`Documentation-only changes: ${docsOnly}`);
+            console.log(`Changed files: ${files.map(f => f.filename).join(', ')}`)
+
+  pr-prep:
+    name: Preparation
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    steps:
+      - name: Check branch name
+        uses: actions/github-script@v8
+        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-upgrade-') }}
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const branchName = context.payload.pull_request.head.ref;
+            const regex = /^(PAE-\d+)[-_]{1}.+$/i;
+            const [match, ticketKey] = branchName.match(regex) ?? [null, null];
+
+            if (!match || !ticketKey) {
+              core.setFailed('Branch name does not match the required format: PAE-<NUMBER>-<desc>');
+            } else {
+              core.exportVariable('ticketKey', ticketKey.toUpperCase());
+            }
+      - name: Add ticket link to PR description
+        uses: actions/github-script@v8
+        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-upgrade-') }}
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const { pull_request, repository } = context.payload;
+            const { body: previousBody } = pull_request;
+            const { ticketKey } = process.env;
+            const ticketLink = `[${ticketKey}](https://eaflood.atlassian.net/browse/${ticketKey})`;
+
+            if (!previousBody.includes(ticketLink)) {
+              github.rest.pulls.update({
+                owner: repository.owner.login,
+                repo: repository.name,
+                pull_number: pull_request.number,
+                body: `Ticket: ${ticketLink}\n${previousBody}`,
+              });
+            } else {
+              console.log('PR description already contains a link to the ticket')
+            }
+
+      - name: Checkout code for ADR check
+        uses: actions/checkout@v6
+        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-upgrade-') }}
+
+      - name: Check for ADR numbering conflicts
+        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-upgrade-') }}
+        run: |
+          DOCS_DIR=docs/architecture/decisions 
+          
+          if [ -d "$DOCS_DIR" ]; then
+            cd $DOCS_DIR
+            duplicates=$(ls -1 *.md | grep -E '^[0-9]{4}-' | sed 's/^\([0-9]\{4\}\)-.*/\1/' | sort | uniq -d)
+            if [ -n "$duplicates" ]; then
+              echo "Error: Duplicate ADR numbers found:"
+              echo "$duplicates"
+              exit 1
+            fi
+            echo "No ADR numbering conflicts found"
+          fi
+
+  pr-validator:
+    name: Run Pull Request Checks
+    runs-on: ubuntu-latest
+    needs: [pr-prep, detect-changes]
+    if: needs.detect-changes.outputs.docs-only != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Test and Scan
+        uses: ./.github/actions/test-and-scan
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sonar-token: ${{ secrets.SONAR_TOKEN }}

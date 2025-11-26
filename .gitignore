@@ -14,9 +14,7 @@ npm-debug.log
 .env
 
 # Compose
-backups-mongo/
-data-mongo/
-data-redis/
+mongodb-backups/
 
 # App
 .public
