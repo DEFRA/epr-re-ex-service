@@ -22,7 +22,7 @@ A local environment with:
 - epr-re-ex-admin-frontend
 
 ```bash
-docker compose up --profile all --build --watch -d
+docker compose up --profile all --build --watch
 ```
 
 See the running services with:
@@ -33,6 +33,22 @@ docker compose ps
 
 > [!NOTE]
 > Each service should run in watch mode, allowing you to develop locally without restarting the changed services.
+
+#### Selectively running services
+
+Should you wish to run your own services locally you can use profiles to achieve that,
+e.g. to run docker compose for everything except `epr-frontend` you would use the `ex:epr-frontend` profile:    
+
+```bash
+docker compose up --profile ex:epr-frontend --build -d
+```
+
+Available profiles: 
+
+1. `all` runs all containers
+2. `ex:epr-admin-frontend` runs all containers except `epr-admin-frontend`
+3. `ex:epr-backend` runs all containers except `epr-backend` 
+4. `ex:epr-frontend` runs all containers except `epr-frontend`
 
 ### Secrets
 
