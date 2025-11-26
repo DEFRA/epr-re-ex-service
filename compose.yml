@@ -104,8 +104,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - data-mongo:/data
-      - backups-mongo:/backups
+      - mongodb-data:/data
+      - ./mongodb-backups:/backups
     restart: always
 
   epr-admin-frontend:
@@ -158,8 +158,7 @@ services:
     profiles: ['all']
     build:
       context: ./lib/epr-frontend
-      target: development
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
     ports:
       - '3000:3000'
     extra_hosts:
@@ -253,10 +252,10 @@ services:
 ################################################################################
 
 volumes:
-  backups-mongo:
-    external: true
-  data-mongo:
   data-redis:
+  mongodb-data:
+  mongodb-backups:
+    external: true
 
 networks:
   cdp-tenant:
