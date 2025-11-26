@@ -37,18 +37,30 @@ docker compose ps
 #### Selectively running services
 
 Should you wish to run your own services locally you can use profiles to achieve that,
-e.g. to run docker compose for everything except `epr-frontend` you would use the `ex:epr-frontend` profile:    
+e.g. to run docker compose for everything except `epr-frontend` you would use the multiple profiles:    
 
 ```bash
-docker compose up --profile ex:epr-frontend --build -d
+docker compose up --profile shared --profile epr-admin-frontend --profile epr-backend --build -d
+```
+
+You can also use the `COMPOSE_PROFILES` environment variable to define profiles 
+
+```bash
+COMPOSE_PROFILES=shared,epr-admin-frontend,epr-backend && docker compose up --build -d
 ```
 
 Available profiles: 
 
 1. `all` runs all containers
-2. `ex:epr-admin-frontend` runs all containers except `epr-admin-frontend`
-3. `ex:epr-backend` runs all containers except `epr-backend` 
-4. `ex:epr-frontend` runs all containers except `epr-frontend`
+2. `shared` runs all shared containers
+3. `epr-backend` runs all shared containers plus `epr-backend` 
+4. `epr-frontend` runs all shared containers plus `epr-frontend`
+5. `epr-admin-frontend` runs all shared containers plus `epr-admin-frontend`
+
+> [!NOTE]
+> You will need to use profiles when stopping/removing docker compose containers, [see docs](https://docs.docker.com/compose/how-tos/profiles/#stop-application-and-services-with-specific-profiles)
+>
+> `docker compose --profile all down`
 
 ### Secrets
 
