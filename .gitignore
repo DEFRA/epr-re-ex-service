@@ -15,10 +15,3 @@ npm-debug.log
 
 # Compose
 mongodb-backups/
-
-# App
-.public
-.server
-coverage
-.cache
-.eslintcache

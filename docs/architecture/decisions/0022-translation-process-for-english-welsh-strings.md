@@ -27,7 +27,7 @@ The project currently uses **`@lingual/i18n-check`** for basic translation valid
 
 ### Translation Format and Delivery
 
-The translation team accepts **Excel** files as standard.  
+The translation team accepts **Excel** files as standard.
 Data can be sent via email to the contact to pass it on to the translation team.
 
 ---

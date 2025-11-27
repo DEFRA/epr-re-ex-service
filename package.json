@@ -1,0 +1,25 @@
+{
+  "name": "epr-re-ex-service",
+  "version": "0.0.0",
+  "description": "pEPR Re/Ex project",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\"",
+    "git:pre-commit-hook": "npm run format:check",
+    "postinstall": "npm run setup:husky",
+    "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module"
+  },
+  "author": "Defra DDTS",
+  "license": "OGL-UK-3.0",
+  "dependencies": {},
+  "overrides": {},
+  "devDependencies": {
+    "husky": "9.1.7",
+    "lint-staged": "16.2.7",
+    "prettier": "3.6.2"
+  }
+}
