@@ -1,0 +1,4 @@
+{
+  "*.{js,json,md}": "npm run format",
+  "docs/architecture/decisions/*.md": "npm run adr:generate:toc"
+}
