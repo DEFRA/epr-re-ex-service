@@ -84,6 +84,17 @@ Cancelled/Suspended accreditations will result in changed permissions for PRNs a
 
 ### Summary Logs
 
+#### `POST /v1/organisations/{id}/registrations/{id}/summary-logs`
+
+Creates a new summary log and initiates the file upload process. The backend proxies the request to CDP Uploader and creates a tracking record.
+
+1. Generates a new `summaryLogId`
+2. Creates a SUMMARY-LOG entity with status `preprocessing`
+3. Calls CDP Uploader's `/initiate` endpoint
+4. Returns the `summaryLogId`, `uploadId`, `uploadUrl`, and `statusUrl` to the frontend
+
+This allows the backend to track uploads from initiation, enabling better visibility into in-progress and abandoned uploads.
+
 #### `GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`
 
 Used to retrieve the current state and data of a summary log.
@@ -113,6 +124,9 @@ Request body matches CDP Uploader's callback payload:
 ```
 
 Creates or updates the SUMMARY-LOG entity with file details and sets status to `validating` (if scan succeeded) or `rejected` (if scan failed). If successful, triggers async validation.
+
+> [!NOTE]
+> Currently, this endpoint creates the summary log if it doesn't exist. Once `POST /summary-logs` is implemented, the entity will always exist (created at initiate time with `preprocessing` status), and this endpoint will only update existing records.
 
 #### `POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit`
 
@@ -613,16 +627,21 @@ sequenceDiagram
   participant S3
 
   Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/upload
-  Note over Frontend: generate summaryLogId
-  Frontend->>CDPUploader: POST /initiate<br>{ redirect, callback, s3Bucket, s3Path, metadata }<br>redirect: `{eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-success`<br>callback: `{eprBackend}/v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed`
-  CDPUploader-->>Frontend: 200: { uploadId, uploadUrl, statusUrl }
+  Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs
+  Note over Backend: generate summaryLogId
+  Note over Backend: create SUMMARY-LOG entity<br>{ status: 'preprocessing' }
+  Backend->>CDPUploader: POST /initiate<br>{ redirect, callback, s3Bucket, s3Path, metadata }<br>redirect: `{eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/preprocessing`<br>callback: `{eprBackend}/v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed`
+  CDPUploader-->>Backend: 200: { uploadId, uploadUrl, statusUrl }
+  Note over Backend: update SUMMARY-LOG entity<br>{ uploadId }
+  Backend-->>Frontend: 200: { summaryLogId, uploadId, uploadUrl, statusUrl }
   Note over Frontend: Write session<br>[{ organisationId, registrationId, summaryLogId, uploadId }]
   Frontend-->>Op: <html><h2>upload a summary log</h2><form>...</form></html>
   Op->>CDPUploader: POST /upload-and-scan/{uploadId}
   CDPUploader->>S3: store
-  CDPUploader-->>Op: 302: redirect to {eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-success
+  CDPUploader-->>Op: 302: redirect to {eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/preprocessing
 
-  Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-success
+  Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/preprocessing
+  Note over Frontend: Read session, show "processing upload" UI
   Frontend-->>Op: 302: redirect to status page
 
   Note over CDPUploader: START async preprocessing<br>(virus scan, file validation, move to S3)
