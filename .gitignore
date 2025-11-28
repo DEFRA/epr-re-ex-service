@@ -15,3 +15,6 @@ npm-debug.log
 
 # Compose
 mongodb-backups/
+backups-mongo/
+data-mongo/
+data-redis/
