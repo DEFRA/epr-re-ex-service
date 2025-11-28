@@ -68,10 +68,10 @@ sequenceDiagram
     API->>SummaryLogs: Extract & validate file
     API->>WasteRecords: Read existing records
     API->>API: Classify loads (added/unchanged/adjusted × valid/invalid)
-    API->>SummaryLogs: Store loadCounts (status: validated)
+    API->>SummaryLogs: Store loads (status: validated)
 
     User->>API: View preview
-    API-->>User: Show loadCounts from summary log
+    API-->>User: Show loads from summary log
 
     User->>API: Submit (confirm)
     API->>SummaryLogs: Verify still current for org/reg
@@ -231,7 +231,7 @@ flowchart TD
     J --> L[No new version]
     K --> M[Classify loads]
     L --> M
-    M --> N[Return wasteRecords + loadCounts]
+    M --> N[Return wasteRecords + loads]
 ```
 
 **Load classification:**
@@ -247,14 +247,25 @@ Each row is classified on two dimensions:
    - `valid` - No validation issues
    - `invalid` - Has validation issues
 
-Result: `loadCounts: { added: {valid, invalid}, unchanged: {valid, invalid}, adjusted: {valid, invalid} }`
+Result structure:
+
+```javascript
+loads: {
+  added: {
+    valid: { count: number, rowIds: string[] },    // rowIds truncated at 100
+    invalid: { count: number, rowIds: string[] }
+  },
+  unchanged: { valid: { count, rowIds }, invalid: { count, rowIds } },
+  adjusted: { valid: { count, rowIds }, invalid: { count, rowIds } }
+}
+```
 
 **Rationale:**
 
 - Single source of truth for transformation logic
 - Both phases use identical code path - no divergence possible
 - Submission captures a timestamp at the start and uses it for all versions
-- Returns both waste records (for submission) and loadCounts (for preview)
+- Returns both waste records (for submission) and loads (for preview)
 - Recalculation prevents possiblity of partially-stored preview data
 
 ### Row transformation detail
@@ -309,7 +320,7 @@ flowchart TD
         U -->|Yes| W{CREATED?}
         W -->|Yes| X[added]
         W -->|No| Y[adjusted]
-        V --> Z["loadCounts<br/>{added, unchanged, adjusted}<br/>× {valid, invalid}"]
+        V --> Z["loads<br/>{added, unchanged, adjusted}<br/>× {valid, invalid}"]
         X --> Z
         Y --> Z
     end
@@ -332,7 +343,7 @@ flowchart TD
 | Parsing     | Raw row                | `[value1, value2, ...]` array matching header order              |
 | Data Syntax | `ValidatedRow`         | `{ values: {ROW_ID, DATE_RECEIVED, ...}, rowId, issues[] }`      |
 | Transform   | `ValidatedWasteRecord` | `{ record: WasteRecord, issues[] }`                              |
-| Classify    | `LoadCounts`           | `{ added: {valid, invalid}, unchanged: {...}, adjusted: {...} }` |
+| Classify    | `Loads`                | `{ added: {valid, invalid}, unchanged: {...}, adjusted: {...} }` |
 | Persist     | `WasteRecord`          | `{ type, rowId, data, versions[] }`                              |
 
 **Issue attachment flow:**
@@ -357,14 +368,14 @@ flowchart LR
     C -->|No| D[Mark invalid<br/>Store errors]
     C -->|Yes| E[Transform]
     E --> F[Classify loads:<br/>added/unchanged/adjusted × valid/invalid]
-    F --> G[Store loadCounts in summary log<br/>status: validated]
+    F --> G[Store loads in summary log<br/>status: validated]
 ```
 
 **Key points:**
 
-- Load counts stored in summary log: `{ loadCounts: { added: {valid, invalid}, unchanged: {valid, invalid}, adjusted: {valid, invalid} } }`
+- Loads stored in summary log: `{ loads: { added: {valid: {count, rowIds}, invalid: {count, rowIds}}, unchanged: {...}, adjusted: {...} } }`
 - Full waste records NOT stored (would exceed 16MB for 15k records, or could be partially stored if split up)
-- User views preview page showing the stored `loadCounts`
+- User views preview page showing the stored `loads`
 
 ### Submission phase
 
@@ -454,7 +465,7 @@ The MongoDB adapter uses bulk operations for efficient version appending:
 
 1. Capturing timestamp at submission start keeps version timestamps consistent across all rows
 2. The `versions` array in waste records naturally supports idempotency via `summaryLog.id` checking
-3. Load counts stored in summary log: `{ loadCounts: { added: {valid, invalid}, unchanged: {valid, invalid}, adjusted: {valid, invalid} } }`
+3. Loads stored in summary log: `{ loads: { added: {valid: {count, rowIds}, invalid: {count, rowIds}}, unchanged: {...}, adjusted: {...} } }`
 4. Idempotency check happens in application layer before building the Map (avoids unnecessary writes)
 5. Map key format `"type:rowId"` naturally groups versions by waste record
 6. New uploads must supersede existing unsubmitted summary logs for the same org/reg
