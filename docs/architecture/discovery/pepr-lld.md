@@ -297,9 +297,10 @@ Used to retrieve a report by ID for Operators to view the details of the report.
 
 TBD
 
-### Waste Record
+### Waste Record & Waste Balance
 
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
+The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
 
 TODO
 
@@ -343,6 +344,7 @@ erDiagram
 
   USER-SUMMARY {
     ObjectId _id PK
+    ObjectId organisationId FK
     string name
   }
 
@@ -394,6 +396,33 @@ erDiagram
     string[] rowIds "max 100 row IDs"
   }
 
+  WASTE-BALANCE {
+    ObjectId _id PK
+    ObjectId organistionId FK
+    ObjectId accreditationId FK
+    float amount "transactions of type:credit minus transactions of type:debit"
+    float availableAmount "amount minus transactions of type:pending_debit"
+    WASTE-BALANCE-TRANSACTION[] transactions
+  }
+
+  WASTE-BALANCE-TRANSACTION {
+    enum type "credit, debit, pending_debit"
+    boolean isPending
+    ISO8601 createdAt
+    USER-SUMMARY createdBy
+    float amount
+    float openingAmount
+    float closingAmount
+    float openingAvailableAmount
+    float closingAvailableAmount
+    WASTE-BALANCE-TRANSACTION-ENTITY[] entities "entities related to this transaction"
+  }
+
+  WASTE-BALANCE-TRANSACTION-ENTITY {
+    ObjectId id FK "WASTE-RECORD or PRN"
+    enum type "waste_record:received, waste_record:sent_on, waste_record:exported, prn:created, prn:issued, prn:accepted, prn:cancelled"
+  }
+
   WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
   WASTE-RECORD ||--|{ USER-SUMMARY : contains
   WASTE-RECORD-VERSION ||--|{ USER-SUMMARY : contains
@@ -408,9 +437,13 @@ erDiagram
   SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "adjusted"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "valid"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "invalid"
+  WASTE-BALANCE ||--|{ WASTE-BALANCE-TRANSACTION : contains
+  WASTE-BALANCE-TRANSACTION ||--|{ USER-SUMMARY : contains
+  WASTE-BALANCE-TRANSACTION ||--|{ WASTE-BALANCE-TRANSACTION-ENTITY : contains
+  WASTE-BALANCE-TRANSACTION-ENTITY ||--|| WASTE-RECORD : references
 ```
 
-#### Type: Received
+#### Waste Record Type: Received
 
 In this example:
 
@@ -499,7 +532,7 @@ In this example:
 }
 ```
 
-#### Type: processed
+#### Waste Record Type: processed
 
 In this example Alice has created a `processed` waste record
 
@@ -548,7 +581,7 @@ In this example Alice has created a `processed` waste record
 }
 ```
 
-#### Type: sentOn
+#### Waste Record Type: sentOn
 
 In this example Alice has created a `sentOn` waste record
 
@@ -597,9 +630,105 @@ In this example Alice has created a `sentOn` waste record
 }
 ```
 
-### Waste Balance
+#### Waste Balance
 
-TBD
+An example of an object in the Waste Balance collection
+
+```json5
+{
+  _id: 'a1234567890a12345a03',
+  accreditationId: 'b1234567890a12345a01',
+  organisationId: 'e1234567890a12345a01',
+  amount: 48.99,
+  availableAmount: 23.99,
+  transactions: [
+    // Alice creates a prn, decreasing the available balance
+    {
+      type: 'pending_debit',
+      createdAt: '2026-01-04T09:00:00.000Z',
+      createdBy: {
+        _id: 'c1234567890a12345a01',
+        name: 'Alice'
+      },
+      amount: 25.00,
+      openingAmount: 48.99,
+      closingAmount: 48.99,
+      openingAvailableAmount: 48.99,
+      closingAvailableAmount: 23.99,
+      entities: [
+        {
+          id: 'd1234567890a12345a05',
+          type: 'prn:created',
+        }
+      ]
+    },
+    // Charlie adds waste sent_on, decreasing the balance
+    {
+      type: 'debit',
+      createdAt: '2026-01-03T09:00:00.000Z',
+      createdBy: {
+        _id: 'c1234567890a12345a03',
+        name: 'Charlie'
+      },
+      amount: 1.01,
+      openingAmount: 50.00,
+      closingAmount: 48.99,
+      openingAvailableAmount: 50.00,
+      closingAvailableAmount: 48.99,
+      entities: [
+        {
+          id: 'd1234567890a12345a04',
+          type: 'waste_record:sent_on',
+        }
+      ]
+    },
+    // Bob adds waste received, increasing the balance
+    {
+      type: 'credit',
+      createdAt: '2026-01-02T09:00:00.000Z',
+      createdBy: {
+        _id: 'd1234567890a12345a04',
+        name: 'Bob'
+      },
+      amount: 40.00,
+      openingAmount: 10.00,
+      closingAmount: 50.00,
+      openingAvailableAmount: 10.00,
+      closingAvailableAmount: 50.00,
+      entities: [
+        {
+          id: 'd1234567890a12345a03',
+          type: 'waste_record:received',
+        },
+        {
+          id: 'd1234567890a12345a02',
+          type: 'waste_record:received',
+        }
+      ]
+    },
+    // Alice adds waste received, increasing the balance
+    {
+      type: 'credit',
+      createdAt: '2026-01-01T09:00:00.000Z',
+      createdBy: {
+        _id: 'c1234567890a12345a01',
+        name: 'Alice'
+      },
+      amount: 10.00,
+      openingAmount: 0,
+      closingAmount: 10.00,
+      openingAvailableAmount: 0,
+      closingAvailableAmount: 10.00,
+      entities: [
+        {
+          id: 'd1234567890a12345a01',
+          type: 'waste_record:received',
+        }
+      ]
+    }
+  ]
+}
+```
 
 ### PRN
 
