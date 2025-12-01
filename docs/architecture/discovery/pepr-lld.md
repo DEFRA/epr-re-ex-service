@@ -302,8 +302,6 @@ TBD
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
 
-TODO
-
 - add Waste Balance to this ERD
 
 > [!NOTE]
@@ -399,22 +397,24 @@ erDiagram
   WASTE-BALANCE {
     ObjectId _id PK
     ObjectId organistionId FK
-    ObjectId accreditationId FK
-    float amount "transactions of type:credit minus transactions of type:debit"
-    float availableAmount "amount minus transactions of type:pending_debit"
+    ObjectId accreditationId FK, UK
+    int schemaVersion
+    int version
+    Decimal128 amount "transactions of type:credit minus transactions of type:debit"
+    Decimal128 availableAmount "amount minus transactions of type:pending_debit"
     WASTE-BALANCE-TRANSACTION[] transactions
   }
 
   WASTE-BALANCE-TRANSACTION {
+    ObjectId _id PK
     enum type "credit, debit, pending_debit"
-    boolean isPending
     ISO8601 createdAt
     USER-SUMMARY createdBy
-    float amount
-    float openingAmount
-    float closingAmount
-    float openingAvailableAmount
-    float closingAvailableAmount
+    Decimal128 amount
+    Decimal128 openingAmount
+    Decimal128 closingAmount
+    Decimal128 openingAvailableAmount
+    Decimal128 closingAvailableAmount
     WASTE-BALANCE-TRANSACTION-ENTITY[] entities "entities related to this transaction"
   }
 
