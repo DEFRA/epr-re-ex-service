@@ -11,7 +11,6 @@
       * [`GET /v1/organisations`](#get-v1organisations)
       * [`GET /v1/organisations/{id}`](#get-v1organisationsid)
     * [Summary Logs](#summary-logs)
-      * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/uploaded`](#post-v1organisationsidregistrationsidsummary-logssummarylogiduploaded)
       * [`GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`](#get-v1organisationsidregistrationsidsummary-logssummarylogid)
       * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed`](#post-v1organisationsidregistrationsidsummary-logssummarylogidupload-completed)
       * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit`](#post-v1organisationsidregistrationsidsummary-logssummarylogidsubmit)
@@ -85,12 +84,6 @@ Cancelled/Suspended accreditations will result in changed permissions for PRNs a
 
 ### Summary Logs
 
-#### `POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/uploaded`
-
-Called by the Frontend when CDP Uploader successfully redirects after file upload.
-
-Creates a SUMMARY-LOG entity with status `preprocessing`.
-
 #### `GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`
 
 Used to retrieve the current state and data of a summary log.
@@ -99,27 +92,27 @@ Used to retrieve the current state and data of a summary log.
 
 Internal endpoint used by CDP Uploader to notify the backend when preprocessing is complete or has failed.
 
+This endpoint both creates the SUMMARY-LOG entity (if it doesn't exist) and updates it with the file status and S3 details.
+
 Request body matches CDP Uploader's callback payload:
 
 ```json
 {
-  "uploadStatus": "ready",
-  "metadata": { /* optional custom metadata */ },
   "form": {
-    "file": {
+    "summaryLogUpload": {
       "fileId": "uuid",
       "filename": "summary-log.xlsx",
       "fileStatus": "complete" | "rejected" | "pending",
       "s3Bucket": "bucket-name",
       "s3Key": "path/to/file",
-      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "hasError": false,
+      "errorMessage": "optional error message"
     }
-  },
-  "numberOfRejectedFiles": 0
+  }
 }
 ```
 
-Updates the SUMMARY-LOG entity with S3 details and sets status to `validating` (if scan succeeded) or `rejected` (if scan failed). If successful, sends a message to SQS to trigger validation.
+Creates or updates the SUMMARY-LOG entity with file details and sets status to `validating` (if scan succeeded) or `rejected` (if scan failed). If successful, triggers async validation.
 
 #### `POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit`
 
@@ -297,15 +290,18 @@ The Waste Record is the entity used to track key reporting data uploaded by Summ
 TODO
 
 - add Waste Balance to this ERD
-- confirm accreditationId is appropriate when modelling waste records when organisation has registration only
+
+> [!NOTE]
+> `accreditationId` is optional on waste records to support organisations that have a registration but no accreditation.
 
 ```mermaid
 erDiagram
   WASTE-RECORD {
     ObjectId _id PK
     ObjectId organisationId FK
-    ObjectId accreditationId FK
-    string ourReference
+    ObjectId registrationId FK
+    ObjectId accreditationId FK "optional - only present for accredited entities"
+    string rowId "unique identifier within type+org+reg"
     int schemaVersion
     ISO8601 createdAt
     USER-SUMMARY createdBy
@@ -322,9 +318,13 @@ erDiagram
     ISO8601 createdAt
     USER-SUMMARY createdBy FK
     enum status "created, updated, pending"
-    ObjectId summaryLogArchiveId FK
-    string summaryLogUri UK "S3 object URI, used to avoid an extra query to retrieve the summary log URI"
+    SUMMARY-LOG-REF summaryLog "reference to the summary log that created this version"
     json data "status: 'created' contains all fields required for reporting, status: 'updated'/'pending' contains only changed fields"
+  }
+
+  SUMMARY-LOG-REF {
+    string id "summary log ID"
+    string uri "S3 object URI"
   }
 
   USER-SUMMARY {
@@ -334,33 +334,66 @@ erDiagram
 
   SUMMARY-LOG {
     ObjectId _id PK
-    enum status "preprocessing, rejected, validating, invalid, validated, submitted"
-    string summaryLogUri UK "S3 object URI"
+    enum status "preprocessing, rejected, validating, invalid, validated, submitting, submitted"
+    SUMMARY-LOG-FILE file "file metadata and S3 URI"
+    string failureReason "error message when status is rejected"
     ISO8601 createdAt
     USER-SUMMARY createdBy FK
     ISO8601 updatedAt
     USER-SUMMARY updatedBy FK
-    SUMMARY-LOG-ROWS data
+    SUMMARY-LOG-VALIDATION validation "validation issues"
+    SUMMARY-LOG-LOADS loads "load classification after validation"
   }
 
-  SUMMARY-LOG-ROWS {
-    SUMMARY-LOG-ROW[] created
-    SUMMARY-LOG-ROW[] adjusted
-    SUMMARY-LOG-ROW[] rejected
+  SUMMARY-LOG-FILE {
+    string id "CDP file ID"
+    string name "original filename"
+    enum status "pending, rejected, complete"
+    string uri "S3 object URI, required when status is complete"
   }
 
-  SUMMARY-LOG-ROW {
-    string ourReference
-    various data "reporting fields only, TBD"
+  SUMMARY-LOG-VALIDATION {
+    VALIDATION-ISSUE[] issues
+  }
+
+  VALIDATION-ISSUE {
+    enum severity "FATAL, ERROR, WARNING"
+    enum category "parsing, technical, business"
+    string message
+    string code "for i18n"
+    json context "optional additional context"
+  }
+
+  SUMMARY-LOG-LOADS {
+    LOAD-CATEGORY added
+    LOAD-CATEGORY unchanged
+    LOAD-CATEGORY adjusted
+  }
+
+  LOAD-CATEGORY {
+    LOAD-COUNT valid
+    LOAD-COUNT invalid
+  }
+
+  LOAD-COUNT {
+    int count
+    string[] rowIds "max 100 row IDs"
   }
 
   WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
   WASTE-RECORD ||--|{ USER-SUMMARY : contains
   WASTE-RECORD-VERSION ||--|{ USER-SUMMARY : contains
-  WASTE-RECORD-VERSION ||--|{ SUMMARY-LOG : contains
+  WASTE-RECORD-VERSION ||--|| SUMMARY-LOG-REF : contains
   SUMMARY-LOG ||--|{ USER-SUMMARY : contains
-  SUMMARY-LOG ||--|{ SUMMARY-LOG-ROWS : contains
-  SUMMARY-LOG-ROWS ||--|{ SUMMARY-LOG-ROW : contains
+  SUMMARY-LOG ||--|| SUMMARY-LOG-FILE : contains
+  SUMMARY-LOG ||--o| SUMMARY-LOG-VALIDATION : contains
+  SUMMARY-LOG ||--o| SUMMARY-LOG-LOADS : contains
+  SUMMARY-LOG-VALIDATION ||--|{ VALIDATION-ISSUE : contains
+  SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "added"
+  SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "unchanged"
+  SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "adjusted"
+  LOAD-CATEGORY ||--|| LOAD-COUNT : "valid"
+  LOAD-CATEGORY ||--|| LOAD-COUNT : "invalid"
 ```
 
 #### Type: Received
@@ -374,9 +407,10 @@ In this example:
 ```json5
 {
   _id: 'a1234567890a12345a01',
-  accreditationId: 'b1234567890a12345a01',
   organisationId: 'e1234567890a12345a01',
-  ourReference: '12345678910',
+  registrationId: 'f1234567890a12345a01',
+  accreditationId: 'b1234567890a12345a01', // optional
+  rowId: '12345678910',
   type: 'received',
   createdAt: '2026-01-08T12:00:00.000Z',
   createdBy: {
@@ -389,7 +423,6 @@ In this example:
     name: 'Bob'
   },
   data: {
-    _checksum: '938c2cc0dcc05f2b68c4287040cfcf71',
     dateReceived: '2026-01-01',
     grossWeight: 10.0,
     tonnageForPrn: 0.5
@@ -404,7 +437,10 @@ In this example:
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      summaryLog: 's3://path/to/summary/log/upload/1',
+      summaryLog: {
+        id: 's1234567890a12345a01',
+        uri: 's3://bucket/path/to/summary/log/upload/1'
+      },
       data: {
         dateReceived: '2026-01-01',
         grossWeight: 1.0,
@@ -420,7 +456,10 @@ In this example:
         _id: 'c1234567890a12345a02',
         name: 'Bob'
       },
-      summaryLog: 's3://path/to/summary/log/upload/2',
+      summaryLog: {
+        id: 's1234567890a12345a02',
+        uri: 's3://bucket/path/to/summary/log/upload/2'
+      },
       data: {
         grossWeight: 10.0
       }
@@ -434,7 +473,10 @@ In this example:
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      summaryLog: 's3://path/to/summary/log/upload/3',
+      summaryLog: {
+        id: 's1234567890a12345a03',
+        uri: 's3://bucket/path/to/summary/log/upload/3'
+      },
       data: {
         grossWeight: 1.0
       }
@@ -450,9 +492,10 @@ In this example Alice has created a `processed` waste record
 ```json5
 {
   _id: 'a1234567890a12345a02',
-  accreditationId: 'b1234567890a12345a01',
   organisationId: 'e1234567890a12345a01',
-  ourReference: '12345678911',
+  registrationId: 'f1234567890a12345a01',
+  accreditationId: 'b1234567890a12345a01', // optional
+  rowId: '12345678911',
   type: 'processed',
   createdAt: '2026-01-08T12:00:00.000Z',
   createdBy: {
@@ -476,7 +519,10 @@ In this example Alice has created a `processed` waste record
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      summaryLog: 's3://path/to/summary/log/upload/1',
+      summaryLog: {
+        id: 's1234567890a12345a01',
+        uri: 's3://bucket/path/to/summary/log/upload/1'
+      },
       data: {
         dateLoadLeftSite: '2026-01-01',
         sentTo: 'name',
@@ -495,9 +541,10 @@ In this example Alice has created a `sentOn` waste record
 ```json5
 {
   _id: 'a1234567890a12345a03',
-  accreditationId: 'b1234567890a12345a01',
   organisationId: 'e1234567890a12345a01',
-  ourReference: '12345678912',
+  registrationId: 'f1234567890a12345a01',
+  accreditationId: 'b1234567890a12345a01', // optional
+  rowId: '12345678912',
   type: 'sentOn',
   createdAt: '2026-01-08T12:00:00.000Z',
   createdBy: {
@@ -521,7 +568,10 @@ In this example Alice has created a `sentOn` waste record
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      summaryLog: 's3://path/to/summary/log/upload/1',
+      summaryLog: {
+        id: 's1234567890a12345a01',
+        uri: 's3://bucket/path/to/summary/log/upload/1'
+      },
       data: {
         dateLoadLeftSite: '2026-01-01',
         sentTo: 'name',
@@ -573,17 +623,14 @@ sequenceDiagram
   CDPUploader-->>Op: 302: redirect to {eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-success
 
   Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-success
-  Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/uploaded
-  Note over Backend: create SUMMARY-LOG entity<br>{ status: 'preprocessing' }
-  Backend-->>Frontend: 200 OK
   Frontend-->>Op: 302: redirect to status page
 
   Note over CDPUploader: START async preprocessing<br>(virus scan, file validation, move to S3)
   Note over CDPUploader: END async preprocessing
 
   alt FileStatus: complete
-    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ uploadStatus: 'ready', form: { file: { fileStatus: 'complete', s3Bucket, s3Key, ... } } }
-    Note over Backend: update SUMMARY-LOG entity<br>{ status: 'validating', s3Bucket, s3Key }
+    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ form: { summaryLogUpload: { fileStatus: 'complete', s3Bucket, s3Key, ... } } }
+    Note over Backend: create/update SUMMARY-LOG entity<br>{ status: 'validating', file: { uri: s3Uri } }
     Backend->>SQS: send ValidateSummaryLog command<br>{ summaryLogId, organisationId, registrationId, s3Bucket, s3Key }
     Backend-->>CDPUploader: 200
     Note over BackendWorker: START async content validation
@@ -592,7 +639,7 @@ sequenceDiagram
     BackendWorker->>S3: fetch: s3Bucket/s3Key
     S3-->>BackendWorker: S3 file
     loop each row
-      Note over BackendWorker: parse row<br>compare to WASTE-RECORD for ourReference<br>update SUMMARY-LOG.data in batches
+      Note over BackendWorker: parse row<br>compare to WASTE-RECORD for rowId<br>update SUMMARY-LOG.validation in batches
     end
     alt validation successful
       BackendWorker->>Backend: update SUMMARY-LOG entity<br>{ status: 'validated', data }
@@ -621,8 +668,8 @@ sequenceDiagram
       end
     end
   else FileStatus: rejected
-    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ uploadStatus: 'ready', form: { file: { fileStatus: 'rejected', ... } }, numberOfRejectedFiles: 1 }
-    Note over Backend: update SUMMARY-LOG entity<br>{ status: 'rejected', failureReason }
+    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ form: { summaryLogUpload: { fileStatus: 'rejected', errorMessage: '...' } } }
+    Note over Backend: create/update SUMMARY-LOG entity<br>{ status: 'rejected', failureReason }
     Backend-->>CDPUploader: 200
 
     loop polling until final state
@@ -653,7 +700,7 @@ sequenceDiagram
   Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId }]
   Frontend->>Backend: GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
   Note over Backend: lookup SUMMARY-LOG entity
-  Backend-->>Frontend: 200: { status: 'validated', data: [ ... ] }
+  Backend-->>Frontend: 200: { status: 'validated', loads: { added, unchanged, adjusted } }
   Frontend-->>Op: <html>Summary of changes...<button>Submit</button></html>
 
   Note over Op: Review changes
@@ -662,9 +709,10 @@ sequenceDiagram
   Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId }]
   Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit
   Note over Backend: lookup SUMMARY-LOG entity
-  Note over Backend: apply SUMMARY-LOG.data to WASTE-RECORD entities
+  Note over Backend: update SUMMARY-LOG<br>{ status: 'submitting' }
+  Note over Backend: sync WASTE-RECORD entities from SUMMARY-LOG
   Note over Backend: update WASTE-BALANCE
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitted' }
-  Backend-->>Frontend: 200: { status: 'submitted', data: [ ... ] }
-  Frontend-->>Op: <html>Submission complete</html>
+  Backend-->>Frontend: 202: { status: 'submitting' }
+  Frontend-->>Op: <html>Submission in progress...</html>
 ```

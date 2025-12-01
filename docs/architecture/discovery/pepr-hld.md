@@ -261,7 +261,8 @@ stateDiagram-v2
     preprocessing --> validating: CDP Uploader callback "complete"
     validating --> invalid: Validation errors found
     validating --> validated: Validation completed successfully
-    validated --> submitted: Summary log submitted
+    validated --> submitting: User submits summary log
+    submitting --> submitted: Waste records synced successfully
     rejected --> [*]
     invalid --> [*]
     submitted --> [*]
@@ -272,7 +273,8 @@ stateDiagram-v2
 3. `validating`: CDP preprocessing passed, content validation against business rules in progress
 4. `invalid`: content validation found errors
 5. `validated`: validation completed successfully, prospective modifications ready for user review
-6. `submitted`: user has submitted the summary log, modifications applied to waste records
+6. `submitting`: user has submitted the summary log, waste record sync in progress
+7. `submitted`: waste records have been synced successfully
 
 ### Waste Record Version
 
