@@ -1,0 +1,415 @@
+openapi: 3.0.3
+info:
+  title: Packaging Recycling Notes API
+  description: API for external management of Packaging Recycling Notes (PRN) and Packaging Export Recycling Notes (PERN) with accept/reject functionality
+  version: 1.0.0
+
+tags:
+  - name: Packaging Recycling Notes
+    description: Operations related to Packaging Recycling Notes (PRN) and Packaging Export Recycling Notes (PERN)
+
+paths:
+  /v1/packaging-recycling-notes:
+    get:
+      tags:
+        - Packaging Recycling Notes
+      summary: List packaging recycling notes
+      description: Retrieves a list of Packaging Recycling Notes (PRN) and Packaging Export Recycling Notes (PERN) with optional filtering by status and update date
+      operationId: listPackagingRecyclingNotes
+      parameters:
+        - name: statuses
+          in: query
+          required: true
+          description: Filter by one or more statuses (comma-separated)
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - awaiting_acceptance
+                - cancelled
+          style: form
+          explode: false
+          example: awaiting_acceptance,cancelled
+        - name: statusChangeFrom
+          in: query
+          required: false
+          description: Filter notes with status changes on or after this date-time (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+          example: 2024-11-01T00:00:00Z
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PackagingRecyclingNote'
+                  total:
+                    type: integer
+                    description: Total number of items matching the filter criteria
+                    example: 42
+        '400':
+          description: Bad request - Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/packaging-recycling-notes/{id}:
+    get:
+      tags:
+        - Packaging Recycling Notes
+      summary: Get packaging recycling note by ID
+      description: Retrieves a specific Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) using its unique identifier
+      operationId: getPackagingRecyclingNoteById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingRecyclingNote'
+        '400':
+          description: Bad request - Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Packaging recycling note not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/packaging-recycling-notes/{id}/accept:
+    post:
+      tags:
+        - Packaging Recycling Notes
+      summary: Accept a packaging recycling note
+      description: Accepts a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its ID
+      operationId: acceptPackagingRecyclingNote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to accept
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        description: Optional acceptance details
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                acceptedAt:
+                  type: string
+                  format: date-time
+                  description: Timestamp of acceptance (if different from current time)
+                  example: 2024-12-01T10:30:00Z
+      responses:
+        '200':
+          description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingRecyclingNote'
+        '400':
+          description: Bad request - Invalid ID format or invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Packaging recycling note not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - Note has already been accepted or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/packaging-recycling-notes/{id}/reject:
+    post:
+      tags:
+        - Packaging Recycling Notes
+      summary: Reject a packaging recycling note
+      description: Rejects a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its ID
+      operationId: rejectPackagingRecyclingNote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to reject
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        description: Rejection details
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectedAt:
+                  type: string
+                  format: date-time
+                  description: Timestamp of rejection (if different from current time)
+                  example: 2024-12-01T10:30:00Z
+      responses:
+        '200':
+          description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingRecyclingNote'
+        '400':
+          description: Bad request - Invalid ID format or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Packaging recycling note not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - Note has already been accepted or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    PackagingRecyclingNote:
+      type: object
+      required:
+        - id
+        - prnType
+        - issuedByOrganisation
+        - accreditation
+        - decemberWaste
+        - tonnageValue
+        - issuedToOrganisation
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
+          example: 123e4567-e89b-12d3-a456-426614174000
+        prnNumber:
+          type: string
+          description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) number
+          maxLength: 20
+          example: ER992415095748M
+        prnType:
+          type: string
+          enum:
+            - prn
+            - pern
+          description: Type of note - prn (Packaging Recycling Note) or pern (Packaging Export Recycling Note)
+          example: prn
+        issuedByOrganisation:
+          $ref: '#/components/schemas/Organisation'
+        accreditation:
+          $ref: '#/components/schemas/Accreditation'
+        decemberWaste:
+          type: boolean
+          description: Indicates whether this note includes December waste
+          example: true
+        tonnageValue:
+          type: integer
+          description: Tonnage value as an integer
+          example: 126
+          minimum: 1
+        issuerNotes:
+          type: string
+          description: Additional notes from the issuer
+          maxLength: 200
+          example: T2E Reference 9201234
+        issuedToOrganisation:
+          $ref: '#/components/schemas/Organisation'
+        authorisedBy:
+          type: string
+          description: Name or ID of the person who authorised/issued this PRN or PERN
+          example: John Smith
+        authorisedByPosition:
+          type: string
+          description: Position of the person who authorised/issued this PRN or PERN
+          example: Operations Director
+        authorisedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the PRN or PERN was authorised/issued
+          example: 2024-11-20T15:45:00Z
+        status:
+          type: string
+          enum:
+            - awaiting_authorisation
+            - awaiting_acceptance
+            - accepted
+            - awaiting_cancellation
+            - cancelled
+            - rejected
+          description: Current status of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
+          example: awaiting_acceptance
+        acceptedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the PRN or PERN was accepted by the Producer or Compliance Scheme
+          example: 2024-12-01T10:30:00Z
+        rejectedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the PRN or PERN was rejected by the Producer or Compliance Scheme
+          example: 2024-12-01T10:30:00Z
+        cancelledAt:
+          type: string
+          format: date-time
+          description: Timestamp when the PRN or PERN was cancelled
+          example: 2024-12-01T11:00:00Z
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code
+          example: NOT_FOUND
+        message:
+          type: string
+          description: Human-readable error message
+          example: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) not found
+
+    Accreditation:
+      type: object
+      required:
+        - id
+        - accreditationNumber
+        - accreditationYear
+        - material
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the accreditation of the Reprocessor or Exporter
+          example: 456e7890-a12b-34c5-d678-901234567890
+        accreditationNumber:
+          type: string
+          description: Accreditation Number of the Reprocessor or Exporter
+          example: R26ER1075628626-PL
+        accreditationYear:
+          type: integer
+          description: Year of accreditation
+          example: 2026
+          minimum: 2000
+          maximum: 2100
+        material:
+          type: string
+          enum:
+            - aluminium
+            - fibre
+            - glass
+            - paper
+            - plastic
+            - steel
+            - wood
+          description: Type of packaging material being recycled or exported
+          example: plastic
+        glassRecyclingProcess:
+          type: string
+          enum:
+            - glass_re_melt
+            - glass_other
+          description: Glass recycling process type (only applicable when material is glass)
+          example: glass_re_melt
+        site:
+          type: string
+          description: Address of the reprocessing site (populated for reprocessors, not populated for exporters)
+          maxLength: 100
+          example: 123 Recycling Way, Industrial Estate, Manchester, M1 2AB
+
+    Organisation:
+      type: object
+      required:
+        - id
+        - idType
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the organisation
+          example: 987fcdeb-51a2-43f7-b123-456789abcdef
+        idType:
+          type: string
+          enum:
+            - waste-organisation-api
+            - epr-re-ex-organisation
+          description: Source system that the organisation ID belongs to
+          example: waste-organisation-api
+        name:
+          type: string
+          description: Organisation name
+          example: Green Recycling Solutions Ltd
+        tradingName:
+          type: string
+          description: Trading name of the organisation
+          example: Green Recycling
