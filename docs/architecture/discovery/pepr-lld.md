@@ -634,7 +634,6 @@ sequenceDiagram
   CDPUploader-->>Backend: 200: { uploadId, uploadUrl, statusUrl }
   Note over Backend: update SUMMARY-LOG entity<br>{ uploadId }
   Backend-->>Frontend: 200: { summaryLogId, uploadId, uploadUrl, statusUrl }
-  Note over Frontend: Write session<br>[{ organisationId, registrationId, summaryLogId, uploadId }]
   Frontend-->>Op: <html><h2>upload a summary log</h2><form>...</form></html>
   Op->>CDPUploader: POST /upload-and-scan/{uploadId}
   CDPUploader->>S3: store
@@ -669,7 +668,6 @@ sequenceDiagram
     loop polling until final state
       Note over Op: Poll using<br> <meta http-equiv="refresh" content="3">
       Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
-      Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId, uploadId }]
       Frontend->>Backend: GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
       Note over Backend: lookup SUMMARY-LOG entity
       alt status: preprocessing or validating
@@ -693,7 +691,6 @@ sequenceDiagram
     loop polling until final state
       Note over Op: Poll using<br> <meta http-equiv="refresh" content="3">
       Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
-      Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId, uploadId }]
       Frontend->>Backend: GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
       Backend-->>Frontend: 200: { status: 'rejected', failureReason }
       Frontend-->>Op: <html>Upload rejected...<form>Upload new file</form></html>
@@ -715,7 +712,6 @@ sequenceDiagram
 
 
   Op->>Frontend: GET /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
-  Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId }]
   Frontend->>Backend: GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}
   Note over Backend: lookup SUMMARY-LOG entity
   Backend-->>Frontend: 200: { status: 'validated', loads: { added, unchanged, adjusted } }
@@ -724,7 +720,6 @@ sequenceDiagram
   Note over Op: Review changes
 
   Op->>Frontend: POST /organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit
-  Note over Frontend: Read session<br>[{ organisationId, registrationId, summaryLogId }]
   Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit
   Note over Backend: lookup SUMMARY-LOG entity
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitting' }
