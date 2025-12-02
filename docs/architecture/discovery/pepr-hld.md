@@ -211,7 +211,7 @@ All requests to the EPR Backend API are verified with [this auth mechanism](pepr
 The following actions depend on the user's role:
 
 1. Create or update a user
-2. Upload a summary log, which in turn creates or updates a waste record and may update the waste balance
+2. Upload a summary log, which in turn creates or updates a waste record and may update an associated waste balance
 3. Create or update a PRN
 4. Create or update a report
 
@@ -460,7 +460,7 @@ sequenceDiagram
 
 #### User makes open month waste adjustments
 
-Use case: As a User, I want to upload a summary log with open month waste adjustments so that I can update existing waste records and see any impact on the waste balance.
+Use case: As a User, I want to upload a summary log with open month waste adjustments so that I can update existing waste records and see any impact on an associated waste balance.
 
 ```mermaid
 sequenceDiagram
