@@ -39,7 +39,7 @@ There is no distinction made between different types of business validation fail
 
 | # | In-Sheet Validation | Business Validation | Row Outcome | Summary Log |
 |---|---------------------|---------------------|-------------|-------------|
-| 1 | ✅ All pass | ✅ All pass | **VALID** | ✅ Can submit |
+| 1 | ✅ All pass | ✅ All pass | **INCLUDED** | ✅ Can submit |
 | 2 | ✅ All pass | ❌ Some fail | **EXCLUDED** | ✅ Can submit |
 | 3 | ❌ Some fail | ✅ All pass | **REJECTED** | ❌ Blocked |
 | 4 | ❌ Some fail | ❌ Some fail | **REJECTED** | ❌ Blocked |
@@ -48,7 +48,7 @@ There is no distinction made between different types of business validation fail
 
 | Outcome | Meaning | Caused by | Effect on Summary Log |
 |---------|---------|-----------|----------------------|
-| **VALID** | Row passes all validation | Passes VAL010 + business validation | ✅ Included in submission |
+| **INCLUDED** | Row passes all validation | Passes VAL010 + business validation | ✅ Included in submission |
 | **EXCLUDED** | Row fails business validation but no in-sheet errors | Fails VAL011 or VAL013 | ✅ Row excluded, log submits |
 | **REJECTED** | One or more filled values fail in-sheet validation | Fails VAL010 | ❌ Entire submission blocked |
 
@@ -62,11 +62,11 @@ flowchart TD
     B -->|No| C{Passes all business validation? - VAL011, VAL013}
 
     C -->|No| EXCLUDED["EXCLUDED: Row excluded, log can submit"]
-    C -->|Yes| VALID["VALID: Row included in submission"]
+    C -->|Yes| INCLUDED["INCLUDED: Row included in submission"]
 
     style REJECTED fill:#ff6b6b,color:#fff
     style EXCLUDED fill:#ffa94d,color:#000
-    style VALID fill:#51cf66,color:#fff
+    style INCLUDED fill:#51cf66,color:#fff
 ```
 
 ## Validation Hierarchy
