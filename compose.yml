@@ -151,13 +151,12 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
-      PORT: 3002
-      NODE_ENV: development
-      REDIS_HOST: redis
-      LOCALSTACK_ENDPOINT: http://localstack:4566
-      USE_SINGLE_INSTANCE_CACHE: true
-      EPR_BACKEND_URL: http://localhost:3001
       ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
+      EPR_BACKEND_URL: http://localhost:3001
+      NODE_ENV: development
+      PORT: 3002
+      REDIS_HOST: redis
+      USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
 
@@ -199,13 +198,11 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
-      CDP_UPLOADER_URL: http://cdp-uploader:7337
       DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
       DEFRA_ID_CLIENT_SECRET: test_value
       DEFRA_ID_OIDC_CONFIGURATION_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
       DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
       EPR_BACKEND_URL: http://localhost:3001
-      LOCALSTACK_ENDPOINT: http://localstack:4566
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
@@ -234,21 +231,17 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
-      PORT: 3001
-      NODE_ENV: development
-      LOCALSTACK_ENDPOINT: http://localstack:4566
-      S3_ENDPOINT: http://localstack:4566
-      MONGO_URI: mongodb://mongodb:27017/
-      GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
-      AUDIT_ENABLED: false
-      FEATURE_FLAG_SUMMARY_LOGS: true
       ADMIN_UI_ENTRA_CLIENT_ID: bd06da51-53f6-46d0-a9f0-ac562864c887
-      SERVICE_MAINTAINER_EMAILS: '["customer.test.user.2@defradev.onmicrosoft.com"]'
-      # Defra ID Stub Config
+      AUDIT_ENABLED: false
       DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
-      DEFRA_ID_CLIENT_SECRET: test_value
       DEFRA_ID_OIDC_WELL_KNOWN_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
-      DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
+      FEATURE_FLAG_SUMMARY_LOGS: true
+      GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
+      MONGO_URI: mongodb://mongodb:27017/
+      NODE_ENV: development
+      PORT: 3001
+      S3_ENDPOINT: http://localstack:4566
+      SERVICE_MAINTAINER_EMAILS: '["customer.test.user.2@defradev.onmicrosoft.com"]'
     secrets:
       - govuk_notify_api_key
     networks:
