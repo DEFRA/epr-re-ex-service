@@ -59,10 +59,13 @@ flowchart TD
     A[Row in Summary Log] --> B{Any filled field fails in-sheet validation? - VAL010}
 
     B -->|Yes| REJECTED["REJECTED: Submission blocked"]
-    B -->|No| C{Passes all business validation? - VAL011, VAL013}
+    B -->|No| C{All mandatory fields present? - VAL011}
 
     C -->|No| EXCLUDED["EXCLUDED: Row excluded, log can submit"]
-    C -->|Yes| INCLUDED["INCLUDED: Row included in submission"]
+    C -->|Yes| D{Passes business rules e.g. accreditation date range? - VAL013}
+
+    D -->|No| EXCLUDED
+    D -->|Yes| INCLUDED["INCLUDED: Row included in submission"]
 
     style REJECTED fill:#ff6b6b,color:#fff
     style EXCLUDED fill:#ffa94d,color:#000
