@@ -7,90 +7,75 @@ This document describes how individual rows in a Summary Log are classified base
 When a user uploads a Summary Log, each row undergoes multiple validation checks. The combination of these checks determines whether:
 
 1. The row is included in the submission
-2. The row contributes to the Waste Balance calculation
-3. The entire Summary Log can be submitted
+2. The entire Summary Log can be submitted
 
-## Validation Checks
+## Validation Categories
 
-Three independent validation checks apply to each row:
+Two categories of validation apply to each row:
 
-| Check | Reference | What it Validates | Failure Effect |
-|-------|-----------|-------------------|----------------|
+| Category | References | What it Validates | Failure Effect |
+|----------|------------|-------------------|----------------|
 | **In-Sheet Validation** | VAL010 | Excel template's built-in validation rules on all filled fields | **REJECTED** - blocks entire submission |
-| **Mandatory Field Completion** | VAL011 | Whether all mandatory fields have values | **BLOCKED** - row excluded, log can submit |
-| **Accreditation Date Range** | VAL013 | Load date falls within accreditation period | **INFORMATIONAL** - row excluded from WB only |
+| **Business Validation** | VAL011, VAL013 | Mandatory field completion and business rules (e.g. accreditation date range) | **EXCLUDED** - row excluded, log can submit |
 
-### VAL010: In-Sheet Validation
+### In-Sheet Validation (VAL010)
 
 Applies to **all filled fields**, regardless of whether they are mandatory. If any field contains a value that fails the Excel template's built-in validation rules (e.g. wrong format, out of range, invalid characters), the row is **REJECTED**.
 
 A single rejected row prevents the entire Summary Log from being submitted.
 
-### VAL011: Mandatory Field Completion
+### Business Validation (VAL011, VAL013)
 
-Checks whether all mandatory fields have been populated. If any mandatory field is empty, the row is **BLOCKED**.
+Covers business rules that determine whether a row can be included in the submission:
 
-Blocked rows are excluded from the submission, but the Summary Log itself can still be submitted. The "Check Before You Submit" screen displays blocked rows to inform the user.
+- **VAL011 (Mandatory Field Completion)** - All mandatory fields must have values
+- **VAL013 (Accreditation Date Range)** - Load date must fall within the accreditation period
 
-### VAL013: Accreditation Date Range
+Rows failing any business validation are **EXCLUDED** from the submission, but the Summary Log itself can still be submitted. The "Check Before You Submit" screen displays excluded rows to inform the user.
 
-Validates that the load date in the row falls within the accreditation period. This is **informational only** - there is no pass/fail rejection.
-
-Rows where the load date falls outside the accreditation period are excluded from the Waste Balance calculation, but the row is still valid and included in the submission.
+There is no distinction made between different types of business validation failure - all result in the row being excluded.
 
 ## Row Classification Matrix
 
-All possible combinations of validation outcomes:
-
-| # | Mandatory Fields | Filled Fields Validation | Load Date in Accreditation Period | Row Outcome | WB Calc | Summary Log |
-|---|-----------------|-------------------------|-----------------------------------|-------------|---------|-------------|
-| 1 | ✅ All present | ✅ All pass | ✅ Within period | **VALID** | ✅ Included | ✅ Can submit |
-| 2 | ✅ All present | ✅ All pass | ❌ Outside period | **VALID** | ❌ Excluded | ✅ Can submit |
-| 3 | ✅ All present | ❌ Some fail | ✅ Within period | **REJECTED** | N/A | ❌ Blocked |
-| 4 | ✅ All present | ❌ Some fail | ❌ Outside period | **REJECTED** | N/A | ❌ Blocked |
-| 5 | ❌ Some missing | ✅ All pass | ✅ Within period | **BLOCKED** | N/A | ✅ Can submit |
-| 6 | ❌ Some missing | ✅ All pass | ❌ Outside period | **BLOCKED** | N/A | ✅ Can submit |
-| 7 | ❌ Some missing | ❌ Some fail | ✅ Within period | **REJECTED** | N/A | ❌ Blocked |
-| 8 | ❌ Some missing | ❌ Some fail | ❌ Outside period | **REJECTED** | N/A | ❌ Blocked |
+| # | In-Sheet Validation | Business Validation | Row Outcome | Summary Log |
+|---|---------------------|---------------------|-------------|-------------|
+| 1 | ✅ All pass | ✅ All pass | **VALID** | ✅ Can submit |
+| 2 | ✅ All pass | ❌ Some fail | **EXCLUDED** | ✅ Can submit |
+| 3 | ❌ Some fail | ✅ All pass | **REJECTED** | ❌ Blocked |
+| 4 | ❌ Some fail | ❌ Some fail | **REJECTED** | ❌ Blocked |
 
 ## Outcome Summary
 
 | Outcome | Meaning | Caused by | Effect on Summary Log |
 |---------|---------|-----------|----------------------|
-| **VALID** | Row complete and all values valid | Passes VAL010 + VAL011 | ✅ Included in submission |
-| **BLOCKED** | Row incomplete but no validation errors | Fails VAL011 only | ✅ Row excluded, log submits |
-| **REJECTED** | One or more filled values fail validation | Fails VAL010 | ❌ Entire submission blocked |
+| **VALID** | Row passes all validation | Passes VAL010 + business validation | ✅ Included in submission |
+| **EXCLUDED** | Row fails business validation but no in-sheet errors | Fails VAL011 or VAL013 | ✅ Row excluded, log submits |
+| **REJECTED** | One or more filled values fail in-sheet validation | Fails VAL010 | ❌ Entire submission blocked |
 
 ## Decision Flowchart
 
 ```mermaid
 flowchart TD
-    A[Row in Summary Log] --> B{Any filled field fails validation? - VAL010}
+    A[Row in Summary Log] --> B{Any filled field fails in-sheet validation? - VAL010}
 
     B -->|Yes| REJECTED["REJECTED: Submission blocked"]
-    B -->|No| C{All mandatory fields present? - VAL011}
+    B -->|No| C{Passes all business validation? - VAL011, VAL013}
 
-    C -->|No| BLOCKED["BLOCKED: Row excluded, log can submit"]
-    C -->|Yes| D{Load date within accreditation period? - VAL013}
-
-    D -->|Yes| VALID_IN["VALID: Included in WB"]
-    D -->|No| VALID_OUT["VALID: Excluded from WB - informational"]
+    C -->|No| EXCLUDED["EXCLUDED: Row excluded, log can submit"]
+    C -->|Yes| VALID["VALID: Row included in submission"]
 
     style REJECTED fill:#ff6b6b,color:#fff
-    style BLOCKED fill:#ffa94d,color:#000
-    style VALID_IN fill:#51cf66,color:#fff
-    style VALID_OUT fill:#74c0fc,color:#000
+    style EXCLUDED fill:#ffa94d,color:#000
+    style VALID fill:#51cf66,color:#fff
 ```
 
 ## Validation Hierarchy
 
 The checks are evaluated in order of severity:
 
-1. **VAL010 (In-Sheet Validation)** - Checked first. If any filled field fails validation, the row is immediately classified as REJECTED. No further checks matter.
+1. **In-Sheet Validation (VAL010)** - Checked first. If any filled field fails validation, the row is immediately classified as REJECTED. No further checks matter.
 
-2. **VAL011 (Mandatory Field Completion)** - Checked second. If VAL010 passes but mandatory fields are missing, the row is BLOCKED.
-
-3. **VAL013 (Accreditation Date Range)** - Checked last, only for rows that pass VAL010 and VAL011. Determines whether the valid row contributes to the Waste Balance calculation.
+2. **Business Validation (VAL011, VAL013)** - Checked second. If in-sheet validation passes but any business rule fails, the row is EXCLUDED.
 
 ## Related Requirements
 
