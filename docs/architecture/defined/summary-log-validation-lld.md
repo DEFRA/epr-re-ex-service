@@ -41,7 +41,7 @@ This design aligns with the [Summary Log Row Validation Classification](./summar
 | Outcome | Caused by | Effect |
 |---------|-----------|--------|
 | **REJECTED** | Fails VAL010 (validation of filled fields) | Blocks entire submission |
-| **EXCLUDED** | Fails VAL011 (balance-required fields) or VAL013 (business rules) | Row submitted but excluded from Waste Balance |
+| **EXCLUDED** | Fails VAL011 (fields required for Waste Balance) or VAL013 (business rules) | Row submitted but excluded from Waste Balance |
 | **INCLUDED** | Passes all validation | Contributes to Waste Balance |
 
 The validation pipeline implements each decision point from the classification flowchart as a distinct schema or check.
@@ -56,7 +56,7 @@ The validation layer slots into ADR 0019's architecture, with each step mapping 
 |------|-------------------|---------------|-----------------|
 | 1. Filter to filled fields | Is field filled? | `unfilledValues` | - |
 | 2. Validate filled fields | VAL010 | `validationSchema` | REJECTED |
-| 3. Check fields required for Waste Balance | VAL011 | `wasteBalanceRequiredFields` | EXCLUDED |
+| 3. Check fields required for Waste Balance | VAL011 | `fieldsRequiredForWasteBalance` | EXCLUDED |
 | 4. Transform to waste record | - | Row transformer | - |
 | 5. Apply business rules | VAL013 | Row transformer | EXCLUDED |
 | 6. All pass | - | - | INCLUDED |
@@ -71,8 +71,8 @@ const filledFields = filterToFilled(row, tableSchema.unfilledValues)
 const { error } = tableSchema.validationSchema.validate(filledFields)
 if (error) return { outcome: 'REJECTED', issues: error.details }
 
-// Step 3: VAL011 - Check balance-required fields are present
-const missingRequired = tableSchema.wasteBalanceRequiredFields.filter(
+// Step 3: VAL011 - Check fields required for Waste Balance are present
+const missingRequired = tableSchema.fieldsRequiredForWasteBalance.filter(
   field => !isFilled(row[field], tableSchema.unfilledValues[field])
 )
 if (missingRequired.length > 0) return { outcome: 'EXCLUDED', issues: [...] }
@@ -173,9 +173,9 @@ export const RECEIVED_LOADS_FOR_REPROCESSING = {
     // ...
   }),
 
-  // Step 3: VAL011 - Fields required for Waste Balance calculation
+  // Step 3: VAL011 - Fields required for Waste Balance
   // Missing → EXCLUDED (from Waste Balance, but still submitted)
-  wasteBalanceRequiredFields: ['ROW_ID', 'LOAD_DATE', 'MATERIAL_TYPE']
+  fieldsRequiredForWasteBalance: ['ROW_ID', 'LOAD_DATE', 'MATERIAL_TYPE']
 }
 ```
 
@@ -185,7 +185,7 @@ export const RECEIVED_LOADS_FOR_REPROCESSING = {
 |-----------|---------|-----------------|
 | `unfilledValues` | Defines per-field "unfilled" sentinel values beyond the default empty check | - |
 | `validationSchema` | VAL010 - Joi schema applied to filled fields only. All fields marked optional. | REJECTED |
-| `wasteBalanceRequiredFields` | VAL011 - List of fields that must be filled for the row to contribute to Waste Balance | EXCLUDED |
+| `fieldsRequiredForWasteBalance` | VAL011 - Fields that must be filled for the row to contribute to Waste Balance | EXCLUDED |
 
 **Note:** VAL013 (business rules like accreditation date range) are applied in the row transformer, not the table schema. This keeps the schema focused on field-level validation while business rules that require external context (e.g. accreditation period) live in the transformation layer.
 
@@ -224,7 +224,7 @@ The same table name can have different transformers for different processing typ
 
 #### Row transformer responsibilities
 
-With the table schema now handling VAL010 (validation) and VAL011 (balance-required fields), row transformers focus on:
+With the table schema now handling VAL010 (validation) and VAL011 (fields required for Waste Balance), row transformers focus on:
 
 1. **Transformation** - mapping validated row data to waste record structure
 2. **VAL013 business rules** - validation requiring external context (e.g. accreditation period)
@@ -297,7 +297,7 @@ const TEST_SCHEMAS = {
         TEXT_FIELD: Joi.string().max(100).optional(),
         DROPDOWN_FIELD: Joi.string().valid('Option A', 'Option B').optional()
       }),
-      wasteBalanceRequiredFields: ['ROW_ID', 'TEXT_FIELD']
+      fieldsRequiredForWasteBalance: ['ROW_ID', 'TEXT_FIELD']
     }
   }
 }
@@ -333,5 +333,5 @@ const validateRow = createRowValidator(TEST_SCHEMAS)
 ## Resolved questions
 
 1. **Terminology alignment** - Resolved: Use REJECTED/EXCLUDED/INCLUDED terminology from the classification document. The `loads` API response should use `included`/`excluded` rather than `valid`/`invalid`.
-2. **Schema structure** - Resolved: Replace `failure`/`concern` schemas with `unfilledValues`, `validationSchema`, and `wasteBalanceRequiredFields` to match the flowchart decision points.
+2. **Schema structure** - Resolved: Replace `failure`/`concern` schemas with `unfilledValues`, `validationSchema`, and `fieldsRequiredForWasteBalance` to match the flowchart decision points.
 3. **Business rules location** - Resolved: VAL013 business rules (e.g. accreditation date range) live in row transformers, not table schemas, since they require external context.
