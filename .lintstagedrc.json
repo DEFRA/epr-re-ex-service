@@ -1,4 +1,4 @@
 {
-  "*.{js,json,md}": "npm run format",
+  "*.{js,json,md}": "prettier --write",
   "docs/architecture/decisions/*.md": "npm run adr:generate:toc"
 }

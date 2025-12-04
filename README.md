@@ -23,6 +23,20 @@ This repository combines the EPR Re/Ex microservices into a single location for 
 
 ## Getting Started
 
+Clone the repo and its submodules
+
+```sh
+git clone --recurse-submodules git@github.com:DEFRA/epr-re-ex-service.git
+```
+
+Or if you've already cloned and forgot the submodules, pull those down now
+
+```sh
+git submodule update --init --recursive
+```
+
+## Running
+
 To run this service locally, follow [these instructions](./CONTRIBUTING.md#getting-started).
 
 ## Contributing
