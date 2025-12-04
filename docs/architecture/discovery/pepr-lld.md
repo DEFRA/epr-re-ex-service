@@ -188,7 +188,7 @@ Used to retrieve a packaging recycling note by ID for Operators to view the deta
 
 #### RPD Integration
 
-We will likely need some endpoints for integration purposes with RPD, this is an unknown at this stage.
+See the [RPD endpoint API definitions here](../api-definitions/external-manage-prns.yaml)
 
 ### Reports
 
@@ -322,7 +322,7 @@ erDiagram
     USER-SUMMARY updatedBy
     enum type "received, processed, sentOn, exported"
     json data "reporting fields only"
-    WASTE-RECORD-VERSION versions
+    WASTE-RECORD-VERSION[] versions
   }
 
   WASTE-RECORD-VERSION {
@@ -732,7 +732,59 @@ An example of an object in the Waste Balance collection
 
 ### PRN
 
-TBD
+```mermaid
+erDiagram
+  PRN {
+    ObjectId _id PK
+    ObjectId organisationId FK
+    ObjectId registrationId FK
+    ObjectId accreditationId FK
+    int schemaVersion
+    ISO8601 createdAt
+    USER-SUMMARY createdBy
+    ISO8601 updatedAt
+    USER-SUMMARY updatedBy
+    bool isExport
+    bool isDecemberWaste
+    string prnNumber
+    int accreditationYear "4 digit year: YYYY"
+    int tonnage
+    string notes
+    PRN-ISSUED-TO-ORGANISATION issuedTo
+    ISO8601 authorisedAt
+    USER-SUMMARY-WITH-POSITION authorisedBy
+    PRN-STATUS-VERSION[] status
+  }
+
+  PRN-ISSUED-TO-ORGANISATION {
+    ObjectId _id FK
+    string name
+    string tradingName
+  }
+
+  PRN-STATUS-VERSION {
+    enum status "awaiting_authorisation, awaiting_acceptance, accepted, rejected, awaiting_cancellation, cancelled"
+    ISO8601 createdAt
+    USER-SUMMARY createdBy "nullable"
+  }
+
+  USER-SUMMARY {
+    ObjectId _id PK
+    string name
+  }
+
+  USER-SUMMARY-WITH-POSITION {
+    ObjectId _id PK
+    ObjectId organisationId FK
+    string name
+    string position
+  }
+
+  PRN ||--|| PRN-ISSUED-TO-ORGANISATION : contains
+  PRN ||--|{ PRN-STATUS-VERSION : contains
+  PRN-STATUS-VERSION ||--|| USER-SUMMARY : contains
+  PRN ||--|| USER-SUMMARY-WITH-POSITION : contains
+```
 
 ### Report
 
