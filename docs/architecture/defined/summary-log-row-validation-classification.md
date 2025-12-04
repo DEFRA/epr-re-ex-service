@@ -18,7 +18,7 @@ Two categories of validation apply to each row:
 | Category | References | What it Validates | Failure Effect |
 |----------|------------|-------------------|----------------|
 | **In-Sheet Validation** | VAL010 | Excel template's built-in validation rules on all filled fields | **REJECTED** - blocks entire submission |
-| **Business Validation** | VAL011, VAL013 | Mandatory field completion and business rules (e.g. accreditation date range) | **EXCLUDED** - row excluded from Waste Balance, but included in submission |
+| **Business Validation** | VAL011, VAL013 | Fields required for Waste Balance and business rules (e.g. accreditation date range) | **EXCLUDED** - row excluded from Waste Balance, but included in submission |
 
 ### In-Sheet Validation (VAL010)
 
@@ -30,7 +30,7 @@ A single rejected row prevents the entire Summary Log from being submitted.
 
 Covers business rules that determine whether a row contributes to the Waste Balance:
 
-- **VAL011 (Mandatory Field Completion)** - All mandatory fields must have values
+- **VAL011 (Fields Required for Waste Balance)** - All fields required for Waste Balance must have values
 - **VAL013 (Accreditation Date Range)** - Load date must fall within the accreditation period
 
 Rows failing any business validation are **EXCLUDED** from the Waste Balance calculation, but are still included in the submission. The "Check Before You Submit" screen displays excluded rows to inform the user.
@@ -61,10 +61,10 @@ flowchart TD
     A[Row in Summary Log] --> B{Any filled field fails in-sheet validation? - VAL010}
 
     B -->|Yes| REJECTED["REJECTED: Blocks submission"]
-    B -->|No| C{All mandatory fields present? - VAL011}
+    B -->|No| C{All fields required for Waste Balance present? - VAL011}
 
     C -->|No| EXCLUDED["EXCLUDED: Excluded from Waste Balance"]
-    C -->|Yes| D{Passes business rules e.g. accreditation date range? - VAL013}
+    C -->|Yes| D{Passes business rules? e.g. accreditation date range - VAL013}
 
     D -->|No| EXCLUDED
     D -->|Yes| INCLUDED["INCLUDED: Contributes to Waste Balance"]
