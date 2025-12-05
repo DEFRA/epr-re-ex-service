@@ -42,7 +42,6 @@ services:
     image: redis:7.2.11-alpine3.21
     ports:
       - '6379:6379'
-    restart: always
     volumes:
       - data-redis:/data
     networks:
@@ -117,7 +116,6 @@ services:
     volumes:
       - mongodb-data:/data
       - ./mongodb-backups:/backups
-    restart: always
 
   epr-admin-frontend:
     profiles: ['all', 'epr-admin-frontend']
