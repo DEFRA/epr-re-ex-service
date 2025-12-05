@@ -646,7 +646,7 @@ An example of an object in the Waste Balance collection
   transactions: [
     // Alice creates a prn, decreasing the available balance
     {
-      id: 'b1234567890a12345a01-0',
+      id: 'K7mP9xQ2vL4nR8wF6tY3',
       type: 'pending_debit',
       createdAt: '2026-01-04T09:00:00.000Z',
       createdBy: {
@@ -667,7 +667,7 @@ An example of an object in the Waste Balance collection
     },
     // Charlie adds waste sent_on, decreasing the balance
     {
-      id: 'b1234567890a12345a01-1',
+      id: 'Zh5Bn2Qx8Wj4Lp7Ck9Vm',
       type: 'debit',
       createdAt: '2026-01-03T09:00:00.000Z',
       createdBy: {
@@ -688,7 +688,7 @@ An example of an object in the Waste Balance collection
     },
     // Bob adds waste received, increasing the balance
     {
-      id: 'b1234567890a12345a01-2',
+      id: 'Fd3Rt6Gy9Mn1Zx4Hk8Qw',
       type: 'credit',
       createdAt: '2026-01-02T09:00:00.000Z',
       createdBy: {
@@ -713,7 +713,7 @@ An example of an object in the Waste Balance collection
     },
     // Alice adds waste received, increasing the balance
     {
-      id: 'b1234567890a12345a01-3',
+      id: 'Np2Vb7Xc5Jm9Rt4Lw6Fq',
       type: 'credit',
       createdAt: '2026-01-01T09:00:00.000Z',
       createdBy: {
