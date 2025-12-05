@@ -55,6 +55,9 @@ services:
       - '7337:7337'
     extra_hosts:
       - 'localhost:host-gateway'
+    links:
+      - 'localstack:localstack'
+      - 'redis:redis'
     depends_on:
       localstack:
         condition: service_healthy
@@ -83,6 +86,8 @@ services:
     image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
     ports:
       - '3200:3200'
+    links:
+      - 'redis:redis'
     depends_on:
       redis:
         condition: service_started
