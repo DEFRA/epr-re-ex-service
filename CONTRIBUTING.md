@@ -45,6 +45,14 @@ A local environment with:
 - epr-frontend
 - epr-re-ex-admin-frontend
 
+Run all shared services - ideal if you run the apps in separate consoles
+
+```bash
+docker compose up
+```
+
+Run everything in Docker with build & watch mode
+
 ```bash
 docker compose --profile all up --build --watch
 ```
@@ -64,22 +72,21 @@ Should you wish to run your own services locally you can use profiles to achieve
 e.g. to run docker compose for everything except `epr-frontend` you would use the multiple profiles:
 
 ```bash
-docker compose --profile shared --profile epr-admin-frontend --profile epr-backend up --build -d
+docker compose --profile epr-admin-frontend --profile epr-backend up --build -d
 ```
 
 You can also use the `COMPOSE_PROFILES` environment variable to define profiles
 
 ```bash
-COMPOSE_PROFILES=shared,epr-admin-frontend,epr-backend && docker compose up --build -d
+COMPOSE_PROFILES=epr-admin-frontend,epr-backend && docker compose up --build -d
 ```
 
 Available profiles:
 
 1. `all` runs all containers
-2. `shared` runs all shared containers
-3. `epr-backend` runs all shared containers plus `epr-backend`
-4. `epr-frontend` runs all shared containers plus `epr-frontend`
-5. `epr-admin-frontend` runs all shared containers plus `epr-admin-frontend`
+2. `epr-backend` runs all shared containers plus `epr-backend`
+3. `epr-frontend` runs all shared containers plus `epr-frontend`
+4. `epr-admin-frontend` runs all shared containers plus `epr-admin-frontend`
 
 > [!NOTE]
 > You will need to use profiles when stopping/removing docker compose containers, [see docs](https://docs.docker.com/compose/how-tos/profiles/#stop-application-and-services-with-specific-profiles)
@@ -94,8 +101,8 @@ To configure these, please complete the following actions:
 
 1. Obtain the necessary secret values from a team member
 2. Create the following Env Var(s):
-    - `export GOVUK_NOTIFY_API_KEY=AskTeamMemberForSecretValue`
-    - `export ENTRA_CLIENT_SECRET=AskTeamMemberForSecretValue`
+   - `export GOVUK_NOTIFY_API_KEY=AskTeamMemberForSecretValue`
+   - `export ENTRA_CLIENT_SECRET=AskTeamMemberForSecretValue`
 3. Optionally [persist these Env Vars in your CLI environment](https://unix.stackexchange.com/questions/117467/how-to-permanently-set-environmental-variables)
 
 > [!NOTE]
