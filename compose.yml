@@ -1,6 +1,5 @@
 services:
   proxy:
-    profiles: ['all', 'shared']
     image: nginxproxy/nginx-proxy:1.4
     ports:
       - '7300:80'
@@ -14,7 +13,6 @@ services:
       - cdp-tenant
 
   localstack:
-    profiles: ['all', 'shared']
     image: localstack/localstack:3.0.2
     ports:
       - '4566:4566' # LocalStack Gateway
@@ -38,7 +36,6 @@ services:
       - cdp-tenant
 
   redis:
-    profiles: ['all', 'shared']
     image: redis:7.2.11-alpine3.21
     ports:
       - '6379:6379'
@@ -48,7 +45,6 @@ services:
       - cdp-tenant
 
   cdp-uploader:
-    profiles: ['all', 'shared']
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
     ports:
       - '7337:7337'
@@ -81,7 +77,6 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    profiles: ['all', 'shared']
     image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
     ports:
       - '3200:3200'
@@ -107,7 +102,6 @@ services:
   ################################################################################
 
   mongodb:
-    profiles: ['all', 'shared']
     image: mongo:6.0.13
     networks:
       - cdp-tenant
