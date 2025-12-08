@@ -9,31 +9,32 @@ For related context, see:
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
-- [Summary Log Processing Failure Handling: Low Level Design](#summary-log-processing-failure-handling-low-level-design)
-  - [Problem statement](#problem-statement)
-    - [Observed failure scenarios](#observed-failure-scenarios)
-    - [Impact](#impact)
-  - [Analysis](#analysis)
-    - [Current flow](#current-flow)
-    - [Failure points](#failure-points)
-    - [Key insight](#key-insight)
-  - [Solution design](#solution-design)
-    - [Two-component approach](#two-component-approach)
-    - [Coverage matrix](#coverage-matrix)
-  - [Status transitions](#status-transitions)
-    - [Updated state diagram](#updated-state-diagram)
-    - [New terminal states](#new-terminal-states)
-    - [Distinction between failure states](#distinction-between-failure-states)
-  - [Component 1: Background timeout tracker](#component-1-background-timeout-tracker)
-    - [How it works](#how-it-works)
-    - [Behaviour](#behaviour)
-    - [Limitations](#limitations)
-  - [Component 2: CDP status check](#component-2-cdp-status-check)
-    - [How it works](#how-it-works-1)
-    - [Behaviour](#behaviour-1)
-    - [Limitations](#limitations-1)
-  - [Frontend changes](#frontend-changes)
+* [Summary Log Processing Failure Handling: Low Level Design](#summary-log-processing-failure-handling-low-level-design)
+  * [Problem statement](#problem-statement)
+    * [Observed failure scenarios](#observed-failure-scenarios)
+    * [Impact](#impact)
+  * [Analysis](#analysis)
+    * [Current flow](#current-flow)
+    * [Failure points](#failure-points)
+    * [Key insight](#key-insight)
+  * [Solution design](#solution-design)
+    * [Two-component approach](#two-component-approach)
+    * [Coverage matrix](#coverage-matrix)
+  * [Status transitions](#status-transitions)
+    * [Updated state diagram](#updated-state-diagram)
+    * [New terminal states](#new-terminal-states)
+    * [Distinction between failure states](#distinction-between-failure-states)
+  * [Component 1: Background timeout tracker](#component-1-background-timeout-tracker)
+    * [How it works](#how-it-works)
+    * [Behaviour](#behaviour)
+    * [Limitations](#limitations)
+  * [Component 2: CDP status check](#component-2-cdp-status-check)
+    * [How it works](#how-it-works-1)
+    * [Behaviour](#behaviour-1)
+    * [Limitations](#limitations-1)
+  * [Frontend changes](#frontend-changes)
 <!-- TOC -->
+
 <!-- prettier-ignore-end -->
 
 ## Problem statement
@@ -59,24 +60,25 @@ Both issues have been fixed, but the system remains vulnerable to similar failur
 
 ### Current flow
 
-```
-Frontend                          Backend                         CDP Uploader
-   |                                |                                  |
-   | POST /summary-logs             |                                  |
-   |------------------------------->|                                  |
-   |<--- summaryLogId, uploadId,    |                                  |
-   |     uploadUrl                  |                                  |
-   |                                |                                  |
-   | (operator uploads to CDP)      |                                  |
-   |------------------------------------------------------------->|
-   |                                |                                  |
-   |                                |<---- POST /upload-completed -----|
-   |                                |      (callback - may fail!)      |
-   |                                |                                  |
-   | GET /summary-logs/{id}         |                                  |
-   |------------------------------->|                                  |
-   |<--- status: preprocessing      |  (stuck here if callback failed) |
-   |     (polls forever...)         |                                  |
+```mermaid
+ sequenceDiagram
+    participant Frontend
+    participant Backend
+    participant CdpUploader
+
+    Frontend->>Backend: POST /summary-logs
+    Backend-->>Frontend: summaryLogId, uploadId, uploadUrl
+
+    Note over Frontend,CdpUploader: operator uploads to CDP
+    Frontend->>CdpUploader: Upload file
+
+    CdpUploader->>Backend: POST /upload-completed
+    Note right of CdpUploader: (callback - may fail!)
+
+    Frontend->>Backend: GET /summary-logs/{id}
+    Backend-->>Frontend: status: preprocessing
+    Note right of Backend: (stuck here if callback failed)
+    Note over Frontend: (polls forever...)
 ```
 
 ### Failure points
@@ -172,28 +174,21 @@ stateDiagram-v2
 
 ### How it works
 
-```
-Upload completed callback arrives
-         |
-         v
-+---------------------------------------------+
-|  Start timeout timer (configurable)         |
-|  Track task in activeTasks Map              |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  pool.run({ command, summaryLogId })        |
-|    .then() -> Clear timeout, log success    |
-|    .catch() -> Clear timeout, mark failed   |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  If timeout fires before completion:        |
-|    -> Mark summary log as validation_failed |
-|    -> Log error with timeout details        |
-+---------------------------------------------+
+```mermaid
+flowchart TD
+    A[Upload completed callback arrives] --> B["Start timeout timer (configurable)<br/>Track task in activeTasks Map"]
+
+    B --> C[Run Pool]
+
+    C --> D{Task completes before timeout?}
+
+    D -->|Success| E[Clear timeout<br/>Log success]
+    D -->|Error| F[Clear timeout<br/>Mark failed]
+    D -->|Timeout| G[Mark summary log as validation_failed<br/>Log error with timeout details]
+
+    E --> H[End]
+    F --> H
+    G --> H
 ```
 
 ### Behaviour
@@ -212,48 +207,29 @@ Upload completed callback arrives
 
 ### How it works
 
-```
-GET /summary-logs/{id}?uploadId=xxx
-         |
-         v
-+---------------------------------------------+
-|  Fetch summary log from MongoDB             |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  Is status 'preprocessing'?                 |
-|  AND uploadId provided?                     |
-+---------------------------------------------+
-         | Yes
-         v
-+---------------------------------------------+
-|  Query CDP: GET /status/{uploadId}          |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  CDP uploadStatus = 'ready'?                |
-|    +-- fileStatus = 'complete'              |
-|    |     -> File arrived, processing failed |
-|    |     -> Mark as validation_failed       |
-|    +-- fileStatus = 'rejected'              |
-|          -> Mark as rejected                |
-|                                             |
-|  CDP uploadStatus = 'pending'?              |
-|    -> Still processing, return current      |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  Re-fetch summary log (race protection)     |
-|  Only update if still 'preprocessing'       |
-+---------------------------------------------+
-         |
-         v
-+---------------------------------------------+
-|  Return (possibly updated) status           |
-+---------------------------------------------+
+
+```mermaid
+flowchart TD
+    A["GET /summary-logs/{id}?uploadId=xxx"] --> B[Fetch summary log from MongoDB]
+
+    B --> C{Is status 'preprocessing'<br/>AND uploadId provided?}
+
+    C -->|No| H[Return current status]
+    C -->|Yes| D["Query CDP: GET /status/{uploadId}"]
+
+    D --> E{CDP uploadStatus?}
+
+    E -->|ready| F{fileStatus?}
+    E -->|pending| G[Still processing<br/>Return current status]
+
+    F -->|complete| I[File arrived, processing failed<br/>Mark as validation_failed]
+    F -->|rejected| J[Mark as rejected]
+
+    G --> K
+    I --> K[Re-fetch summary log<br/>race protection<br/>Only update if still 'preprocessing']
+    J --> K
+    K --> L[Return possibly updated status]
+    H --> L
 ```
 
 ### Behaviour
