@@ -31,7 +31,7 @@ paths:
           style: form
           explode: false
           example: awaiting_acceptance,cancelled
-        - name: statusChangeFrom
+        - name: dateFrom
           in: query
           required: false
           description: Filter notes with status changes on or after this date-time (ISO 8601 format)
@@ -39,6 +39,28 @@ paths:
             type: string
             format: date-time
           example: 2024-11-01T00:00:00Z
+        - name: dateTo
+          in: query
+          required: false
+          description: Filter notes with status changes on or before this date-time (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+          example: 2024-12-31T23:59:59Z
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of records to return per page. If not provided, the default value defined in the Re/Ex configuration will be used. If the provided limit exceeds the Re/Ex maximum, your result set may be truncated.
+          schema:
+            type: integer
+          example: 50
+        - name: cursor
+          in: query
+          required: false
+          description: Pagination cursor from previous response (use the nextCursor value to get the next page)
+          schema:
+            type: string
+          example: 507f1f77bcf86cd799439012
       responses:
         '200':
           description: Successful response
@@ -46,15 +68,22 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - items
+                  - hasMore
                 properties:
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/PackagingRecyclingNote'
-                  total:
-                    type: integer
-                    description: Total number of items matching the filter criteria
-                    example: 42
+                  nextCursor:
+                    type: string
+                    description: Cursor for retrieving the next page of results. Pass this value as the 'cursor' parameter in the next request. Only present when hasMore is true.
+                    example: 507f1f77bcf86cd799439012
+                  hasMore:
+                    type: boolean
+                    description: Indicates if more results are available beyond this page
+                    example: true
         '400':
           description: Bad request - Invalid query parameters
           content:
@@ -79,11 +108,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
+          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) (24-character hexadecimal ObjectId)
           schema:
             type: string
-            format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
+          example: 507f1f77bcf86cd799439011
       responses:
         '200':
           description: Successful response
@@ -121,11 +149,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to accept
+          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to accept (24-character hexadecimal ObjectId)
           schema:
             type: string
-            format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
+          example: 507f1f77bcf86cd799439011
       requestBody:
         description: Optional acceptance details
         required: false
@@ -178,11 +205,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: Unique identifier of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to reject
+          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to reject (24-character hexadecimal ObjectId)
           schema:
             type: string
-            format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
+          example: 507f1f77bcf86cd799439011
       requestBody:
         description: Rejection details
         required: false
@@ -230,13 +256,13 @@ components:
       type: object
       required:
         - id
-        - isExport
+        - status
         - issuedByOrganisation
+        - issuedToOrganisation
         - accreditation
         - isDecemberWaste
+        - isExport
         - tonnageValue
-        - issuedToOrganisation
-        - status
       properties:
         id:
           type: string
@@ -250,10 +276,13 @@ components:
         status:
           $ref: '#/components/schemas/Status'
         issuedByOrganisation:
+          description: The Reprocessor or Exporter Organisation that has Issued this PRN or PERN
           $ref: '#/components/schemas/Organisation'
         issuedToOrganisation:
+          description: The Producer or Compliance Scheme Organisation that is receiving this PRN or PERN
           $ref: '#/components/schemas/Organisation'
         accreditation:
+          description: The Accreditation details of the Reprocessor or Exporter under which this PRN or PERN is issued
           $ref: '#/components/schemas/Accreditation'
         isDecemberWaste:
           type: boolean
