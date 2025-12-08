@@ -225,7 +225,7 @@ flowchart TD
     F -->|complete| I[File arrived, processing failed<br/>Mark as validation_failed]
     F -->|rejected| J[Mark as rejected]
 
-    G --> K
+    G --> L
     I --> K[Re-fetch summary log<br/>race protection<br/>Only update if still 'preprocessing']
     J --> K
     K --> L[Return possibly updated status]
