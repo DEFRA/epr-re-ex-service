@@ -11,6 +11,7 @@
       * [`GET /v1/organisations`](#get-v1organisations)
       * [`GET /v1/organisations/{id}`](#get-v1organisationsid)
     * [Summary Logs](#summary-logs)
+      * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs`](#post-v1organisationsidregistrationsidsummary-logs)
       * [`GET /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`](#get-v1organisationsidregistrationsidsummary-logssummarylogid)
       * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed`](#post-v1organisationsidregistrationsidsummary-logssummarylogidupload-completed)
       * [`POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit`](#post-v1organisationsidregistrationsidsummary-logssummarylogidsubmit)
@@ -36,16 +37,20 @@
   * [Role-Based Access Control](#role-based-access-control)
   * [Entity Relationships](#entity-relationships)
     * [Users](#users)
-    * [Waste Record](#waste-record)
-      * [Type: Received](#type-received)
-      * [Type: processed](#type-processed)
-      * [Type: sentOn](#type-senton)
-    * [Waste Balance](#waste-balance)
+    * [Waste Record & Waste Balance](#waste-record--waste-balance)
+      * [Disambiguation](#disambiguation)
+      * [User Journey](#user-journey)
+      * [Summary Log LLDs](#summary-log-llds)
+      * [Entity Relationships](#entity-relationships-1)
+      * [Waste Record Type: Received](#waste-record-type-received)
+      * [Waste Record Type: processed](#waste-record-type-processed)
+      * [Waste Record Type: sentOn](#waste-record-type-senton)
+      * [Waste Balance](#waste-balance)
     * [PRN](#prn)
     * [Report](#report)
     * [Summary Log upload & ingest](#summary-log-upload--ingest)
-      * [Phase 1 - upload & async processes: preprocessing, file parsing & data validation](#phase-1---upload--async-processes-preprocessing-file-parsing--data-validation)
-      * [Phase 2 - validation results & submission](#phase-2---validation-results--submission)
+      * [Phase 1: upload & async processes: preprocessing, file parsing & data validation](#phase-1-upload--async-processes-preprocessing-file-parsing--data-validation)
+      * [Phase 2: validation results & submission](#phase-2-validation-results--submission)
 <!-- TOC -->
 
 <!-- prettier-ignore-end -->
@@ -299,11 +304,54 @@ TBD
 
 ### Waste Record & Waste Balance
 
+#### Disambiguation
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
 
-- add Waste Balance to this ERD
+#### User Journey
 
+```mermaid
+flowchart LR
+UploadFile[Page: Upload Summary Log]
+FileRejected[Page: File rejected]
+
+UploadFile-- 📊 Spreadsheet -->FileChecks{File accepted?}
+FileChecks-- Yes -->ExamineRows
+FileChecks-- No -->FileRejected
+
+ExamineRows-- success -->CheckYourAnswers[Page: Check your answers]
+ExamineRows-- failure -->FileRejected
+CheckYourAnswers-- submit -->CreateWasteRecords[[Create Waste Records]]
+CreateWasteRecords-- triggers -->WasteBalance
+
+subgraph ExamineRows[Examine Row Content]
+  MandatoryFieldValidation[[Mandatory field validation]]-->InSheetValidations[[In-sheet validations]]
+  InSheetValidations-->HaveInSheetValidationsPassed{Have In-sheet validations passed}
+  HaveInSheetValidationsPassed-- No -->Failure((Failure))
+  HaveInSheetValidationsPassed-- Yes -->RowCanContributeTowardsWasteBalance[[Row can contribute towards waste balance]]
+  RowCanContributeTowardsWasteBalance-->Success((Success))
+end
+
+subgraph WasteBalance[Waste Balance]
+  MandatoryFieldValidation_2[[Mandatory field validation]]-->
+  WasteRecordIsWithinValidRange[[Waste Record is within valid date range]]-->
+  PRNHasNotBeenIssuedOnWasteRecord[[PRN has not been issued on this Waste Record]]-->
+  HandleInterimSiteCondition[[Handle Interim Site condition]]-->
+  CalculateWasteBalance[[Calculate Waste Balance]]
+end
+
+WasteBalance-->SummaryLogSuccess[Page: Success]
+```
+
+#### Summary Log LLDs
+For detailed Summary Log LLDs, see the following:
+
+1. [Summary Log validation](./summary-log-validation-lld.md)
+1. [Summary Log row validation classification](./summary-log-row-validation-classification.md)
+1. [Summary Log submission](./summary-log-submission-lld.md)
+
+
+#### Entity Relationships
 > [!NOTE]
 > `accreditationId` is optional on waste records to support organisations that have a registration but no accreditation.
 
