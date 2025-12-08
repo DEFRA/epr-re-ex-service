@@ -15,9 +15,14 @@
   },
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
-  "dependencies": {},
+  "dependencies": {
+    "dotenv": "17.2.3",
+    "playwright": "1.57.0"
+  },
   "overrides": {},
   "devDependencies": {
+    "@playwright/test": "1.57.0",
+    "@types/node": "24.10.1",
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
     "prettier": "3.7.3"
