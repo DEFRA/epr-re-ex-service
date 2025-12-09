@@ -167,7 +167,7 @@ paths:
                   description: Timestamp of acceptance (if different from current time)
                   example: 2024-12-01T10:30:00Z
       responses:
-        '200':
+        '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) accepted successfully
         '400':
           description: Bad request - Invalid ID format or invalid request body
@@ -223,7 +223,7 @@ paths:
                   description: Timestamp of rejection (if different from current time)
                   example: 2024-12-01T10:30:00Z
       responses:
-        '200':
+        '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) rejected successfully
         '400':
           description: Bad request - Invalid ID format or missing required fields
