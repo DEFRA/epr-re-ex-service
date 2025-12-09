@@ -3,12 +3,10 @@ import { fetchBackend } from './fetch-backend.ts'
 ;(async (): Promise<void> => {
   const payload = {
     organisation: {
-      users: [
+      statusHistory: [
         {
-          email: 'saul.goodman@bettercall.com',
-          fullName: 'Saul Goodman',
-          isInitialUser: true,
-          roles: ['standard_user']
+          status: 'approved',
+          updatedAt: new Date().toISOString()
         }
       ]
     }
@@ -21,7 +19,10 @@ import { fetchBackend } from './fetch-backend.ts'
   )
 
   console.log(
-    '\n\nIf this list does not include Saul Goodman, then it has failed to update'
+    '\n\nIf the status history does not include "approved", then it has failed to update'
   )
-  console.log('data.organisations.users', data.organisation.users)
+  console.log(
+    'data.organisations.statusHistory',
+    data.organisation.statusHistory
+  )
 })()
