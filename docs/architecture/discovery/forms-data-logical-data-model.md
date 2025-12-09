@@ -173,8 +173,7 @@ erDiagram
     string fullName
     string email
     string phone
-    string role
-    string title
+    string jobTitle
   }
 
   USER-LOGIN-DETAILS{
@@ -289,7 +288,7 @@ erDiagram
         {
           "fullName": "Luke Skywalker",
           "email": "luke.skywalker@starwars.com",
-          "title": "Director",
+          "jobTitle": "Director",
           "phone": "1234567890"
         }
       ],
@@ -329,7 +328,7 @@ erDiagram
         {
           "fullName": "Luke Skywalker",
           "email": "anakin.skywalker@starwars.com",
-          "title": "Partner",
+          "jobTitle": "Partner",
           "phone": "823456789"
         }
       ],
@@ -370,7 +369,7 @@ erDiagram
           {
             "fullName": "Yoda",
             "email": "yoda@starwars.com",
-            "title": "PRN signatory",
+            "jobTitle": "PRN signatory",
             "phone": "1234567890"
           }
         ],
@@ -381,11 +380,6 @@ erDiagram
             "percentSpent": 20
           }
         ]
-      },
-      "noticeAddress": {
-        "line1": "7 Glass processing site",
-        "town": "London",
-        "postcode": "SW2A 0AA"
       }
     },
     {
@@ -416,7 +410,7 @@ erDiagram
           {
             "fullName": "Yoda",
             "email": "yoda@starwars.com",
-            "title": "PRN signatory",
+            "jobTitle": "PRN signatory",
             "phone": "1234567890"
           }
         ],
@@ -427,11 +421,6 @@ erDiagram
             "percentSpent": 20
           }
         ]
-      },
-      "noticeAddress": {
-        "line1": "7a",
-        "town": "London",
-        "postcode": "SW2A 0AA"
       }
     },
     {
@@ -463,7 +452,7 @@ erDiagram
           {
             "fullName": "Princess Leia",
             "email": "princess.leia@starwars.com",
-            "title": "PRN signatory",
+            "jobTitle": "PRN signatory",
             "phone": "7234567890"
           }
         ],
@@ -473,11 +462,6 @@ erDiagram
             "percentSpent": 10
           }
         ]
-      },
-      "noticeAddress": {
-        "line1": "7a",
-        "town": "London",
-        "postcode": "SW2A 0AA"
       }
     }
   ],
