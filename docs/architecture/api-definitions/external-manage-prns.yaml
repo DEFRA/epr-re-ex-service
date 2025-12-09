@@ -325,6 +325,7 @@ components:
         - accreditationNumber
         - accreditationYear
         - material
+        - submittedToRegulator
       properties:
         id:
           type: string
@@ -352,6 +353,15 @@ components:
             - wood
           description: Type of packaging material being recycled or exported
           example: plastic
+        submittedToRegulator:
+          type: string
+          enum:
+            - ea
+            - nrw
+            - sepa
+            - niea
+          description: Environmental regulator - ea (Environment Agency), nrw (Natural Resources Wales), sepa (Scottish Environment Protection Agency), niea (Northern Ireland Environment Agency)
+          example: ea
         glassRecyclingProcess:
           type: string
           enum:
@@ -384,15 +394,15 @@ components:
     UserSummary:
       type: object
       required:
-        - name
+        - fullName
       properties:
-        name:
+        fullName:
           type: string
-          description: Name of the user
+          description: Full name of the user
           example: John Smith
-        position:
+        jobTitle:
           type: string
-          description: Position or job title of the user
+          description: Job title of the user
           example: Operations Director
 
     Status:
