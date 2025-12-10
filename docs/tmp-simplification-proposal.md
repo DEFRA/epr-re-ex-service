@@ -25,7 +25,7 @@ Frontend->>Browser: 301: /organsation/{id}/dashboard
 ```
 
 
-### Access to unlinked service
+### Access to unlinked org
 
 ```mermaid
 
