@@ -1,6 +1,8 @@
 # API simplification proposal
 
+
 ## Sequence diagram
+
 
 TODO
 
@@ -65,7 +67,7 @@ eprOrganisationsRepository.update(eprOrg)
 ## Scopes implementation
 
 ```js
-function getDefraIdRoles(request, accessToken, organisationIdFromUrl) {
+function getDefraIdRoles(request, defraIdAccessToken, organisationIdFromUrl) {
   // if the user has an authenticated Defra ID access token assume they are an operator
   const roles = ['operator']
 
@@ -76,14 +78,14 @@ function getDefraIdRoles(request, accessToken, organisationIdFromUrl) {
   if (
     eprOrg // org exists
     && !!eprOrg.defraIdOrgId // org is linked to Defra ID org
-    && eprOrg.users.some(existing => existing.id === accessToken.userId)
+    && eprOrg.defraIdOrgId === defraIdAccessToken.currentRelationShip.orgId
   ) {
     roles.push('organisationMember')
   }
 
   if (
     eprOrg // org exists
-    && eprOrg.users.some(existing => existing.id === accessToken.userId && existing.initialUser)
+    && eprOrg.users.some(existing => existing.id === defraIdAccessToken.userId && existing.initialUser)
   ) {
     roles.push('organisationInitialUser')
   }
