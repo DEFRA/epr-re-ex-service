@@ -13,6 +13,7 @@ TODO
 (better name needed - this name is to convey intent)
 
 **Auth scopes:** `operator`
+
 **Implementation**
 ```js
 const defraIdOrgId = defraIdAccessToken.currentRelationShip.orgId
@@ -22,7 +23,9 @@ eprOrganisationsRepository.findBy({ defraIdOrgId }, { projection: { _id }})`
 ### PATCH /organisations/{id}/users
 
 **Auth scopes:** `operator && organisationMember`
+
 **Payload:** `{ id, email }`
+
 **Implementation**
 ```js
 const user = {
@@ -44,16 +47,19 @@ if (!eprOrg.users.some(existing => existing.id === user.id)) {
 (better name needed - this name is to convey intent)
 
 **Auth scopes:** `operator`
+
 **Implementation**
+
 ```js
 eprOrganisationsRepository
   .findAll()
   .filter(org => org.users.some(existing => existing.id === user.id && !!existing.initialUser))
 ```
 
-### PUT /organisations/{id}/link
+### PUT /organisations/{id}/link-to-defra-id-org
 
 **Auth scopes:** `operator && organisationInitialUser`
+
 **Implementation**
 ```js
 const eprOrg = eprOrganisationsRepository.findById()
