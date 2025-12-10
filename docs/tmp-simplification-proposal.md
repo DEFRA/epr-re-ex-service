@@ -1,10 +1,53 @@
 # API simplification proposal
 
 
-## Sequence diagram
 
 
-TODO
+## Sequence diagrams
+
+
+  ### Access to linked org
+
+```mermaid
+
+sequenceDiagram
+actor Browser
+participant Frontend
+participant Backend
+
+Browser->>Frontend: Redirect from Defra ID SSO<br/>/GET /auth/callback
+Frontend->>Backend: GET /find-organisation-document-id-for-defraId-orgId
+Backend->>Frontend: 200: {id}
+Frontend->>Backend: PATCH /organisations/{id}/users
+Backend->>Frontend: 200
+Frontend->>Browser: 301: /organsation/{id}/dashboard
+
+```
+
+
+### Access to unlinked service
+
+```mermaid
+
+sequenceDiagram
+actor Browser
+participant Frontend
+participant Backend
+
+Browser->>Frontend: Redirect from Defra ID SSO<br/>/GET /auth/callback
+Frontend->>Backend: GET /find-organisation-document-id-for-defraId-orgId
+Backend->>Frontend: nothing found
+Frontend->>Browser: 301: /link-your-org
+Browser->>Frontend: GET /link-your-org
+Frontend->>Backend: GET /list-orgs-i-am-an-intial-user-for
+Backend->>Frontend: 200: [{ org1 }, { org2 }, ...]
+Frontend->>Browser: <html>List of potential orgs with [link] button</html>
+Browser->>Frontend: POST /link-your-org payload: { organisationId }
+Frontend->>Backend: POST /organisations/{id}/link-to-defra-id-org
+Backend->>Frontend: 200
+Frontend->>Browser: 301: /organsation/{id}/dashboard
+
+```
 
 ## Endpoints
 
