@@ -56,7 +56,7 @@ eprOrganisationsRepository
   .filter(org => org.users.some(existing => existing.id === user.id && !!existing.initialUser))
 ```
 
-### PUT /organisations/{id}/link-to-defra-id-org
+### POST /organisations/{id}/link-to-defra-id-org
 
 **Auth scopes:** `operator && organisationInitialUser`
 
