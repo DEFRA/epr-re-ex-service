@@ -1,6 +1,12 @@
 # API simplification proposal
 
+This proposal aims to simplify how
+- an epr-organisation is linked to a defra ID org ID
+- a standard user is added to an epr-organisation
 
+Such that the implementation does not rely on side-effects, giving
+- simpler (more maintainable) code
+- simpler to apply targeted auditing/metrics instrumentation
 
 
 ## Sequence diagrams
