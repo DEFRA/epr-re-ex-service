@@ -2,28 +2,32 @@
 
 This document describes the implementation approach for submitting summary logs with idempotent operations and retry mechanisms.
 
-For the architectural decision and rationale, see [ADR 21: Idempotent Operations and Retry Mechanisms for Resilient Data Processing](../decisions/0021-idempotent-operations-and-retry-mechanisms.md).
+For related context, see:
+
+- [ADR 21: Idempotent Operations and Retry Mechanisms for Resilient Data Processing](../decisions/0021-idempotent-operations-and-retry-mechanisms.md)
+- [Summary Log Processing Failure Handling LLD](./summary-log-processing-failure-handling.md) - handling failures during upload/validation phase
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
-- [Summary Log Submission: Low Level Design](#summary-log-submission-low-level-design)
-  - [Project scope](#project-scope)
-    - [Functional requirements](#functional-requirements)
-    - [Non-functional requirements](#non-functional-requirements)
-  - [Technical approach](#technical-approach)
-    - [Overall workflow](#overall-workflow)
-    - [Summary log status transitions](#summary-log-status-transitions)
-    - [Organisation/registration level constraint](#organisationregistration-level-constraint)
-    - [Repository port design](#repository-port-design)
-    - [Shared transformation logic](#shared-transformation-logic)
-    - [Validation phase](#validation-phase)
-    - [Submission phase](#submission-phase)
-    - [MongoDB adapter implementation](#mongodb-adapter-implementation)
-  - [Incremental delivery](#incremental-delivery)
-    - [Phase 1: Core submission (MVP)](#phase-1-core-submission-mvp)
-    - [Phase 2: Robust retry mechanism](#phase-2-robust-retry-mechanism)
-    - [Phase 3: Detectable failure handling](#phase-3-detectable-failure-handling)
-    - [Recommended approach](#recommended-approach)
+* [Summary Log Submission: Low Level Design](#summary-log-submission-low-level-design)
+  * [Project scope](#project-scope)
+    * [Functional requirements](#functional-requirements)
+    * [Non-functional requirements](#non-functional-requirements)
+  * [Technical approach](#technical-approach)
+    * [Overall workflow](#overall-workflow)
+    * [Summary log status transitions](#summary-log-status-transitions)
+    * [Organisation/registration level constraint](#organisationregistration-level-constraint)
+    * [Repository port design](#repository-port-design)
+    * [Shared transformation logic](#shared-transformation-logic)
+    * [Row transformation detail](#row-transformation-detail)
+    * [Validation phase](#validation-phase)
+    * [Submission phase](#submission-phase)
+    * [MongoDB adapter implementation](#mongodb-adapter-implementation)
+  * [Incremental delivery](#incremental-delivery)
+    * [Phase 1: Core submission (MVP)](#phase-1-core-submission-mvp)
+    * [Phase 2: Robust retry mechanism](#phase-2-robust-retry-mechanism)
+    * [Phase 3: Detectable failure handling](#phase-3-detectable-failure-handling)
+    * [Recommended approach](#recommended-approach)
 <!-- TOC -->
 
 <!-- prettier-ignore-end -->
@@ -90,8 +94,10 @@ stateDiagram-v2
     [*] --> preprocessing: Initiate upload
     preprocessing --> validating: CDP callback (scan passed)
     preprocessing --> rejected: CDP callback (scan failed)
+    preprocessing --> validation_failed: Processing failure
     validating --> validated: Validation passes
     validating --> invalid: Validation fails
+    validating --> validation_failed: Processing failure
     validated --> submitting: User confirms submit
     submitting --> submitted: Submission complete
     submitting --> submission_failed: Known failure
@@ -104,6 +110,7 @@ stateDiagram-v2
     invalid --> [*]
     superseded --> [*]
     submitted --> [*]
+    validation_failed --> [*]
     submission_failed --> [*]
 
     note right of preprocessing
@@ -124,6 +131,15 @@ stateDiagram-v2
         for same org/reg.
         Manual intervention
         if stuck.
+    end note
+
+    note right of validation_failed
+        Terminal state:
+        Worker crashed/timed out
+        or callback never arrived.
+        User should re-upload.
+        See: Processing Failure
+        Handling LLD.
     end note
 
     note right of submission_failed
