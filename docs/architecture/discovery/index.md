@@ -11,3 +11,11 @@ Documentation relating to architecture that we are in the process of defining, t
 5. [pEPR: Low Level Design - UI Authentication & Authorisation](pepr-lld-auth-ui.md)
 6. [Forms data logical data model](forms-data-logical-data-model.md)
 7. [Auditing organisation update](auditing-updates-to-organisation.md)
+
+### Summary Log Processing
+
+8. [Summary Log Validation LLD](summary-log-validation-lld.md)
+9. [Summary Log Row Validation Classification](summary-log-row-validation-classification.md)
+10. [Summary Log Validation Failure Codes](summary-log-validation-failure-codes.md)
+11. [Summary Log Submission LLD](summary-log-submission-lld.md)
+12. [Summary Log Processing Failure Handling](summary-log-processing-failure-handling.md)
