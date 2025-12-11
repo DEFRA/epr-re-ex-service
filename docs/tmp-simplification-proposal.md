@@ -1,13 +1,12 @@
-# API simplification proposal
+# Operator user linking simplification proposal
 
-This proposal aims to simplify how
-- an epr-organisation is linked to a defra ID org ID
-- a standard user is added to an epr-organisation
-
-Such that the implementation does not rely on side-effects, giving
+This proposal aims to simplify how a "standard user" is added to an `epr-organisation` such that the implementation does not rely on side-effects, giving
 - simpler (more maintainable) code
 - simpler to apply targeted auditing/metrics instrumentation
 
+The proposed change is called out with a green background in the below sequence diagrams, and some subtle rethinking on how roles/scopes are assigned to a user in `epr-backend`
+
+_Out of scope - proposal for how to pull approvals out of PUT /organisations/{id}_
 
 ## Sequence diagrams
 
@@ -22,10 +21,12 @@ participant Frontend
 participant Backend
 
 Browser->>Frontend: Redirect from Defra ID SSO<br/>/GET /auth/callback
-Frontend->>Backend: GET /find-organisation-document-id-for-defraId-orgId
-Backend->>Frontend: 200: {id}
+Frontend->>Backend: GET /v1/me/organisations
+Backend->>Frontend: 200: { linkedOrg: { id } }
+rect rgb(30, 215, 96)
 Frontend->>Backend: PATCH /organisations/{id}/users
 Backend->>Frontend: 200
+end
 Frontend->>Browser: 301: /organsation/{id}/dashboard
 
 ```
@@ -41,15 +42,15 @@ participant Frontend
 participant Backend
 
 Browser->>Frontend: Redirect from Defra ID SSO<br/>/GET /auth/callback
-Frontend->>Backend: GET /find-organisation-document-id-for-defraId-orgId
-Backend->>Frontend: nothing found
-Frontend->>Browser: 301: /link-your-org
-Browser->>Frontend: GET /link-your-org
-Frontend->>Backend: GET /list-orgs-i-am-an-intial-user-for
-Backend->>Frontend: 200: [{ org1 }, { org2 }, ...]
+Frontend->>Backend: GET /v1/me/organisations
+Backend->>Frontend: 200: { linkedOrg: null }
+Frontend->>Browser: 301: /account/linking
+Browser->>Frontend: GET /account/linking
+Frontend->>Backend: GET /v1/me/organisations
+Backend->>Frontend: 200: { unlinked: [{ org1 }, { org2 }] }
 Frontend->>Browser: <html>List of potential orgs with [link] button</html>
-Browser->>Frontend: POST /link-your-org payload: { organisationId }
-Frontend->>Backend: POST /organisations/{id}/link-to-defra-id-org
+Browser->>Frontend: POST /account/linking payload: { organisationId }
+Frontend->>Backend: POST /v1/organisations/${organisationId}/link
 Backend->>Frontend: 200
 Frontend->>Browser: 301: /organsation/{id}/dashboard
 
@@ -57,19 +58,27 @@ Frontend->>Browser: 301: /organsation/{id}/dashboard
 
 ## Endpoints
 
-### GET /find-organisation-document-id-for-defraId-orgId
-
-(better name needed - this name is to convey intent)
+### GET /v1/me/organisations
 
 **Auth scopes:** `operator`
 
 **Implementation**
 ```js
 const defraIdOrgId = defraIdAccessToken.currentRelationShip.orgId
-eprOrganisationsRepository.findBy({ defraIdOrgId }, { projection: { _id }})`
+
+const linked = eprOrganisationsRepository
+	.find({ 'linked.defraIdOrgId': defraIdOrgId })
+
+const unlinkedOrgsIAmAnInitialUserFor = eprOrganisationsRepository
+  .findAll()
+  .filter(org => !org.linked)
+  .filter(org => org.users.some(user => user.initialUser && user.email === defraIdAccessToken.email))
+
+return { linked, unlinked: unlinkedOrgsIAmAnInitialUserFor }
+
 ```
 
-### PATCH /organisations/{id}/users
+### PATCH /organisations/{organisationId}/users
 
 **Auth scopes:** `operator && organisationMember`
 
@@ -82,38 +91,28 @@ const user = {
   email: defraAccessToken.email,
   initialUser: false
 }
-const eprOrg = eprOrganisationsRepository.find(id)
+const eprOrg = eprOrganisationsRepository.find(organisationId)
 
 // some thought needed here - is it just an ID match? Is an update needed if the id matches but the email does not?
+// more thought needed here - initialUsers won't have an id
+
 if (!eprOrg.users.some(existing => existing.id === user.id)) {
   eprOrg.users.push(user)
-  eprOrganisationsRepository.updated(eprOrg)
+  eprOrganisationsRepository.update(eprOrg)
 }
 ```
 
-### GET /list-orgs-i-am-an-intial-user-for
-
-(better name needed - this name is to convey intent)
-
-**Auth scopes:** `operator`
-
-**Implementation**
-
-```js
-eprOrganisationsRepository
-  .findAll()
-  .filter(org => org.users.some(existing => existing.id === user.id && !!existing.initialUser))
-```
-
-### POST /organisations/{id}/link-to-defra-id-org
+### POST /organisations/{organisationId}/link-to-defra-id-org
 
 **Auth scopes:** `operator && organisationInitialUser`
 
 **Implementation**
 ```js
-const eprOrg = eprOrganisationsRepository.findById()
+const eprOrg = eprOrganisationsRepository.findById(organisationId)
 
-org.defraIdOrgId = defraIdAccessToken.currentRelationShip.orgId
+org.linked = {
+  defraIdOrgId: defraIdAccessToken.currentRelationShip.orgId
+}
 
 eprOrganisationsRepository.update(eprOrg)
 ```
@@ -124,7 +123,7 @@ eprOrganisationsRepository.update(eprOrg)
 ```js
 function getDefraIdRoles(request, defraIdAccessToken, organisationIdFromUrl) {
   // if the user has an authenticated Defra ID access token assume they are an operator
-  const roles = ['operator']
+  const roles = ['operator'] // aka ROLES.inquirer
 
   const { eprOrganisationsRepository } = request
 
@@ -132,19 +131,19 @@ function getDefraIdRoles(request, defraIdAccessToken, organisationIdFromUrl) {
 
   if (
     eprOrg // org exists
-    && !!eprOrg.defraIdOrgId // org is linked to Defra ID org
-    && eprOrg.defraIdOrgId === defraIdAccessToken.currentRelationShip.orgId
+    && eprOrg.linked?.defraIdOrgId === defraIdAccessToken.currentRelationShip.orgId
   ) {
-    roles.push('organisationMember')
+    roles.push('organisationMember') // aka ROLES.standardUser
   }
 
   if (
     eprOrg // org exists
-    && eprOrg.users.some(existing => existing.id === defraIdAccessToken.userId && existing.initialUser)
+    && eprOrg.users.some(user => user.initialUser && user.email === defraIdAccessToken.email)
   ) {
-    roles.push('organisationInitialUser')
+    roles.push('organisationMember') // aka ROLES.standardUser
+    roles.push('organisationInitialUser') // aka ROLES.linker
   }
 
-  return roles
+  return roles // should de-dupe here as above implementation allows organisationMember to be added twice
 }
 ```
