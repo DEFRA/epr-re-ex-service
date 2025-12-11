@@ -36,9 +36,88 @@ The org access check happens inside token validation, meaning:
 
 ## Decision
 
-Introduce an **Auth Context Adapter** using the ports and adapters pattern to decouple org access checking from JWT validation.
+We propose a two-tier approach: simple auth injection helpers for unit tests, and a full auth context adapter for integration tests that need to verify cross-org access control.
 
-### 1. Auth Context Port
+### Tier 1: Auth Injection Helpers for Unit Tests
+
+For unit tests that focus on business logic rather than auth behaviour, Hapi's built-in `server.inject({ auth })` option allows credentials to be injected directly, bypassing JWT validation entirely.
+
+Create simple helper functions in `src/test/inject-auth.js`:
+
+```javascript
+import { ROLES } from '#common/helpers/auth/constants.js'
+
+/**
+ * Creates auth injection options for a standard user
+ * @param {object} [overrides] - Optional credential overrides
+ * @returns {object} Auth options for server.inject()
+ */
+export const asStandardUser = (overrides = {}) => ({
+  auth: {
+    strategy: 'access-token',
+    credentials: {
+      scope: [ROLES.standardUser],
+      id: 'test-user-id',
+      email: 'test@example.com',
+      ...overrides
+    }
+  }
+})
+
+export const asServiceMaintainer = (overrides = {}) => ({
+  auth: {
+    strategy: 'access-token',
+    credentials: {
+      scope: [ROLES.serviceMaintainer],
+      id: 'test-maintainer-id',
+      email: 'maintainer@example.com',
+      ...overrides
+    }
+  }
+})
+
+// Similar helpers for asLinker(), asInquirer(), etc.
+```
+
+Usage in unit tests:
+
+```javascript
+import { asStandardUser } from '#test/inject-auth.js'
+
+describe('POST upload-completed', () => {
+  setupAuthContext() // Still needed for OIDC config fetch at server startup
+
+  it('accepts valid payload', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: `/v1/organisations/org-123/registrations/reg-456/summary-logs/sum-789/upload-completed`,
+      payload: { ... },
+      ...asStandardUser()
+    })
+
+    expect(response.statusCode).toBe(202)
+  })
+})
+```
+
+**Benefits of Tier 1:**
+
+- Reduces boilerplate from 15-20 lines to a single spread operator
+- No need for `buildActiveOrg()`, `organisationsRepository` setup, or token constants
+- Tests can use any organisation ID without matching token claims
+- Clear, readable test code focused on business logic
+
+**Limitations of Tier 1:**
+
+- Bypasses org access checks entirely (user could access any org)
+- Not suitable for testing authorisation scenarios
+- `setupAuthContext()` still required for server startup
+
+### Tier 2: Auth Context Adapter for Integration Tests
+
+For integration tests that need to verify users can only access their own organisations, introduce an **Auth Context Adapter** using the ports and adapters pattern to decouple org access checking from JWT validation.
+
+#### Auth Context Port
 
 ```javascript
 /**
@@ -53,7 +132,7 @@ Introduce an **Auth Context Adapter** using the ports and adapters pattern to de
  */
 ```
 
-### 2. Production Adapter
+#### Production Adapter
 
 Wraps the existing logic from `getOrgMatchingUsersToken` and `getRolesForOrganisationAccess`:
 
@@ -73,7 +152,7 @@ export const createAuthContext = (organisationsRepository) => ({
 })
 ```
 
-### 3. In-Memory Adapter (for tests)
+#### In-Memory Adapter (for tests)
 
 ```javascript
 export const createInMemoryAuthContext = () => {
@@ -95,7 +174,7 @@ export const createInMemoryAuthContext = () => {
 }
 ```
 
-### 4. Org Access Check Extension
+#### Org Access Check Extension
 
 Move the org access check from JWT validate to a Hapi `onPostAuth` extension:
 
@@ -120,7 +199,7 @@ server.ext('onPostAuth', async (request, h) => {
 
 This runs after authentication but before the handler, and works with both real auth and Hapi's auth injection.
 
-### 5. Test Context Factory
+#### Test Context Factory
 
 Provide a high-level helper for integration tests:
 
@@ -167,7 +246,7 @@ The factory:
 2. Configures the in-memory auth context adapter with user→org linkages
 3. Returns `asUser(name)` helpers that inject credentials for the named user
 
-### Benefits
+**Benefits of Tier 2:**
 
 - **Tests declare intent**: "Given these orgs with these users" reads naturally
 - **No token constants**: Tests don't need to know about `COMPANY_1_ID` etc.
@@ -179,22 +258,33 @@ The factory:
 
 ### Positive
 
-- Integration tests become more readable and maintainable
+- Unit tests become dramatically simpler with Tier 1 auth injection helpers
+- Integration tests become more readable and maintainable with Tier 2
 - Authorisation logic is testable independently of JWT validation
 - New tests can be written with minimal boilerplate
 - The adapter pattern allows future flexibility (e.g. caching, different auth backends)
+- Clear separation between tests that need auth behaviour vs tests that don't
 
 ### Negative
 
-- Requires refactoring existing auth code to extract the org access check
-- Existing tests may need updating to use the new pattern
-- Additional abstraction layer to understand and maintain
+- Tier 2 requires refactoring existing auth code to extract the org access check
+- Existing tests may need updating to use the new patterns
+- Additional abstraction layer to understand and maintain (Tier 2 only)
 
 ### Migration
 
-Existing tests can continue to work during migration. The new pattern can be adopted incrementally:
+The two tiers can be adopted independently:
 
-1. Implement the auth context adapter and `onPostAuth` extension
-2. Create the test context factory
-3. Update integration tests to use the new pattern
-4. Eventually remove the org access check from JWT validate (once all tests migrated)
+**Tier 1 (auth injection helpers):**
+
+1. Create `src/test/inject-auth.js` with role-based helpers
+2. Update unit tests to use `asStandardUser()` etc. instead of token ceremony
+3. Can be done immediately with no production code changes
+
+**Tier 2 (auth context adapter):**
+
+1. Implement the auth context adapter port and adapters
+2. Add the `onPostAuth` extension for org access checking
+3. Create the test context factory
+4. Update integration tests to use the new pattern
+5. Eventually remove the org access check from JWT validate (once all tests migrated)
