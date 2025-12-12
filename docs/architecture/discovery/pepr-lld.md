@@ -468,7 +468,9 @@ erDiagram
 
   WASTE-BALANCE-TRANSACTION-ENTITY {
     ObjectId id FK "WASTE-RECORD or PRN"
-    enum type "waste_record:received, waste_record:sent_on, waste_record:exported, prn:created, prn:issued, prn:accepted, prn:cancelled"
+    ObjectId currentVersionId FK "WASTE-RECORD-VERSION"
+    ObjectId[] previousVersionIds FK "WASTE-RECORD-VERSION"
+    enum type "waste_record, prn"
   }
 
   WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
@@ -692,6 +694,7 @@ An example of an object in the Waste Balance collection
   transactions: [
     // Alice creates a prn, decreasing the available balance
     {
+      id: 'K7mP9xQ2vL4nR8wF6tY3',
       type: 'pending_debit',
       createdAt: '2026-01-04T09:00:00.000Z',
       createdBy: {
@@ -712,6 +715,7 @@ An example of an object in the Waste Balance collection
     },
     // Charlie adds waste sent_on, decreasing the balance
     {
+      id: 'Zh5Bn2Qx8Wj4Lp7Ck9Vm',
       type: 'debit',
       createdAt: '2026-01-03T09:00:00.000Z',
       createdBy: {
@@ -732,6 +736,7 @@ An example of an object in the Waste Balance collection
     },
     // Bob adds waste received, increasing the balance
     {
+      id: 'Fd3Rt6Gy9Mn1Zx4Hk8Qw',
       type: 'credit',
       createdAt: '2026-01-02T09:00:00.000Z',
       createdBy: {
@@ -756,6 +761,7 @@ An example of an object in the Waste Balance collection
     },
     // Alice adds waste received, increasing the balance
     {
+      id: 'Np2Vb7Xc5Jm9Rt4Lw6Fq',
       type: 'credit',
       createdAt: '2026-01-01T09:00:00.000Z',
       createdBy: {
