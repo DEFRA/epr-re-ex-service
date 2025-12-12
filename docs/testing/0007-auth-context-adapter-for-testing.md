@@ -1,26 +1,20 @@
-# 23. Auth Context Adapter for Testing
+# Testing Authenticated Endpoints
 
-Date: 2025-12-11
+This guide covers two approaches for testing endpoints that require authentication and authorisation, depending on what you need to verify.
 
-## Status
+## The Problem
 
-Proposed
-
-## Context
-
-When adding authentication and authorisation to endpoints in epr-backend, tests become complex due to the ceremony required to set up the auth flow:
+Testing authenticated endpoints currently requires 15-20 lines of boilerplate per test file:
 
 1. Mock OIDC servers via `setupAuthContext()`
-2. Create an organisation linked to the hardcoded Defra ID token constants (`COMPANY_1_ID`, etc.)
+2. Create an organisation linked to hardcoded Defra ID token constants (`COMPANY_1_ID`, etc.)
 3. Use `buildActiveOrg()` to create the org with correct `linkedDefraOrganisation` structure
 4. Pass the `organisationsRepository` to the test server
 5. Use Bearer token headers with the mock token
 
-This results in 15-20 lines of boilerplate per test file, tightly coupled to hardcoded token constants. The tests become difficult to read because the auth setup obscures the business logic being tested.
+This ceremony obscures the business logic being tested and couples tests tightly to token constants.
 
-Additionally, the current design couples authentication (validating tokens) with authorisation (checking org access) inside the JWT validate function. This makes it impossible to test authorisation scenarios (e.g. user A cannot access user B's data) without going through the full JWT flow.
-
-### Current Auth Flow
+Additionally, the current design couples authentication (validating tokens) with authorisation (checking org access) inside the JWT validate function:
 
 ```
 JWT validate() → getDefraUserRoles() → getOrgMatchingUsersToken() → getRolesForOrganisationAccess()
@@ -28,21 +22,28 @@ JWT validate() → getDefraUserRoles() → getOrgMatchingUsersToken() → getRol
                                     request.organisationsRepository
 ```
 
-The org access check happens inside token validation, meaning:
+This means:
 
 - Tests must use real (mock) tokens to exercise authorisation
 - Hapi's `server.inject({ auth })` bypasses the org check entirely
 - No clean way to test cross-org access control
 
-## Decision
+## Choosing Your Approach
 
-We propose a two-tier approach: simple auth injection helpers for unit tests, and a full auth context adapter for integration tests that need to verify cross-org access control.
+| Scenario                                         | Use                                |
+| ------------------------------------------------ | ---------------------------------- |
+| Testing business logic, not auth behaviour       | Tier 1: Auth Injection Helpers     |
+| Testing that users can only access their own org | Tier 2: Auth Context Adapter       |
+| Testing role-based access within an org          | Tier 1 with different role helpers |
+| Testing cross-org access control                 | Tier 2                             |
 
-### Tier 1: Auth Injection Helpers for Unit Tests
+## Tier 1: Auth Injection Helpers
 
 For unit tests that focus on business logic rather than auth behaviour, Hapi's built-in `server.inject({ auth })` option allows credentials to be injected directly, bypassing JWT validation entirely.
 
-Create simple helper functions in `src/test/inject-auth.js`:
+### Setup
+
+Create helper functions in `src/test/inject-auth.js`:
 
 ```javascript
 import { ROLES } from '#common/helpers/auth/constants.js'
@@ -79,7 +80,7 @@ export const asServiceMaintainer = (overrides = {}) => ({
 // Similar helpers for asLinker(), asInquirer(), etc.
 ```
 
-Usage in unit tests:
+### Usage
 
 ```javascript
 import { asStandardUser } from '#test/inject-auth.js'
@@ -100,24 +101,24 @@ describe('POST upload-completed', () => {
 })
 ```
 
-**Benefits of Tier 1:**
+### Benefits
 
 - Reduces boilerplate from 15-20 lines to a single spread operator
 - No need for `buildActiveOrg()`, `organisationsRepository` setup, or token constants
 - Tests can use any organisation ID without matching token claims
 - Clear, readable test code focused on business logic
 
-**Limitations of Tier 1:**
+### Limitations
 
 - Bypasses org access checks entirely (user could access any org)
 - Not suitable for testing authorisation scenarios
 - `setupAuthContext()` still required for server startup
 
-### Tier 2: Auth Context Adapter for Integration Tests
+## Tier 2: Auth Context Adapter
 
-For integration tests that need to verify users can only access their own organisations, introduce an **Auth Context Adapter** using the ports and adapters pattern to decouple org access checking from JWT validation.
+For integration tests that need to verify users can only access their own organisations, the Auth Context Adapter uses the ports and adapters pattern to decouple org access checking from JWT validation.
 
-#### Auth Context Port
+### Auth Context Port
 
 ```javascript
 /**
@@ -132,7 +133,7 @@ For integration tests that need to verify users can only access their own organi
  */
 ```
 
-#### Production Adapter
+### Production Adapter
 
 Wraps the existing logic from `getOrgMatchingUsersToken` and `getRolesForOrganisationAccess`:
 
@@ -152,7 +153,7 @@ export const createAuthContext = (organisationsRepository) => ({
 })
 ```
 
-#### In-Memory Adapter (for tests)
+### In-Memory Adapter (for tests)
 
 ```javascript
 export const createInMemoryAuthContext = () => {
@@ -174,7 +175,7 @@ export const createInMemoryAuthContext = () => {
 }
 ```
 
-#### Org Access Check Extension
+### Org Access Check Extension
 
 Move the org access check from JWT validate to a Hapi `onPostAuth` extension:
 
@@ -199,7 +200,7 @@ server.ext('onPostAuth', async (request, h) => {
 
 This runs after authentication but before the handler, and works with both real auth and Hapi's auth injection.
 
-#### Test Context Factory
+### Test Context Factory
 
 Provide a high-level helper for integration tests:
 
@@ -246,7 +247,7 @@ The factory:
 2. Configures the in-memory auth context adapter with user→org linkages
 3. Returns `asUser(name)` helpers that inject credentials for the named user
 
-**Benefits of Tier 2:**
+### Benefits
 
 - **Tests declare intent**: "Given these orgs with these users" reads naturally
 - **No token constants**: Tests don't need to know about `COMPANY_1_ID` etc.
@@ -254,37 +255,22 @@ The factory:
 - **Separation of concerns**: Authentication (who is this?) vs Authorisation (can they access this?)
 - **Leverages Hapi**: Uses `onPostAuth` extension point and auth injection properly
 
-## Consequences
+## Migration Guide
 
-### Positive
+The two tiers can be adopted independently.
 
-- Unit tests become dramatically simpler with Tier 1 auth injection helpers
-- Integration tests become more readable and maintainable with Tier 2
-- Authorisation logic is testable independently of JWT validation
-- New tests can be written with minimal boilerplate
-- The adapter pattern allows future flexibility (e.g. caching, different auth backends)
-- Clear separation between tests that need auth behaviour vs tests that don't
-
-### Negative
-
-- Tier 2 requires refactoring existing auth code to extract the org access check
-- Existing tests may need updating to use the new patterns
-- Additional abstraction layer to understand and maintain (Tier 2 only)
-
-### Migration
-
-The two tiers can be adopted independently:
-
-**Tier 1 (auth injection helpers):**
+### Adopting Tier 1
 
 1. Create `src/test/inject-auth.js` with role-based helpers
 2. Update unit tests to use `asStandardUser()` etc. instead of token ceremony
 3. Can be done immediately with no production code changes
 
-**Tier 2 (auth context adapter):**
+### Adopting Tier 2
 
 1. Implement the auth context adapter port and adapters
 2. Add the `onPostAuth` extension for org access checking
 3. Create the test context factory
 4. Update integration tests to use the new pattern
 5. Eventually remove the org access check from JWT validate (once all tests migrated)
+
+> **Note**: Tier 2 requires refactoring existing auth code to extract the org access check. Existing tests may need updating to use the new patterns.
