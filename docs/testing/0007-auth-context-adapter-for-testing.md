@@ -114,6 +114,44 @@ describe('POST upload-completed', () => {
 - Not suitable for testing authorisation scenarios
 - `setupAuthContext()` still required for server startup
 
+### What Tier 1 Does and Does Not Test
+
+The system supports two identity providers with different purposes:
+
+| Provider     | Purpose                        | Token Data                                              |
+| ------------ | ------------------------------ | ------------------------------------------------------- |
+| **Entra ID** | Admin UI (service maintainers) | `oid`, `email`                                          |
+| **Defra ID** | Frontend app (public users)    | `contactId`, `currentRelationshipId`, `relationships[]` |
+
+Tier 1 injection **bypasses both providers entirely**. The injected credentials go directly to Hapi's auth system without touching JWT validation, token signature checks, or provider-specific role extraction.
+
+**What IS tested with Tier 1:**
+
+- Route handler business logic
+- Scope-based authorisation (`scope: [ROLES.standardUser]`)
+- Request/response validation
+- Database operations
+- Error handling
+
+**What is NOT tested with Tier 1:**
+
+- Token signature and expiry validation
+- Issuer and audience checks
+- Provider-specific role extraction (`getEntraUserRoles()` / `getDefraUserRoles()`)
+- The `addStandardUserIfNotPresent()` side effect (auto-adds users to orgs on first access)
+- Cross-provider rejection (e.g. Entra tokens rejected on org endpoints)
+
+**These ARE tested elsewhere:**
+
+- `get-jwt-strategy-config.test.js` has thorough unit tests for strategy validation
+- `get-entra-user-roles.test.js` and `get-defra-user-roles.test.js` test provider-specific logic
+
+**Guidance:**
+
+- Use **Tier 1** for testing what happens AFTER auth succeeds
+- Use **Tier 2** or real tokens with `setupAuthContext()` for testing auth behaviour itself
+- Provider-specific validation should be tested in dedicated unit tests, not route tests
+
 ## Tier 2: Auth Context Adapter
 
 For integration tests that need to verify users can only access their own organisations, the Auth Context Adapter uses the ports and adapters pattern to decouple org access checking from JWT validation.
