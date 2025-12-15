@@ -1,0 +1,1213 @@
+openapi: 3.0.3
+info:
+  title: pEPR Backend API
+  description: |
+    Internally facing API for the Producer Extended Producer Responsibility (pEPR) system.
+
+    This API provides endpoints for managing Organisations, Registrations, Accreditations,
+    Summary Logs and Waste Records.
+
+    ## Authentication
+    All endpoints require authentication via JWT tokens obtained through DefraID or EntraID integration.
+
+    ## Error Handling
+    The API returns standard HTTP status codes with JSON error responses following the format:
+    ```json
+    {
+      "error": "Error message",
+      "statusCode": 400,
+      "code": "VALIDATION_ERROR",
+      "timestamp": "2024-01-01T00:00:00.000Z",
+      "path": "/v1/organisations"
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: pEPR Team
+    url: https://github.com/defra/epr-backend
+  license:
+    name: OGL-UK-3.0
+    url: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+
+servers:
+  - url: https://api.pepr.defra.gov.uk/v1
+    description: Production server
+  - url: https://api-staging.pepr.defra.gov.uk/v1
+    description: Staging server
+  - url: http://localhost:3001/v1
+    description: Development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    example: 123.456
+
+  /me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user information
+      description: Returns information about the currently authenticated user
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /organisations:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisations
+      description: |
+        Retrieve a list of organisation summary data.
+        Used by Regulators or Consultants to select from available organisations.
+      operationId: getOrganisations
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of organisations to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of organisations to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: search
+          in: query
+          description: Search term for organisation name or companies house number
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by organisation status
+          schema:
+            type: string
+            enum: [created, approved, rejected, suspended, archived]
+      responses:
+        '200':
+          description: List of organisations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganisationSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /organisations/{organisationId}:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisation by ID
+      description: |
+        Retrieve an organisation by ID including registrations and accreditations.
+        Used by Operators to view the sites, materials & accreditations associated with the organisation.
+      operationId: getOrganisationById
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+      responses:
+        '200':
+          description: Organisation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organisation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Organisations
+      summary: Update organisation
+      description: Update organisation details (admin/regulator only)
+      operationId: updateOrganisation
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganisationUpdateRequest'
+      responses:
+        '200':
+          description: Organisation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organisation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organisations/{organisationId}/registrations/{registrationId}/summary-logs:
+    post:
+      tags:
+        - Summary Logs
+      summary: Create summary log
+      description: |
+        Creates a new summary log and initiates the file upload process.
+        Generates a summaryLogId, creates a SUMMARY-LOG entity with status 'preprocessing',
+        and proxies the request to CDP Uploader.
+      operationId: createSummaryLog
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/RegistrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                material:
+                  type: string
+                  enum: [aluminium, fibre, glass, paper, plastic, steel, wood]
+                  description: Material type for the summary log
+                site:
+                  type: string
+                  description: Site identifier
+              required:
+                - material
+                - site
+      responses:
+        '201':
+          description: Summary log created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summaryLogId:
+                    type: string
+                    format: uuid
+                    description: Generated summary log ID
+                  uploadId:
+                    type: string
+                    description: CDP Uploader upload ID
+                  uploadUrl:
+                    type: string
+                    format: uri
+                    description: URL for file upload to CDP
+                  statusUrl:
+                    type: string
+                    format: uri
+                    description: URL to check upload status
+                required:
+                  - summaryLogId
+                  - uploadId
+                  - uploadUrl
+                  - statusUrl
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}:
+    get:
+      tags:
+        - Summary Logs
+      summary: Get summary log
+      description: |
+        Retrieve the current state and data of a summary log.
+        Includes validation results and file processing status.
+      operationId: getSummaryLog
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/RegistrationId'
+        - $ref: '#/components/parameters/SummaryLogId'
+        - name: uploadId
+          in: query
+          description: CDP Upload ID for status checking and validation
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Summary log retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/upload-completed:
+    post:
+      tags:
+        - Summary Logs
+      summary: Upload completed callback
+      description: |
+        Internal endpoint used by CDP Uploader to notify the backend when
+        preprocessing is complete or has failed. Creates or updates the
+        SUMMARY-LOG entity with file details.
+      operationId: summaryLogUploadCompleted
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/RegistrationId'
+        - $ref: '#/components/parameters/SummaryLogId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                form:
+                  type: object
+                  properties:
+                    summaryLogUpload:
+                      $ref: '#/components/schemas/UploadCallback'
+                  required:
+                    - summaryLogUpload
+              required:
+                - form
+      responses:
+        '200':
+          description: Callback processed successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit:
+    post:
+      tags:
+        - Summary Logs
+      summary: Submit summary log
+      description: |
+        Submit a validated summary log to apply changes to waste records.
+        Validates that summary log status is 'validated' and applies changes
+        to create/update waste records and waste balance.
+      operationId: submitSummaryLog
+      parameters:
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/RegistrationId'
+        - $ref: '#/components/parameters/SummaryLogId'
+      responses:
+        '200':
+          description: Summary log submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Summary log submitted successfully"
+                  wasteRecordsCreated:
+                    type: integer
+                    description: Number of new waste records created
+                  wasteRecordsUpdated:
+                    type: integer
+                    description: Number of existing waste records updated
+                  wasteBalanceUpdated:
+                    type: boolean
+                    description: Whether waste balance was updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict - summary log not in valid state for submission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Summary log cannot be submitted in current state"
+                statusCode: 409
+                code: "INVALID_STATUS"
+
+  /apply/organisation:
+    post:
+      tags:
+        - Applications
+      summary: Submit organisation application
+      description: |
+        Submit an organisation application for accreditation.
+        Creates organisation, registration, and accreditation records in 'created' status.
+      operationId: submitOrganisationApplication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganisationApplication'
+      responses:
+        '201':
+          description: Organisation application submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organisationId:
+                    type: string
+                    format: uuid
+                  registrationId:
+                    type: string
+                    format: uuid
+                  accreditationId:
+                    type: string
+                    format: uuid
+                  submissionId:
+                    type: string
+                    format: uuid
+                    description: Reference for tracking application
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /form-submissions/{submissionId}:
+    get:
+      tags:
+        - Applications
+      summary: Get form submission
+      description: Retrieve a form submission by ID
+      operationId: getFormSubmission
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          description: The form submission ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Form submission retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormSubmission'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from DefraID
+
+  parameters:
+    OrganisationId:
+      name: organisationId
+      in: path
+      required: true
+      description: The organisation ID
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{24}$'
+        example: '507f1f77bcf86cd799439011'
+
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      description: The registration ID
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{24}$'
+        example: '507f1f77bcf86cd799439012'
+
+    SummaryLogId:
+      name: summaryLogId
+      in: path
+      required: true
+      description: The summary log ID
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{24}$'
+        example: '507f1f77bcf86cd799439013'
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error or malformed request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Validation failed"
+            statusCode: 400
+            code: "VALIDATION_ERROR"
+            timestamp: "2024-01-01T00:00:00.000Z"
+            path: "/v1/organisations"
+
+    Unauthorized:
+      description: Unauthorized - invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            statusCode: 401
+            code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden"
+            statusCode: 403
+            code: "FORBIDDEN"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Resource not found"
+            statusCode: 404
+            code: "NOT_FOUND"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+        statusCode:
+          type: integer
+          description: HTTP status code
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+        path:
+          type: string
+          description: Request path that caused the error
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+      required:
+        - error
+        - statusCode
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items available
+          example: 250
+        limit:
+          type: integer
+          description: Maximum items per page
+          example: 20
+        offset:
+          type: integer
+          description: Number of items skipped
+          example: 0
+        hasNext:
+          type: boolean
+          description: Whether there are more items available
+          example: true
+        hasPrevious:
+          type: boolean
+          description: Whether there are previous items available
+          example: false
+      required:
+        - total
+        - limit
+        - offset
+        - hasNext
+        - hasPrevious
+
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          description: User's unique identifier
+        fullName:
+          type: string
+          description: User's full name
+        email:
+          type: string
+          format: email
+          description: User's email address
+        organisationId:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          description: Associated organisation ID
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [super_user, regulator, approved_person, prn_signatory, standard]
+          description: User's assigned roles
+      required:
+        - id
+        - fullName
+        - email
+
+    Address:
+      type: object
+      properties:
+        line1:
+          type: string
+          description: Address line 1
+        line2:
+          type: string
+          description: Address line 2
+        town:
+          type: string
+          description: Town or city
+        county:
+          type: string
+          description: County or region
+        country:
+          type: string
+          description: Country
+          default: "UK"
+        postcode:
+          type: string
+          description: Postal code
+        region:
+          type: string
+          description: Administrative region
+        fullAddress:
+          type: string
+          description: Complete formatted address
+
+    OrganisationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        name:
+          type: string
+          description: Organisation name
+        tradingName:
+          type: string
+          description: Trading name (if different)
+        companiesHouseNumber:
+          type: string
+          pattern: '^[a-zA-Z0-9]{2}\d{6}$'
+          description: Companies House registration number
+        status:
+          type: string
+          enum: [created, approved, rejected, suspended, archived]
+        registrationCount:
+          type: integer
+          description: Number of registrations
+        accreditationCount:
+          type: integer
+          description: Number of accreditations
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - status
+        - registrationCount
+        - accreditationCount
+
+    Organisation:
+      allOf:
+        - $ref: '#/components/schemas/OrganisationSummary'
+        - type: object
+          properties:
+            companyDetails:
+              type: object
+              properties:
+                name:
+                  type: string
+                tradingName:
+                  type: string
+                companiesHouseNumber:
+                  type: string
+                  pattern: '^[a-zA-Z0-9]{2}\d{6}$'
+                registeredAddress:
+                  $ref: '#/components/schemas/Address'
+                address:
+                  $ref: '#/components/schemas/Address'
+            partnership:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [ltd, ltd_liability]
+                partners:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      type:
+                        type: string
+                        enum: [company, individual]
+            linkedDefraOrganisation:
+              type: object
+              properties:
+                orgId:
+                  type: string
+                  format: uuid
+                orgName:
+                  type: string
+                linkedBy:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                    id:
+                      type: string
+                      format: uuid
+                linkedAt:
+                  type: string
+                  format: date-time
+            statusHistory:
+              type: array
+              items:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [created, approved, rejected, suspended, archived]
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  updatedBy:
+                    type: string
+                    pattern: '^[0-9a-fA-F]{24}$'
+            registrations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Registration'
+
+    Registration:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        wasteProcessingType:
+          type: string
+          enum: [reprocessor, exporter]
+        site:
+          type: object
+          properties:
+            address:
+              $ref: '#/components/schemas/Address'
+        status:
+          type: string
+          enum: [created, approved, rejected, suspended, archived]
+        accreditations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Accreditation'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - wasteProcessingType
+        - status
+
+    Accreditation:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        accreditationNumber:
+          type: string
+          description: Assigned when approved
+        material:
+          type: string
+          enum: [aluminium, fibre, glass, paper, plastic, steel, wood]
+        glassRecyclingProcess:
+          type: array
+          items:
+            type: string
+            enum: [glass_re_melt, glass_other]
+          description: Required for glass material
+        status:
+          type: string
+          enum: [created, approved, rejected, suspended, archived]
+        validFrom:
+          type: string
+          format: date
+          description: Valid from date (set when approved)
+        validTo:
+          type: string
+          format: date
+          description: Valid until date (set when approved)
+        submittedToRegulator:
+          type: string
+          enum: [ea, nrw, sepa, niea]
+          description: Regulatory body
+        prnIssuance:
+          type: object
+          properties:
+            tonnageBand:
+              type: string
+              enum: [up_to_500, up_to_5000, up_to_10000, over_10000]
+            signatories:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+            incomeBusinessPlan:
+              type: array
+              items:
+                type: object
+                properties:
+                  percentIncomeSpent:
+                    type: number
+                  usageDescription:
+                    type: string
+                  detailedExplanation:
+                    type: string
+              minItems: 7
+              maxItems: 7
+        formSubmissionTime:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - material
+        - status
+        - submittedToRegulator
+        - prnIssuance
+
+    User:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        jobTitle:
+          type: string
+      required:
+        - fullName
+        - email
+        - phone
+        - jobTitle
+
+    SummaryLog:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        status:
+          type: string
+          enum: [preprocessing, rejected, validating, invalid, validated, submitting, submitted]
+          description: Current processing status
+        file:
+          $ref: '#/components/schemas/SummaryLogFile'
+        validation:
+          $ref: '#/components/schemas/SummaryLogValidation'
+        loads:
+          $ref: '#/components/schemas/SummaryLogLoads'
+        failureReason:
+          type: string
+          description: Error message when status is rejected/invalid
+        material:
+          type: string
+          enum: [aluminium, fibre, glass, paper, plastic, steel, wood]
+        site:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: object
+          properties:
+            id:
+              type: string
+              pattern: '^[0-9a-fA-F]{24}$'
+            name:
+              type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: object
+          properties:
+            id:
+              type: string
+              pattern: '^[0-9a-fA-F]{24}$'
+            name:
+              type: string
+      required:
+        - id
+        - status
+        - material
+        - site
+        - createdAt
+        - createdBy
+
+    SummaryLogFile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: CDP file ID
+        name:
+          type: string
+          description: Original filename
+        status:
+          type: string
+          enum: [pending, rejected, complete]
+        uri:
+          type: string
+          format: uri
+          description: S3 object URI (when status is complete)
+      required:
+        - id
+        - name
+        - status
+
+    SummaryLogValidation:
+      type: object
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+      required:
+        - issues
+
+    ValidationIssue:
+      type: object
+      properties:
+        severity:
+          type: string
+          enum: [FATAL, ERROR, WARNING]
+        category:
+          type: string
+          enum: [parsing, technical, business]
+        message:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Error code for i18n
+        context:
+          type: object
+          description: Additional context (row numbers, field names, etc.)
+          additionalProperties: true
+      required:
+        - severity
+        - category
+        - message
+        - code
+
+    SummaryLogLoads:
+      type: object
+      properties:
+        added:
+          $ref: '#/components/schemas/LoadCategory'
+        unchanged:
+          $ref: '#/components/schemas/LoadCategory'
+        adjusted:
+          $ref: '#/components/schemas/LoadCategory'
+      required:
+        - added
+        - unchanged
+        - adjusted
+
+    LoadCategory:
+      type: object
+      properties:
+        valid:
+          $ref: '#/components/schemas/LoadCount'
+        invalid:
+          $ref: '#/components/schemas/LoadCount'
+      required:
+        - valid
+        - invalid
+
+    LoadCount:
+      type: object
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        rowIds:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+          description: Sample of row IDs (max 100)
+      required:
+        - count
+        - rowIds
+
+    UploadCallback:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+          description: CDP file identifier
+        filename:
+          type: string
+          description: Original uploaded filename
+        fileStatus:
+          type: string
+          enum: [complete, rejected, pending]
+          description: Processing status from CDP
+        s3Bucket:
+          type: string
+          description: S3 bucket name
+        s3Key:
+          type: string
+          description: S3 object key
+        hasError:
+          type: boolean
+          description: Whether processing encountered errors
+        errorMessage:
+          type: string
+          description: Error message if hasError is true
+      required:
+        - fileId
+        - filename
+        - fileStatus
+        - hasError
+
+    OrganisationUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected, suspended, archived]
+        companyDetails:
+          type: object
+          properties:
+            name:
+              type: string
+            tradingName:
+              type: string
+            registeredAddress:
+              $ref: '#/components/schemas/Address'
+
+    OrganisationApplication:
+      type: object
+      properties:
+        orgName:
+          type: string
+        companyDetails:
+          type: object
+          properties:
+            name:
+              type: string
+            tradingName:
+              type: string
+            companiesHouseNumber:
+              type: string
+              pattern: '^[a-zA-Z0-9]{2}\d{6}$'
+            registeredAddress:
+              $ref: '#/components/schemas/Address'
+            address:
+              $ref: '#/components/schemas/Address'
+        wasteProcessingType:
+          type: string
+          enum: [reprocessor, exporter]
+        site:
+          type: object
+          properties:
+            address:
+              $ref: '#/components/schemas/Address'
+        material:
+          type: string
+          enum: [aluminium, fibre, glass, paper, plastic, steel, wood]
+        glassRecyclingProcess:
+          type: array
+          items:
+            type: string
+            enum: [glass_re_melt, glass_other]
+        submittedToRegulator:
+          type: string
+          enum: [ea, nrw, sepa, niea]
+        prnIssuance:
+          type: object
+          properties:
+            tonnageBand:
+              type: string
+              enum: [up_to_500, up_to_5000, up_to_10000, over_10000]
+            signatories:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+        submitterContactDetails:
+          $ref: '#/components/schemas/User'
+        samplingInspectionPlanPart2FileUploads:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormFileUpload'
+        orsFileUploads:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormFileUpload'
+          description: Required for exporters
+      required:
+        - orgName
+        - companyDetails
+        - wasteProcessingType
+        - material
+        - submittedToRegulator
+        - prnIssuance
+        - submitterContactDetails
+
+    FormFileUpload:
+      type: object
+      properties:
+        defraFormUploadedFileId:
+          type: string
+        defraFormUserDownloadLink:
+          type: string
+          format: uri
+        s3Uri:
+          type: string
+          format: uri
+      required:
+        - defraFormUploadedFileId
+        - defraFormUserDownloadLink
+
+    FormSubmission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organisationId:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        registrationId:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        accreditationId:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        status:
+          type: string
+          enum: [submitted, processing, approved, rejected]
+        submissionData:
+          $ref: '#/components/schemas/OrganisationApplication'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - submissionData
+        - createdAt
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: User authentication and session management
+  - name: Organisations
+    description: Organisation management and retrieval
+  - name: Summary Logs
+    description: Summary log upload, validation, and submission
+  - name: Applications
+    description: Organisation and accreditation applications
