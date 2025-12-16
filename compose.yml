@@ -86,7 +86,7 @@ services:
       redis:
         condition: service_started
     environment:
-      APP_BASE_URL: http://localhost:3200
+      APP_BASE_URL: http://defra-id-stub:3200
       NODE_ENV: development
       OIDC_BASE_PATH: /cdp-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
@@ -149,7 +149,7 @@ services:
       - ./compose/aws.env
     environment:
       ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
-      EPR_BACKEND_URL: http://localhost:3001
+      EPR_BACKEND_URL: http://epr-backend:3001
       NODE_ENV: development
       PORT: 3002
       REDIS_HOST: redis
@@ -197,9 +197,9 @@ services:
     environment:
       DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
       DEFRA_ID_CLIENT_SECRET: test_value
-      DEFRA_ID_OIDC_CONFIGURATION_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
+      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:- http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
-      EPR_BACKEND_URL: http://localhost:3001
+      EPR_BACKEND_URL: http://epr-backend:3001
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
@@ -231,11 +231,12 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: bd06da51-53f6-46d0-a9f0-ac562864c887
       AUDIT_ENABLED: false
       DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
-      DEFRA_ID_OIDC_WELL_KNOWN_URL: http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration
+      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:- http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       FEATURE_FLAG_SUMMARY_LOGS: true
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
+      NODE_EXTRA_CA_CERTS: ""
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: '["customer.test.user.2@defradev.onmicrosoft.com"]'
