@@ -33,17 +33,20 @@
 
 ### Docker Compose
 
-A local environment with:
+A local environment with our services:
 
-- Localstack for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- CDP Uploader
-- Defra ID Stub
-- Entra ID Stub // @todo
 - epr-backend
 - epr-frontend
 - epr-re-ex-admin-frontend
+
+and shared services:
+
+- CDP Uploader
+- Defra ID Stub
+- Entra ID Stub // @todo
+- Localstack for AWS services (S3, SQS)
+- MongoDB
+- Redis
 
 Run all shared services - ideal if you run the apps in separate consoles
 
@@ -54,7 +57,7 @@ docker compose up
 Run everything in Docker with build & watch mode
 
 ```bash
-docker compose --profile all up --build --watch
+docker compose --profile all up --watch
 ```
 
 See the running services with:
@@ -72,13 +75,13 @@ Should you wish to run your own services locally you can use profiles to achieve
 e.g. to run docker compose for everything except `epr-frontend` you would use the multiple profiles:
 
 ```bash
-docker compose --profile epr-admin-frontend --profile epr-backend up --build -d
+docker compose --profile epr-admin-frontend --profile epr-backend up -d
 ```
 
 You can also use the `COMPOSE_PROFILES` environment variable to define profiles
 
 ```bash
-COMPOSE_PROFILES=epr-admin-frontend,epr-backend && docker compose up --build -d
+COMPOSE_PROFILES=epr-admin-frontend,epr-backend && docker compose up -d
 ```
 
 Available profiles:
@@ -92,6 +95,20 @@ Available profiles:
 > You will need to use profiles when stopping/removing docker compose containers, [see docs](https://docs.docker.com/compose/how-tos/profiles/#stop-application-and-services-with-specific-profiles)
 >
 > `docker compose --profile all down`
+
+#### Running images
+
+Our default is to build images locally, we can also run pulled images by taking advantage of the [Compose Build Specification](https://docs.docker.com/reference/compose-file/build/#using-build-and-image) and setting the [`pull_policy`](https://docs.docker.com/reference/compose-file/services/#pull_policy)
+
+```sh
+PULL_POLICY=always docker compose --profile epr-frontend up
+```
+
+Notes:
+
+- this applies to any of the above commands
+- this is a global override currently, feel free to tweak as you need
+- overrides for the image version are available per-application: `ADMIN_FRONTEND_VERSION`, `BACKEND_VERSION` and `FRONTEND_VERSION`
 
 ### Secrets
 
