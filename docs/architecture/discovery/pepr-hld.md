@@ -223,6 +223,7 @@ Note that updating an entity _may_ include changing its `status`. See a summary 
 
 1. `created`: organisation has been created but has not yet been approved by the regulator
 2. `approved`: organisation has been approved by the regulator
+2. `active`: organisation has been approved by the regulator
 3. `rejected`: organisation has been rejected by the regulator
 4. `suspended`: organisation has been suspended by the regulator
 5. `archived`: organisation has been archived and can no longer be used
