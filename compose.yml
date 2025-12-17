@@ -113,6 +113,8 @@ services:
 
   epr-admin-frontend:
     profiles: ['all', 'epr-admin-frontend']
+    image: defradigital/epr-re-ex-admin-frontend:${ADMIN_FRONTEND_VERSION:-latest}
+    pull_policy: ${PULL_POLICY:-build}
     build:
       context: ./lib/epr-re-ex-admin-frontend
       dockerfile: Dockerfile.local
@@ -159,6 +161,8 @@ services:
 
   epr-frontend:
     profiles: ['all', 'epr-frontend']
+    image: defradigital/epr-frontend:${FRONTEND_VERSION:-latest}
+    pull_policy: ${PULL_POLICY:-build}
     build:
       context: ./lib/epr-frontend
       dockerfile: Dockerfile.local
@@ -209,6 +213,8 @@ services:
 
   epr-backend:
     profiles: ['all', 'epr-backend']
+    image: defradigital/epr-backend:${BACKEND_VERSION:-latest}
+    pull_policy: ${PULL_POLICY:-build}
     build:
       context: ./lib/epr-backend
       target: development
