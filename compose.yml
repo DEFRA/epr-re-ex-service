@@ -197,7 +197,7 @@ services:
     environment:
       DEFRA_ID_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
       DEFRA_ID_CLIENT_SECRET: test_value
-      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:- http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:- http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: d7d72b79-9c62-ee11-8df0-000d3adf7047
       EPR_BACKEND_URL: http://epr-backend:3001
       NODE_ENV: development
