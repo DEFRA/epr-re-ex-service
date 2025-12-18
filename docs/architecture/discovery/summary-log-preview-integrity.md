@@ -33,6 +33,7 @@ For related context, see:
     - [Race 3: Concurrent confirms of the same log](#race-3-concurrent-confirms-of-the-same-log)
     - [Race 4: Upload during validation of another upload](#race-4-upload-during-validation-of-another-upload)
   - [Summary](#summary)
+  - [Design consideration: CDP initiate timing](#design-consideration-cdp-initiate-timing) - [The problem](#the-problem) - [Proposed solution: Add initiated state](#proposed-solution-add-initiated-state) - [Updated state machine](#updated-state-machine) - [Supersede and blocking rules](#supersede-and-blocking-rules) - [Scenario: Multiple users on upload page](#scenario-multiple-users-on-upload-page) - [Impact on race conditions](#impact-on-race-conditions)
     <!-- TOC -->
     <!-- prettier-ignore-end -->
 
@@ -446,3 +447,185 @@ Races 2-4 follow the same pattern: use `findOneAndUpdate` with a status conditio
 Race 1 is different because it involves multiple operations (check for submitting, supersede existing, create new). Options include using a transaction or a unique partial index on `(organisationId, registrationId)` for non-terminal statuses.
 
 The blocking mechanism (check for `submitting` before upload) handles the waste records partial-read problem separately. The races documented here are about summary log state transitions, which can be made atomic within MongoDB's guarantees.
+
+## Design consideration: CDP initiate timing
+
+The solution described above assumes that the summary log is created when the user clicks the upload button. However, CDP Uploader works differently: the upload is **initiated when the user visits the upload page**, not when they click upload. This creates a timing gap that affects the design.
+
+### The problem
+
+**Assumed flow:**
+
+```
+User clicks upload → Initiate called → Summary log created
+                  → File uploads to CDP
+                  → CDP callback
+```
+
+**Actual flow:**
+
+```
+User visits upload page → Initiate called → Summary log created
+[TIME GAP - could be minutes or hours]
+User clicks upload → File uploads to CDP
+                  → CDP callback
+```
+
+This creates several issues:
+
+1. **Premature superseding**: If we supersede at initiation, User A visiting the upload page would supersede User B's validated preview - even though User A hasn't uploaded anything yet.
+
+2. **Multiple users on upload page**: Two users could visit the upload page simultaneously. If we supersede at initiation, they would supersede each other before either has uploaded a file.
+
+3. **Abandoned page visits**: A user might visit the upload page and never upload a file, leaving a summary log in limbo.
+
+### Proposed solution: Add initiated state
+
+Introduce a new `initiated` state to distinguish between "user is on the upload page" and "file is being processed by CDP".
+
+| State           | Meaning                                        |
+| --------------- | ---------------------------------------------- |
+| `initiated`     | User visited upload page, no file uploaded yet |
+| `preprocessing` | CDP has received file, virus scan in progress  |
+| `validating`    | Scan passed, business validation in progress   |
+| `validated`     | Ready for user to confirm                      |
+| `submitting`    | User confirmed, waste records being updated    |
+| `submitted`     | Complete                                       |
+
+### Updated state machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> initiated: User visits upload page
+
+    initiated --> preprocessing: CDP callback (file received)
+    initiated --> superseded: Another file uploaded for org/reg
+    initiated --> [*]: TTL expiry (cleanup)
+
+    preprocessing --> validating: CDP callback (scan passed)
+    preprocessing --> rejected: CDP callback (scan failed)
+    preprocessing --> superseded: Another file uploaded for org/reg
+
+    validating --> validated: Validation passes
+    validating --> invalid: Validation fails
+    validating --> superseded: Another file uploaded for org/reg
+
+    validated --> submitting: User confirms
+    validated --> superseded: Another file uploaded for org/reg
+
+    submitting --> submitted: Complete
+    submitting --> submission_failed: Failure
+
+    note right of initiated
+        Multiple initiated logs
+        can exist for same org/reg.
+        TTL cleans up abandoned ones.
+    end note
+
+    note right of preprocessing
+        Supersede happens here,
+        not at initiation.
+    end note
+```
+
+### Supersede and blocking rules
+
+**At initiation (user visits upload page):**
+
+- Create summary log in `initiated` state
+- Do NOT supersede any existing logs
+- Do NOT check for `submitting` (allow page visit even during submission)
+
+**At CDP callback (file upload complete):**
+
+1. Check if own log is `superseded` → if so, stop (do not validate)
+2. Check for `submitting` status → if found, block with error
+3. Supersede existing `initiated`, `preprocessing`, `validating`, `validated` logs for same org/reg
+4. Transition own log from `initiated` to `preprocessing` (or `validating` if scan complete)
+
+**Key rules:**
+
+- `initiated` logs are NOT superseded at initiation - multiple users can be on the upload page
+- `initiated` logs ARE superseded when another user's CDP callback arrives
+- If a log is superseded before its CDP callback arrives, it stays superseded (validation is skipped)
+- `initiated` logs have a TTL (e.g. 24 hours) to clean up abandoned page visits
+
+### Scenario: Multiple users on upload page
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant CDP
+    participant DB
+
+    UserA->>API: Visit upload page
+    API->>CDP: Initiate upload A
+    API->>DB: Create log A (initiated)
+
+    UserB->>API: Visit upload page
+    API->>CDP: Initiate upload B
+    API->>DB: Create log B (initiated)
+
+    Note over DB: Both initiated logs exist - this is allowed
+
+    UserA->>CDP: Upload file
+    CDP->>API: Callback A (scan passed)
+    API->>DB: Supersede log B (initiated → superseded)
+    API->>DB: Transition log A (initiated → validating)
+    API-->>UserA: Preview shown
+
+    UserB->>CDP: Upload file
+    CDP->>API: Callback B (scan passed)
+    API->>DB: Check log B status
+    Note over API: Log B is superseded - skip validation
+    API-->>UserB: Error: A newer upload exists, please refresh
+```
+
+**Outcome**: User A's upload proceeds. User B's upload is rejected because their log was superseded. User B must refresh the page (creating a new `initiated` log) and try again.
+
+### Impact on race conditions
+
+The `initiated` state changes Race 1 (concurrent uploads):
+
+**Previous understanding**: CDP callbacks arrive at the same time, both try to supersede + create.
+
+**New understanding**: Both users have `initiated` logs. When CDP callbacks arrive:
+
+- First callback supersedes the other `initiated` log and proceeds
+- Second callback finds its log is superseded and stops
+
+This simplifies Race 1 because:
+
+- The summary log already exists (created at initiation)
+- The CDP callback just needs to atomically check own status + supersede others + transition
+
+```javascript
+// At CDP callback: atomic check + supersede + transition
+const ownLog = await findOneAndUpdate(
+  {
+    _id: logId,
+    status: 'initiated' // Only proceed if still initiated
+  },
+  { $set: { status: 'preprocessing' } }
+)
+
+if (!ownLog) {
+  // Log was superseded - stop processing
+  return { error: 'Upload superseded by another user' }
+}
+
+// Now supersede other logs for this org/reg
+await updateMany(
+  {
+    organisationId,
+    registrationId,
+    _id: { $ne: logId },
+    status: { $in: ['initiated', 'preprocessing', 'validating', 'validated'] }
+  },
+  { $set: { status: 'superseded' } }
+)
+```
+
+**Note**: This approach needs further analysis against all race conditions to verify it doesn't introduce new issues.
