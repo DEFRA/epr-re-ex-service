@@ -40,6 +40,16 @@ For related context, see:
     - [Supersede and blocking rules](#supersede-and-blocking-rules-1)
     - [Scenario: Multiple users on upload page](#scenario-multiple-users-on-upload-page)
     - [Impact on race conditions](#impact-on-race-conditions)
+  - [Alternative design: Deferred staleness detection](#alternative-design-deferred-staleness-detection)
+    - [Core principle](#core-principle)
+    - [Mechanism: Validated-against tracking](#mechanism-validated-against-tracking)
+    - [Why log IDs rather than timestamps](#why-log-ids-rather-than-timestamps)
+    - [Concurrent submission handling](#concurrent-submission-handling)
+    - [Comparison with original design](#comparison-with-original-design)
+    - [Updated flow diagram](#updated-flow-diagram)
+    - [Scenarios under this design](#scenarios-under-this-design)
+    - [Trade-offs](#trade-offs)
+    - [When to prefer this design](#when-to-prefer-this-design)
       <!-- TOC -->
       <!-- prettier-ignore-end -->
 
@@ -643,3 +653,218 @@ await updateMany(
 ```
 
 **Note**: This approach needs further analysis against all race conditions to verify it doesn't introduce new issues.
+
+## Alternative design: Deferred staleness detection
+
+This section describes a simpler alternative to the supersede-on-upload and block-uploads-during-submission mechanisms. Instead of eagerly invalidating previews, this design allows multiple validated previews to coexist and only checks for staleness at submission time.
+
+### Core principle
+
+Rather than blocking uploads or superseding logs during the upload/validation phase, we:
+
+1. Allow multiple validated logs to exist for the same organisation/registration
+2. Track which submission state each preview was generated against
+3. Only reject at submission time if the underlying data has changed
+
+### Mechanism: Validated-against tracking
+
+When validation begins, we record the ID of the most recently submitted summary log for this organisation/registration pair:
+
+```javascript
+// On validation start: record the current submission baseline
+const latestSubmitted = await SummaryLog.findOne({
+  organisationId,
+  registrationId,
+  status: 'submitted'
+}).sort({ submittedAt: -1 })
+
+summaryLog.validatedAgainstLogId = latestSubmitted?._id ?? null
+```
+
+On confirm, we check whether the baseline has changed:
+
+```javascript
+// On confirm: verify baseline hasn't changed
+const currentLatest = await SummaryLog.findOne({
+  organisationId,
+  registrationId,
+  status: 'submitted'
+}).sort({ submittedAt: -1 })
+
+const baseline = summaryLog.validatedAgainstLogId?.toString() ?? null
+const current = currentLatest?._id?.toString() ?? null
+
+if (baseline !== current) {
+  throw Boom.conflict('Waste records have changed since preview was generated')
+}
+```
+
+### Why log IDs rather than timestamps
+
+Comparing log IDs is more robust than timestamp comparison:
+
+- **No granularity issues** - timestamps can have millisecond collisions
+- **Clear lineage** - explicit reference to which submission the preview was based on
+- **Simpler queries** - no date range comparisons, just ID equality
+- **No waste record queries** - only query summary logs
+
+### Concurrent submission handling
+
+The staleness check alone doesn't prevent concurrent submissions. If two users have previews validated against the same baseline, both could pass the staleness check simultaneously.
+
+To prevent this, submissions are still serialised:
+
+```javascript
+// On confirm: ensure no submission in progress
+const submitting = await SummaryLog.exists({
+  organisationId,
+  registrationId,
+  status: 'submitting'
+})
+
+if (submitting) {
+  throw Boom.conflict('A submission is in progress. Please wait and try again.')
+}
+
+// Then: atomic transition to submitting
+// Then: staleness check
+// Then: proceed with submission
+```
+
+This is a lighter touch than blocking uploads - users can always upload and validate new summary logs, only the final submission is serialised.
+
+### Comparison with original design
+
+| Aspect                   | Original design        | Alternative design |
+| ------------------------ | ---------------------- | ------------------ |
+| Upload blocking          | During submission      | Never              |
+| Superseding on upload    | Yes                    | No                 |
+| Multiple validated logs  | No (superseded)        | Yes                |
+| When staleness detected  | On upload (superseded) | On submit          |
+| Submission serialisation | Yes                    | Yes                |
+
+### Updated flow diagram
+
+```mermaid
+flowchart TD
+    subgraph "Upload Phase"
+        A[User uploads summary log] --> B[Record validatedAgainstLogId]
+        B --> C[Process upload & validate]
+        C --> D[Show preview to user]
+    end
+
+    subgraph "Confirm Phase"
+        D --> E[User clicks Confirm]
+        E --> F{Submission in progress<br/>for org/reg?}
+        F -->|Yes| G[Wait: 'Submission in progress']
+        F -->|No| H{validatedAgainstLogId<br/>still current?}
+        H -->|No| I[Error: 'Data changed since preview']
+        H -->|Yes| J[Transition to 'submitting']
+        J --> K[Update waste records]
+        K --> L[Mark as 'submitted']
+    end
+```
+
+### Scenarios under this design
+
+#### Scenario: Two users upload, second confirms first
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant DB
+
+    Note over DB: Latest submitted: Log X
+
+    UserA->>API: Upload summary log A
+    API->>DB: Create log A (validatedAgainstLogId: X)
+    API-->>UserA: Preview: 5 added, 3 adjusted
+
+    UserB->>API: Upload summary log B
+    API->>DB: Create log B (validatedAgainstLogId: X)
+    API-->>UserB: Preview: 2 added, 6 adjusted
+
+    Note over DB: Both logs validated, neither superseded
+
+    UserB->>API: Confirm log B
+    API->>DB: No submission in progress ✓
+    API->>DB: validatedAgainstLogId (X) matches latest ✓
+    API->>DB: Update waste records
+    API-->>UserB: Success
+
+    Note over DB: Latest submitted: Log B
+
+    UserA->>API: Confirm log A
+    API->>DB: No submission in progress ✓
+    API->>DB: validatedAgainstLogId (X) ≠ latest (B)
+    API-->>UserA: Error: Data changed since preview
+```
+
+**Outcome**: User A must re-upload to see the current state reflecting User B's changes.
+
+#### Scenario: Upload during submission
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant DB
+
+    Note over DB: Latest submitted: Log X
+
+    UserA->>API: Upload & validate log A
+    API->>DB: Create log A (validatedAgainstLogId: X)
+    API-->>UserA: Preview shown
+
+    UserA->>API: Confirm log A
+    API->>DB: Status → submitting
+    API->>DB: Begin updating waste records...
+
+    UserB->>API: Upload summary log B
+    Note over API: Upload NOT blocked
+    API->>DB: Create log B (validatedAgainstLogId: X)
+    Note over UserB: Preview may reflect partial state
+
+    API->>DB: Finish updating waste records
+    API->>DB: Log A status → submitted
+
+    Note over DB: Latest submitted: Log A
+
+    UserB->>API: Confirm log B
+    API->>DB: No submission in progress ✓
+    API->>DB: validatedAgainstLogId (X) ≠ latest (A)
+    API-->>UserB: Error: Data changed since preview
+```
+
+**Outcome**: User B's upload wasn't blocked, but their preview (potentially based on partial data) cannot be submitted. They must re-upload to see the correct state.
+
+### Trade-offs
+
+**Advantages:**
+
+- Simpler state machine - no supersede transitions during upload phase
+- Better upload availability - users are never blocked from uploading
+- Cleaner mental model - "upload freely, we check at submission time"
+
+**Disadvantages:**
+
+- Deferred feedback - users don't know their preview is stale until they try to submit
+- Wasted review time - users might spend time reviewing a preview that's already outdated
+- More validated logs in the system - need TTL or cleanup mechanism for abandoned logs
+
+### When to prefer this design
+
+This design is appropriate when:
+
+- Upload availability is prioritised over immediate staleness feedback
+- Users typically confirm soon after previewing (stale previews are rare)
+- The cost of re-uploading is low
+
+The original design is preferable when:
+
+- Immediate feedback about superseded previews is important
+- Users may leave previews open for extended periods
+- Detailed preview review is common (wasted review time is costly)
