@@ -45,6 +45,7 @@ For related context, see:
     - [Mechanism: Validated-against tracking](#mechanism-validated-against-tracking)
     - [Why log IDs rather than timestamps](#why-log-ids-rather-than-timestamps)
     - [Why validation doesn't need blocking](#why-validation-doesnt-need-blocking)
+    - [Optional: Early staleness detection on view](#optional-early-staleness-detection-on-view)
     - [Concurrent submission handling](#concurrent-submission-handling)
     - [Comparison with original design](#comparison-with-original-design)
     - [Updated flow diagram](#updated-flow-diagram)
@@ -723,6 +724,36 @@ The key insight: even if the preview is wrong (generated against partial data), 
 
 This eliminates the need to block uploads or validation during submission - the staleness check at confirmation time provides the safety net.
 
+### Optional: Early staleness detection on view
+
+While the staleness check at confirmation is sufficient for data integrity, we can improve user experience by also checking staleness when the user views a summary log:
+
+```javascript
+// On GET summary log: check if preview is stale
+const currentLatest = await SummaryLog.findOne({
+  organisationId,
+  registrationId,
+  status: 'submitted'
+}).sort({ submittedAt: -1 })
+
+const isStale =
+  summaryLog.validatedAgainstLogId?.toString() !==
+  (currentLatest?._id?.toString() ?? null)
+
+return {
+  ...summaryLog,
+  isStale
+}
+```
+
+The frontend can then display a warning: "This preview may be outdated. Another submission has occurred since this preview was generated."
+
+This is purely a UX enhancement - the confirmation staleness check remains the authoritative gate. Benefits:
+
+- Users discover staleness immediately on page load rather than after reviewing
+- Reduces wasted time reviewing outdated previews
+- No additional blocking or state transitions required
+
 ### Concurrent submission handling
 
 The staleness check alone doesn't prevent concurrent submissions. If two users have previews validated against the same baseline, both could pass the staleness check simultaneously.
@@ -866,8 +897,8 @@ sequenceDiagram
 
 **Disadvantages:**
 
-- Deferred feedback - users don't know their preview is stale until they try to submit
-- Wasted review time - users might spend time reviewing a preview that's already outdated
+- Deferred feedback - users don't know their preview is stale until they try to submit (mitigated by [early staleness detection on view](#optional-early-staleness-detection-on-view))
+- Wasted review time - users might spend time reviewing a preview that's already outdated (mitigated by early staleness detection)
 - More validated logs in the system - need TTL or cleanup mechanism for abandoned logs
 
 ### When to prefer this design
