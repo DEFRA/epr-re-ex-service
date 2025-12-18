@@ -47,6 +47,9 @@ For related context, see:
     - [Why validation doesn't need blocking](#why-validation-doesnt-need-blocking)
     - [Optional: Early staleness detection on view](#optional-early-staleness-detection-on-view)
     - [Concurrent submission handling](#concurrent-submission-handling)
+    - [Interaction with CDP initiate timing](#interaction-with-cdp-initiate-timing)
+    - [Race conditions under this design](#race-conditions-under-this-design)
+    - [Simplified state machine](#simplified-state-machine)
     - [Comparison with original design](#comparison-with-original-design)
     - [Updated flow diagram](#updated-flow-diagram)
     - [Scenarios under this design](#scenarios-under-this-design)
@@ -758,56 +761,249 @@ This is purely a UX enhancement - the confirmation staleness check remains the a
 
 The staleness check alone doesn't prevent concurrent submissions. If two users have previews validated against the same baseline, both could pass the staleness check simultaneously.
 
-To prevent this, submissions are still serialised:
+To prevent this, submissions are still serialised. However, a naive implementation has a race condition:
 
 ```javascript
-// On confirm: ensure no submission in progress
-const submitting = await SummaryLog.exists({
+// WRONG: Race condition between check and transition
+const submitting = await SummaryLog.exists({...})  // Check
+if (submitting) { throw... }
+// ← Another confirm could slip in here
+const result = await findOneAndUpdate(...)  // Transition
+```
+
+**Correct approach**: Transition first, then verify we're the only one:
+
+```javascript
+// On confirm: atomic transition to submitting
+const result = await findOneAndUpdate(
+  { _id: logId, status: 'validated' },
+  { $set: { status: 'submitting' } }
+)
+
+if (!result) {
+  throw Boom.conflict('Summary log is no longer in a confirmable state')
+}
+
+// Check if we're the only one submitting for this org/reg
+const submittingCount = await SummaryLog.countDocuments({
   organisationId,
   registrationId,
   status: 'submitting'
 })
 
-if (submitting) {
-  throw Boom.conflict('A submission is in progress. Please wait and try again.')
+if (submittingCount > 1) {
+  // Lost the race - revert and retry
+  await findOneAndUpdate(
+    { _id: logId, status: 'submitting' },
+    { $set: { status: 'validated' } }
+  )
+  throw Boom.conflict('Another submission started. Please try again.')
 }
 
-// Then: atomic transition to submitting
-// Then: staleness check
-// Then: proceed with submission
+// Now do staleness check
+const currentLatest = await SummaryLog.findOne({
+  organisationId,
+  registrationId,
+  status: 'submitted'
+}).sort({ submittedAt: -1 })
+
+if (
+  currentLatest?._id?.toString() !==
+  summaryLog.validatedAgainstLogId?.toString()
+) {
+  // Stale - revert
+  await findOneAndUpdate(
+    { _id: logId, status: 'submitting' },
+    { $set: { status: 'validated' } }
+  )
+  throw Boom.conflict('Waste records have changed since preview was generated')
+}
+
+// Safe to proceed with submission
 ```
+
+Alternatively, use a unique partial index on `(organisationId, registrationId)` where `status = 'submitting'` to enforce at the database level that only one submission can be in progress.
 
 This is a lighter touch than blocking uploads - users can always upload and validate new summary logs, only the final submission is serialised.
 
+### Interaction with CDP initiate timing
+
+The [CDP initiate timing](#design-consideration-cdp-initiate-timing) issue still applies: the summary log is created when the user visits the upload page (`preprocessing` state), not when they click upload.
+
+In this alternative design:
+
+- `preprocessing` logs are created at initiation (unchanged)
+- `validatedAgainstLogId` is recorded when the CDP callback arrives and validation begins (transition from `preprocessing` to `validating`)
+- Multiple `preprocessing` logs can exist simultaneously (unchanged)
+- Multiple `validated` logs can exist simultaneously (new - no superseding)
+
+The key difference: when the CDP callback arrives, we **don't** supersede other `validating`/`validated` logs. We simply record our baseline and proceed.
+
+```javascript
+// At CDP callback: transition to validating and record baseline
+const latestSubmitted = await SummaryLog.findOne({
+  organisationId,
+  registrationId,
+  status: 'submitted'
+}).sort({ submittedAt: -1 })
+
+const result = await findOneAndUpdate(
+  { _id: logId, status: 'preprocessing' },
+  {
+    $set: {
+      status: 'validating',
+      validatedAgainstLogId: latestSubmitted?._id ?? null
+    }
+  }
+)
+```
+
+### Race conditions under this design
+
+The alternative design eliminates some race conditions but must still handle others:
+
+#### Race 1: Concurrent uploads (simplified)
+
+**Original problem**: Concurrent uploads race to supersede each other.
+
+**In alternative design**: No superseding occurs, so this race is eliminated. Both uploads proceed independently, both record their `validatedAgainstLogId`, and the staleness check at submission determines which can proceed.
+
+#### Race 2: Concurrent confirms of different logs
+
+Two users with validated logs (both against baseline X) try to confirm simultaneously.
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant DB
+
+    Note over DB: Both logs have validatedAgainstLogId: X
+
+    UserA->>API: Confirm log A
+    UserB->>API: Confirm log B
+
+    API->>DB: Transition A to submitting ✓
+    API->>DB: Transition B to submitting ✓
+
+    API->>DB: Count submitting for org/reg
+    Note over DB: Count = 2
+
+    API->>DB: A sees count > 1, reverts to validated
+    API-->>UserA: Error: Another submission started
+
+    API->>DB: B sees count = 1 (A reverted), proceeds
+    API->>DB: Staleness check passes
+    API->>DB: Update waste records
+    API-->>UserB: Success
+```
+
+**Mitigation**: The "transition first, then check count" pattern ensures only one proceeds. The loser reverts and can retry.
+
+#### Race 3: Concurrent confirms of the same log
+
+Two browser tabs confirm the same log simultaneously.
+
+**Mitigation**: Atomic `findOneAndUpdate` with `status: 'validated'` condition. Only one succeeds; the other finds the status is no longer `validated`.
+
+#### Race 4: Upload during submission (no longer a problem)
+
+**Original problem**: Validation reads partially-updated waste records.
+
+**In alternative design**: This is explicitly allowed. The `validatedAgainstLogId` is recorded before the concurrent submission completes, so the staleness check will catch it. See [Why validation doesn't need blocking](#why-validation-doesnt-need-blocking).
+
+#### Summary of race conditions
+
+| Race | Description                          | Mitigation                                      |
+| ---- | ------------------------------------ | ----------------------------------------------- |
+| 1    | Concurrent uploads                   | Eliminated - no superseding                     |
+| 2    | Concurrent confirms (different logs) | Transition first, check count, revert if needed |
+| 3    | Concurrent confirms (same log)       | Atomic `findOneAndUpdate` with status condition |
+| 4    | Upload during submission             | Staleness check catches stale baseline          |
+
+### Simplified state machine
+
+With the alternative design, the state machine is simplified:
+
+```mermaid
+stateDiagram-v2
+    [*] --> preprocessing: User visits upload page
+
+    preprocessing --> validating: CDP callback (scan passed)
+    preprocessing --> rejected: CDP callback (scan failed)
+    preprocessing --> [*]: TTL expiry (cleanup)
+
+    validating --> validated: Validation passes
+    validating --> invalid: Validation fails
+
+    validated --> submitting: User confirms (if not stale)
+    validated --> [*]: TTL expiry (cleanup)
+
+    submitting --> submitted: Complete
+    submitting --> submission_failed: Failure
+
+    note right of validated
+        Multiple validated logs can exist.
+        Staleness checked at confirmation,
+        not via state transition.
+    end note
+```
+
+**Key changes from original:**
+
+- No `superseded` state transitions during upload/validation
+- Multiple `validated` logs can coexist for the same org/reg
+- `validated` logs are cleaned up via TTL rather than superseding
+- Staleness is a runtime check, not a state
+
+**Do we still need the `superseded` state?**
+
+The `superseded` state is no longer needed for its original purpose (eagerly invalidating previews). However, we have options:
+
+1. **Remove it entirely** - Rely on staleness check and TTL cleanup. Validated logs sit until they expire or are successfully submitted.
+
+2. **Use it reactively** - After a staleness check fails, transition to `superseded` to prevent repeated failed attempts and make cleanup queries simpler.
+
+3. **Rename to `stale`** - If using option 2, rename to better reflect the new meaning.
+
+Recommendation: Option 1 (remove entirely) for simplicity. The staleness check is the authoritative gate, and TTL handles cleanup. Adding a state transition after rejection is unnecessary complexity.
+
 ### Comparison with original design
 
-| Aspect                   | Original design        | Alternative design |
-| ------------------------ | ---------------------- | ------------------ |
-| Upload blocking          | During submission      | Never              |
-| Superseding on upload    | Yes                    | No                 |
-| Multiple validated logs  | No (superseded)        | Yes                |
-| When staleness detected  | On upload (superseded) | On submit          |
-| Submission serialisation | Yes                    | Yes                |
+| Aspect                   | Original design             | Alternative design                |
+| ------------------------ | --------------------------- | --------------------------------- |
+| Upload blocking          | During submission           | Never                             |
+| Superseding on upload    | Yes                         | No                                |
+| Multiple validated logs  | No (superseded)             | Yes                               |
+| When staleness detected  | On upload (superseded)      | On submit (or optionally on view) |
+| Submission serialisation | Yes                         | Yes                               |
+| `superseded` state       | Required                    | Not needed                        |
+| Race condition handling  | Supersede atomicity         | Submit count check                |
+| Cleanup mechanism        | Superseding clears old logs | TTL expiry                        |
 
 ### Updated flow diagram
 
 ```mermaid
 flowchart TD
     subgraph "Upload Phase"
-        A[User uploads summary log] --> B[Record validatedAgainstLogId]
-        B --> C[Process upload & validate]
-        C --> D[Show preview to user]
+        A[User visits upload page] --> B[Create log - preprocessing]
+        B --> C[User uploads file]
+        C --> D[CDP callback]
+        D --> E[Record validatedAgainstLogId]
+        E --> F[Process & validate]
+        F --> G[Show preview to user]
     end
 
     subgraph "Confirm Phase"
-        D --> E[User clicks Confirm]
-        E --> F{Submission in progress<br/>for org/reg?}
-        F -->|Yes| G[Wait: 'Submission in progress']
-        F -->|No| H{validatedAgainstLogId<br/>still current?}
-        H -->|No| I[Error: 'Data changed since preview']
-        H -->|Yes| J[Transition to 'submitting']
-        J --> K[Update waste records]
-        K --> L[Mark as 'submitted']
+        G --> H[User clicks Confirm]
+        H --> I[Atomic transition to submitting]
+        I --> J{Only one submitting<br/>for org/reg?}
+        J -->|No| K[Revert to validated<br/>Error: Another submission started]
+        J -->|Yes| L{validatedAgainstLogId<br/>still current?}
+        L -->|No| M[Revert to validated<br/>Error: Data changed since preview]
+        L -->|Yes| N[Update waste records]
+        N --> O[Mark as submitted]
     end
 ```
 
