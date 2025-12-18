@@ -44,6 +44,7 @@ For related context, see:
     - [Core principle](#core-principle)
     - [Mechanism: Validated-against tracking](#mechanism-validated-against-tracking)
     - [Why log IDs rather than timestamps](#why-log-ids-rather-than-timestamps)
+    - [Why validation doesn't need blocking](#why-validation-doesnt-need-blocking)
     - [Concurrent submission handling](#concurrent-submission-handling)
     - [Comparison with original design](#comparison-with-original-design)
     - [Updated flow diagram](#updated-flow-diagram)
@@ -707,6 +708,20 @@ Comparing log IDs is more robust than timestamp comparison:
 - **Clear lineage** - explicit reference to which submission the preview was based on
 - **Simpler queries** - no date range comparisons, just ID equality
 - **No waste record queries** - only query summary logs
+
+### Why validation doesn't need blocking
+
+In the original design, uploads were blocked during submission to prevent validation reading partially-updated waste records. In this design, that protection is unnecessary:
+
+1. User A confirms and starts submitting (writing waste records)
+2. User B uploads during this - validation records `validatedAgainstLogId = X` (the last submitted log _before_ A's submission)
+3. User B's validation may read partial data and generate an inaccurate preview
+4. User A's submission completes - A is now the latest submitted log
+5. User B tries to confirm - staleness check compares `validatedAgainstLogId (X)` against latest `(A)` - **rejected**
+
+The key insight: even if the preview is wrong (generated against partial data), it doesn't matter. The `validatedAgainstLogId` was recorded at validation start, before the concurrent submission completed. Once that submission completes, the baseline has changed and the staleness check catches it.
+
+This eliminates the need to block uploads or validation during submission - the staleness check at confirmation time provides the safety net.
 
 ### Concurrent submission handling
 
