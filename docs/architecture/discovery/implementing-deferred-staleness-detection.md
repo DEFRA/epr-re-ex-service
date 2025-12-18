@@ -13,164 +13,210 @@ The existing implementation uses eager superseding and upload blocking. We're re
 | Staleness detection     | State transition        | Runtime check at submission |
 | Multiple validated logs | Not allowed             | Allowed                     |
 
+## Current State (Post-PAE-753)
+
+Following PAE-753 "Defer Summary Log creation until file upload completes":
+
+- Summary logs are created when the CDP callback arrives, not at upload initiation
+- Upload initiation calls `checkForSubmittingLog()` to block uploads during submission
+- CDP callback supersedes pending logs and creates the new summary log
+
 ## Summary of Changes
 
-### Remove
+### Repository Contract: Remove
 
-- [ ] Upload blocking check (check for `submitting` status before allowing upload)
-- [ ] Supersede logic on CDP callback (transitioning other logs to `superseded`)
-- [ ] `superseded` state (or repurpose for other uses)
+- [ ] `supersedePendingLogs(organisationId, registrationId, excludeId)` - no longer needed
+- [ ] `checkForSubmittingLog(organisationId, registrationId)` - no longer needed
 
-### Add
+### Repository Contract: Add
 
-- [ ] `validatedAgainstLogId` field on summary log schema
-- [ ] Record `validatedAgainstLogId` at validation start (CDP callback)
-- [ ] Staleness check at confirmation time
-- [ ] Concurrent submission handling (count check after transition)
-- [ ] Optional: staleness indicator on GET summary log
+- [ ] `findLatestSubmittedForOrgReg(organisationId, registrationId)` - find the most recently submitted log
+- [ ] `transitionToSubmittingExclusive(logId, version, organisationId, registrationId)` - atomically transition to submitting, failing if another log for the same org/reg is already submitting
 
-### Modify
+### Schema: Add
 
-- [ ] Confirm endpoint: add staleness check and concurrent submission handling
-- [ ] State machine: remove `superseded` transitions from upload/validation flow
+- [ ] `validatedAgainstLogId` field on summary log - tracks which submission the preview was generated against
+
+### Routes: Modify
+
+- [ ] Upload initiation (`summary-logs/post.js`): remove blocking check
+- [ ] CDP callback (`upload-completed/post.js`): remove supersede logic, record baseline
+- [ ] Confirm endpoint (`submit/post.js`): add staleness check and concurrent submission handling
+
+### State Machine: Modify
+
+- [ ] Remove `superseded` transitions from upload/validation flow (state can remain for backwards compatibility)
 
 ---
 
 ## Implementation Steps
 
-### 1. Add `validatedAgainstLogId` to Schema
+### 1. Update Repository Contract
+
+Update the repository port to reflect the new interface:
+
+```javascript
+// src/repositories/summary-logs/port.js
+
+/**
+ * @typedef {Object} SummaryLogsRepository
+ * @property {(id: string, summaryLog: Object) => Promise<void>} insert
+ * @property {(id: string, version: number, summaryLog: Object) => Promise<void>} update
+ * @property {(id: string) => Promise<SummaryLogVersion|null>} findById
+ * @property {(organisationId: string, registrationId: string) => Promise<SummaryLogVersion|null>} findLatestSubmittedForOrgReg
+ * @property {(logId: string, version: number, organisationId: string, registrationId: string) => Promise<{success: boolean, summaryLog?: Object, version?: number}>} transitionToSubmittingExclusive
+ */
+```
+
+**Removed:**
+
+- `supersedePendingLogs` - no longer superseding logs
+- `checkForSubmittingLog` - no longer blocking uploads
+
+**Added:**
+
+- `findLatestSubmittedForOrgReg` - returns the most recently submitted log for staleness checking
+- `transitionToSubmittingExclusive` - atomically transitions to `submitting` only if no other log for the same org/reg is already submitting. Returns `{success: true, summaryLog, version}` if transitioned, `{success: false}` if blocked by another submission. Throws if log not found or not in `validated` status.
+
+### 2. Add `validatedAgainstLogId` to Schema
 
 Add a new field to track which submission state the preview was generated against.
 
 ```javascript
-// In summary log schema
+// In summary log schema validation
 {
   // ... existing fields
-  validatedAgainstLogId: {
-    type: Schema.Types.ObjectId,
-    ref: 'SummaryLog',
-    default: null
-  }
+  validatedAgainstLogId: Joi.string().allow(null).optional()
 }
 ```
 
-**Why**: This field records the ID of the last submitted summary log at the time validation began. If this changes before confirmation, the preview is stale.
+**Why**: This field records the ID of the last submitted summary log at the time the summary log was created. If this changes before confirmation, the preview is stale.
 
-### 2. Record Baseline at CDP Callback
+### 3. Implement New Repository Methods
 
-When the CDP callback arrives and we transition from `preprocessing` to `validating`, record the current submission baseline.
+Each repository adapter (MongoDB, in-memory, etc.) must implement the new methods.
 
-**Find**: The code that handles CDP callback and transitions to `validating`.
+#### `findLatestSubmittedForOrgReg`
 
-**Change**:
+Returns the most recently submitted summary log for an organisation/registration pair, or `null` if none exists.
+
+**Contract behaviour:**
+
+- Filter by `organisationId`, `registrationId`, and `status = 'submitted'`
+- Sort by submission time (most recent first)
+- Return the first match, or `null`
+
+#### `transitionToSubmittingExclusive`
+
+Atomically transitions a summary log to `submitting` status, but only if no other log for the same organisation/registration pair is already submitting. This prevents concurrent submissions.
+
+**Contract behaviour:**
+
+- Verify the log exists and is in `validated` status (throw if not)
+- Check if any other log for the same org/reg is in `submitting` status
+- If another is submitting: return `{success: false}`
+- If none submitting: transition to `submitting` and return `{success: true, summaryLog, version}`
+- The check and transition must be atomic (no race window)
+
+**Implementation notes:**
+
+- MongoDB: Use a transaction, or a unique partial index on `(organisationId, registrationId)` where `status = 'submitting'`
+- In-memory: Use a simple check-and-set with appropriate locking
+
+### 4. Remove Old Repository Methods
+
+Remove `supersedePendingLogs` and `checkForSubmittingLog` from:
+
+- Repository port (`port.js`)
+- Contract tests (`port.contract.js`)
+- All adapters (MongoDB, in-memory)
+
+### 5. Update Upload Initiation
+
+**File**: `src/routes/v1/organisations/registrations/summary-logs/post.js`
+
+**Remove** the call to `checkForSubmittingLog()`. Uploads should never be blocked.
 
 ```javascript
-// At CDP callback: transition to validating and record baseline
-const latestSubmitted = await SummaryLog.findOne({
+// REMOVE this code
+await summaryLogsRepository.checkForSubmittingLog(
   organisationId,
-  registrationId,
-  status: 'submitted'
-}).sort({ submittedAt: -1 })
-
-const result = await SummaryLog.findOneAndUpdate(
-  { _id: logId, status: 'preprocessing' },
-  {
-    $set: {
-      status: 'validating',
-      validatedAgainstLogId: latestSubmitted?._id ?? null
-    }
-  },
-  { returnDocument: 'after' }
+  registrationId
 )
-
-if (!result) {
-  // Log is no longer in preprocessing state
-  return { error: 'Upload state changed unexpectedly' }
-}
 ```
 
-### 3. Remove Supersede Logic on Upload
+### 6. Update CDP Callback
 
-**Find**: Code that supersedes existing `validating`/`validated` logs when a new upload arrives.
+**File**: `src/routes/v1/organisations/registrations/summary-logs/upload-completed/post.js`
 
-**Remove**: The entire supersede operation. Multiple validated logs can now coexist.
+#### Remove supersede logic
+
+**Remove** the entire `handlePendingLogsOnValidation` function and its call. Multiple validated logs can now coexist.
+
+#### Record baseline at creation
+
+When creating the summary log, record the current submission baseline:
 
 ```javascript
-// REMOVE this code (or similar)
-await SummaryLog.updateMany(
-  {
+// Before inserting the summary log, find the latest submitted log
+const latestSubmitted =
+  await summaryLogsRepository.findLatestSubmittedForOrgReg(
     organisationId,
-    registrationId,
-    _id: { $ne: logId },
-    status: { $in: ['validating', 'validated'] }
-  },
-  { $set: { status: 'superseded' } }
-)
-```
+    registrationId
+  )
 
-### 4. Remove Upload Blocking
-
-**Find**: Code that checks for `submitting` status before allowing upload/validation.
-
-**Remove**: This check. Uploads should never be blocked.
-
-```javascript
-// REMOVE this code (or similar)
-const submitting = await SummaryLog.findOne({
-  organisationId,
-  registrationId,
-  status: 'submitting'
-})
-if (submitting) {
-  throw Boom.conflict('A submission is in progress. Please wait.')
+const summaryLog = {
+  // ... existing fields
+  validatedAgainstLogId: latestSubmitted?.summaryLog?._id ?? null
 }
+
+await summaryLogsRepository.insert(summaryLogId, summaryLog)
 ```
 
-### 5. Update Confirm Endpoint
+**Note**: The baseline is recorded at summary log creation time, which happens when the CDP callback arrives with a successful scan result.
+
+### 7. Update Confirm Endpoint
+
+**File**: `src/routes/v1/organisations/registrations/summary-logs/submit/post.js`
 
 This is the most significant change. The confirm endpoint must:
 
-1. Atomically transition to `submitting`
-2. Check we're the only one submitting (handle concurrent confirms)
-3. Check staleness (compare `validatedAgainstLogId` to current latest)
-4. Revert if either check fails
-
-**Replace** the existing confirm logic with:
+1. Atomically transition to `submitting` (fails if another submission in progress)
+2. Check staleness (compare `validatedAgainstLogId` to current latest)
+3. Revert if staleness check fails
 
 ```javascript
-async function confirmSummaryLog(logId, organisationId, registrationId) {
-  // Step 1: Atomic transition to submitting
-  const log = await SummaryLog.findOneAndUpdate(
-    { _id: logId, status: 'validated' },
-    { $set: { status: 'submitting' } },
-    { returnDocument: 'after' }
+async function confirmSummaryLog(
+  summaryLogsRepository,
+  logId,
+  organisationId,
+  registrationId
+) {
+  // Step 1: Atomically transition to submitting
+  // This fails if another log for the same org/reg is already submitting
+  const result = await summaryLogsRepository.transitionToSubmittingExclusive(
+    logId,
+    version,
+    organisationId,
+    registrationId
   )
 
-  if (!log) {
-    throw Boom.conflict('Summary log is no longer in a confirmable state')
+  if (!result.success) {
+    throw Boom.conflict('Another submission is in progress. Please try again.')
   }
 
+  const { summaryLog, version: newVersion } = result
+
   try {
-    // Step 2: Check we're the only one submitting for this org/reg
-    const submittingCount = await SummaryLog.countDocuments({
-      organisationId,
-      registrationId,
-      status: 'submitting'
-    })
+    // Step 2: Check staleness
+    const currentLatest =
+      await summaryLogsRepository.findLatestSubmittedForOrgReg(
+        organisationId,
+        registrationId
+      )
 
-    if (submittingCount > 1) {
-      throw Boom.conflict('Another submission started. Please try again.')
-    }
-
-    // Step 3: Check staleness
-    const currentLatest = await SummaryLog.findOne({
-      organisationId,
-      registrationId,
-      status: 'submitted'
-    }).sort({ submittedAt: -1 })
-
-    const baseline = log.validatedAgainstLogId?.toString() ?? null
-    const current = currentLatest?._id?.toString() ?? null
+    const baseline = summaryLog.validatedAgainstLogId ?? null
+    const current = currentLatest?.summaryLog?._id ?? null
 
     if (baseline !== current) {
       throw Boom.conflict(
@@ -178,56 +224,51 @@ async function confirmSummaryLog(logId, organisationId, registrationId) {
       )
     }
 
-    // Step 4: Proceed with submission
-    await updateWasteRecords(log)
-
-    // Step 5: Mark as submitted
-    await SummaryLog.findOneAndUpdate(
-      { _id: logId },
-      { $set: { status: 'submitted', submittedAt: new Date() } }
-    )
-
-    return { success: true }
+    // Step 3: Proceed with submission (delegate to worker)
+    return { proceed: true }
   } catch (error) {
-    // Revert to validated on any error
-    await SummaryLog.findOneAndUpdate(
-      { _id: logId, status: 'submitting' },
-      { $set: { status: 'validated' } }
-    )
+    // Step 4: Revert to validated on staleness failure
+    await summaryLogsRepository.update(logId, newVersion, {
+      ...summaryLog,
+      status: 'validated'
+    })
     throw error
   }
 }
 ```
 
-### 6. Optional: Add Staleness Indicator to GET
+### 8. Optional: Add Staleness Indicator to GET
 
 For better UX, indicate staleness when the user views a summary log.
 
-**Find**: The GET summary log endpoint.
-
-**Add**:
+**File**: `src/routes/v1/organisations/registrations/summary-logs/get.js`
 
 ```javascript
-async function getSummaryLog(logId) {
-  const log = await SummaryLog.findById(logId)
+async function getSummaryLog(
+  summaryLogsRepository,
+  logId,
+  organisationId,
+  registrationId
+) {
+  const existing = await summaryLogsRepository.findById(logId)
 
-  if (!log || log.status !== 'validated') {
-    return log
+  if (!existing || existing.summaryLog.status !== 'validated') {
+    return existing
   }
 
   // Check if preview is stale
-  const currentLatest = await SummaryLog.findOne({
-    organisationId: log.organisationId,
-    registrationId: log.registrationId,
-    status: 'submitted'
-  }).sort({ submittedAt: -1 })
+  const currentLatest =
+    await summaryLogsRepository.findLatestSubmittedForOrgReg(
+      organisationId,
+      registrationId
+    )
 
-  const isStale =
-    (log.validatedAgainstLogId?.toString() ?? null) !==
-    (currentLatest?._id?.toString() ?? null)
+  const baseline = existing.summaryLog.validatedAgainstLogId ?? null
+  const current = currentLatest?.summaryLog?._id ?? null
+  const isStale = baseline !== current
 
   return {
-    ...log.toObject(),
+    ...existing,
     isStale
   }
 }
@@ -235,22 +276,34 @@ async function getSummaryLog(logId) {
 
 The frontend can then display a warning if `isStale` is true.
 
-### 7. Add TTL Index for Cleanup
+---
 
-Without superseding, validated logs will accumulate. Add a TTL index for cleanup.
+## Contract Tests
 
-```javascript
-// Add TTL index on validated logs
-summaryLogSchema.index(
-  { validatedAt: 1 },
-  {
-    expireAfterSeconds: 86400, // 24 hours
-    partialFilterExpression: { status: 'validated' }
-  }
-)
-```
+Update the repository contract tests to cover the new methods:
 
-**Note**: Also add TTL for `preprocessing` logs (already may exist).
+### `findLatestSubmittedForOrgReg`
+
+1. Returns `null` when no submitted logs exist
+2. Returns the submitted log when one exists
+3. Returns the most recent when multiple submitted logs exist
+4. Only returns logs for the specified org/reg pair
+5. Does not return logs in other statuses (validated, submitting, etc.)
+
+### `transitionToSubmittingExclusive`
+
+1. Returns `{success: true, summaryLog, version}` when no other log is submitting
+2. Returns `{success: false}` when another log for same org/reg is already submitting
+3. Throws when log not found
+4. Throws when log is not in `validated` status
+5. Only considers logs for the specified org/reg pair (different org/reg can submit concurrently)
+6. Updates the log's version on successful transition
+7. Handles concurrent calls correctly (only one succeeds)
+
+### Remove old contract tests
+
+- Remove tests for `supersedePendingLogs`
+- Remove tests for `checkForSubmittingLog`
 
 ---
 
@@ -260,14 +313,15 @@ summaryLogSchema.index(
 
 1. **Happy path**: Upload → validate → confirm → success
 2. **Stale preview**: User A confirms while User B has a validated preview → User B's confirm fails with staleness error
-3. **Concurrent confirms (different logs)**: Two users confirm simultaneously → one succeeds, one gets "another submission started"
-4. **Concurrent confirms (same log)**: Two tabs confirm same log → one succeeds, one fails
+3. **Concurrent confirms (different logs)**: Two users confirm simultaneously → `transitionToSubmittingExclusive` ensures only one succeeds, other gets "another submission in progress"
+4. **Concurrent confirms (same log)**: Two tabs confirm same log → one succeeds, one fails (log no longer in `validated` status)
 5. **Upload during submission**: User uploads while another submission in progress → upload succeeds, preview generated, confirm fails (stale)
 6. **First submission for org/reg**: `validatedAgainstLogId` is null, no prior submissions → should succeed
+7. **Different org/reg pairs**: Submissions for different org/reg pairs can proceed concurrently (no blocking)
 
 ### Edge Cases
 
-- Confirm when log is already `submitting` (should fail atomic transition)
+- Confirm when log is already `submitting` (should fail status check)
 - Confirm when log is `superseded` (if state still exists) or other non-`validated` state
 - Network failure during submission (should revert to `validated`)
 
@@ -275,7 +329,7 @@ summaryLogSchema.index(
 
 ## Migration Notes
 
-### If `superseded` State Still Exists
+### `superseded` State
 
 The `superseded` state can be left in place for backwards compatibility with existing logs, but new code should not create logs in this state.
 
@@ -283,11 +337,11 @@ Alternatively, run a migration to transition old `superseded` logs to a terminal
 
 ### Existing Validated Logs
 
-Existing `validated` logs won't have `validatedAgainstLogId`. Handle this:
+Existing `validated` logs won't have `validatedAgainstLogId`. Handle this conservatively:
 
 ```javascript
 // In staleness check
-const baseline = log.validatedAgainstLogId?.toString() ?? null
+const baseline = summaryLog.validatedAgainstLogId ?? null
 
 // If baseline is null and there are submitted logs, treat as stale
 // (conservative approach for migrated data)
@@ -298,7 +352,7 @@ if (baseline === null && currentLatest !== null) {
 }
 ```
 
-Or, more permissively, allow null baseline to match any state (risky but simpler migration).
+This ensures old previews can't accidentally submit against a changed baseline.
 
 ---
 
@@ -306,4 +360,13 @@ Or, more permissively, allow null baseline to match any state (risky but simpler
 
 The key insight of this design is that **staleness is checked at submission time, not enforced via state transitions**. This simplifies the state machine and eliminates upload blocking while maintaining data integrity.
 
-The `validatedAgainstLogId` field is the linchpin - it records the submission baseline at validation time, and any change to that baseline before confirmation means the preview is stale.
+The `validatedAgainstLogId` field is the linchpin - it records the submission baseline when the summary log is created, and any change to that baseline before confirmation means the preview is stale.
+
+### Repository Contract Changes
+
+| Method                            | Change |
+| --------------------------------- | ------ |
+| `supersedePendingLogs`            | Remove |
+| `checkForSubmittingLog`           | Remove |
+| `findLatestSubmittedForOrgReg`    | Add    |
+| `transitionToSubmittingExclusive` | Add    |
