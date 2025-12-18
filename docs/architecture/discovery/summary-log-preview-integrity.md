@@ -25,8 +25,14 @@ For related context, see:
   - [Scenarios](#scenarios)
     _ [Scenario 1: User confirms promptly](#scenario-1-user-confirms-promptly)
     _ [Scenario 2: Another user uploads before confirm](#scenario-2-another-user-uploads-before-confirm)
-    _ [Scenario 3: Another user tries to upload during submission](#scenario-3-another-user-tries-to-upload-during-submission)
-    _ [Scenario 4: User abandons preview](#scenario-4-user-abandons-preview)
+    \_ [Scenario 3: Another user tries to upload during submission](#scenario-3-another-user-tries-to-upload-during-submission)
+    - [Scenario 4: User abandons preview](#scenario-4-user-abandons-preview)
+  - [Race conditions](#race-conditions)
+    - [Race 1: Concurrent uploads for same org/reg](#race-1-concurrent-uploads-for-same-orgreg)
+    - [Race 2: Upload between verify and transition](#race-2-upload-between-verify-and-transition)
+    - [Race 3: Concurrent confirms of the same log](#race-3-concurrent-confirms-of-the-same-log)
+    - [Race 4: Upload during validation of another upload](#race-4-upload-during-validation-of-another-upload)
+  - [Summary](#summary)
     <!-- TOC -->
     <!-- prettier-ignore-end -->
 
@@ -260,3 +266,183 @@ sequenceDiagram
 ```
 
 **Outcome**: User A's abandoned preview does not block User B. The supersede mechanism allows new uploads at any time (except during active submission), preventing stuck states.
+
+## Race conditions
+
+The mechanisms described above involve multiple database operations. Without careful implementation, race conditions could undermine the integrity guarantees. This section documents the race conditions and required mitigations.
+
+For the complete summary log state machine, see the [Summary Log Submission LLD](./summary-log-submission-lld.md#summary-log-status-transitions). The key states relevant to preview integrity are:
+
+- `preprocessing` → `validating` → `validated` → `submitting` → `submitted`
+- `preprocessing`, `validating`, `validated` can transition to `superseded`
+- `submitting` **cannot** be superseded - uploads are blocked instead
+
+**Assumption**: MongoDB operations on a single document are atomic. Operations spanning multiple documents (e.g. bulk waste record writes) are not atomic, but the blocking mechanism prevents concurrent access during those operations.
+
+### Race 1: Concurrent uploads for same org/reg
+
+Two users upload summary logs for the same organisation/registration at the same time. The CDP callback triggers the supersede + create sequence.
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant DB
+
+    UserA->>API: CDP callback (upload A complete)
+    UserB->>API: CDP callback (upload B complete)
+
+    API->>DB: Check for submitting (A)
+    API->>DB: Check for submitting (B)
+    Note over DB: Neither finds submitting
+
+    API->>DB: Supersede existing (A)
+    API->>DB: Supersede existing (B)
+    Note over DB: Both supersede nothing (or each other?)
+
+    API->>DB: Create log A (preprocessing)
+    API->>DB: Create log B (preprocessing)
+    Note over DB: Both logs exist!
+```
+
+**Risk**: Both logs proceed through `validating` → `validated`, violating the "one active log per org/reg" invariant.
+
+**Mitigation**: The check + supersede + create operations must be atomic. Options:
+
+- Use a transaction for the entire sequence
+- Add a unique partial index on `(organisationId, registrationId)` for non-terminal statuses, causing one insert to fail
+
+### Race 2: Upload between verify and transition
+
+An upload arrives after confirm verifies "still current" but before transitioning to `submitting`.
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant DB
+
+    UserA->>API: Confirm log A
+
+    API->>DB: Verify log A is current
+    DB-->>API: Yes, log A is current ✓
+
+    UserB->>API: Upload log B
+    API->>DB: Check for submitting
+    DB-->>API: None found
+    API->>DB: Supersede log A
+    API->>DB: Create log B (validated)
+
+    API->>DB: Transition log A to submitting
+    Note over DB: Log A is now superseded AND submitting!
+```
+
+**Risk**: User A submits a superseded log with a stale preview.
+
+**Mitigation**: The "verify current" and "transition to submitting" must be atomic:
+
+```javascript
+// Atomic verify + transition
+const result = await findOneAndUpdate(
+  {
+    _id: logId,
+    organisationId,
+    registrationId,
+    status: 'validated' // Only succeeds if still validated
+  },
+  { $set: { status: 'submitting' } }
+)
+if (!result) {
+  throw Boom.conflict('Summary log is no longer current')
+}
+```
+
+### Race 3: Concurrent confirms of the same log
+
+Two browser tabs (or users with access to the same log) click confirm simultaneously.
+
+```mermaid
+sequenceDiagram
+    participant Tab1
+    participant Tab2
+    participant API
+    participant DB
+
+    Tab1->>API: Confirm log A
+    Tab2->>API: Confirm log A
+
+    API->>DB: Verify current (Tab1)
+    API->>DB: Verify current (Tab2)
+    Note over DB: Both succeed
+
+    API->>DB: Transition to submitting (Tab1)
+    API->>DB: Transition to submitting (Tab2)
+    Note over DB: Both try to submit!
+```
+
+**Risk**: Double submission attempt. Could result in duplicate waste record versions.
+
+**Mitigation**: Same as Race 2 - atomic `findOneAndUpdate` with `status: 'validated'` condition. Only one request succeeds; the other finds the status is no longer `validated` and fails.
+
+### Race 4: Upload during validation of another upload
+
+A new upload supersedes a log that is still being validated (processing a large file).
+
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant UserB
+    participant API
+    participant Worker
+    participant DB
+
+    UserA->>API: Upload log A
+    API->>DB: Create log A (validating)
+    API->>Worker: Start validation
+
+    Note over Worker: Processing large file...
+
+    UserB->>API: Upload log B
+    API->>DB: Supersede log A
+    API->>DB: Create log B (validated)
+
+    Worker-->>API: Validation complete
+    API->>DB: Update log A to validated
+    Note over DB: Log A is superseded but now validated!
+```
+
+**Risk**: A superseded log transitions to `validated`, potentially allowing confirmation of stale data.
+
+**Mitigation**: Before saving `validated` status, verify the log hasn't been superseded:
+
+```javascript
+// Atomic validation completion
+const result = await findOneAndUpdate(
+  {
+    _id: logId,
+    status: 'validating' // Only succeeds if still validating
+  },
+  { $set: { status: 'validated', loads: calculatedLoads } }
+)
+if (!result) {
+  // Log was superseded during validation - discard results
+  return
+}
+```
+
+## Summary
+
+| Race | Description              | Mitigation                                        |
+| ---- | ------------------------ | ------------------------------------------------- |
+| 1    | Concurrent uploads       | Transaction or unique partial index               |
+| 2    | Upload during confirm    | Atomic verify + transition (`findOneAndUpdate`)   |
+| 3    | Concurrent confirms      | Atomic verify + transition (`findOneAndUpdate`)   |
+| 4    | Upload during validation | Atomic validation completion (`findOneAndUpdate`) |
+
+Races 2-4 follow the same pattern: use `findOneAndUpdate` with a status condition to make check-then-act operations atomic. This is possible because each race involves a single summary log document, and MongoDB guarantees atomicity for single-document operations.
+
+Race 1 is different because it involves multiple operations (check for submitting, supersede existing, create new). Options include using a transaction or a unique partial index on `(organisationId, registrationId)` for non-terminal statuses.
+
+The blocking mechanism (check for `submitting` before upload) handles the waste records partial-read problem separately. The races documented here are about summary log state transitions, which can be made atomic within MongoDB's guarantees.
