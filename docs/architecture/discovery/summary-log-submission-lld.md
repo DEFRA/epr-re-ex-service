@@ -16,7 +16,7 @@ For related context, see:
   * [Technical approach](#technical-approach)
     * [Overall workflow](#overall-workflow)
     * [Summary log status transitions](#summary-log-status-transitions)
-    * [Organisation/registration level constraint](#organisationregistration-level-constraint)
+    * [Deferred staleness detection](#deferred-staleness-detection)
     * [Repository port design](#repository-port-design)
     * [Shared transformation logic](#shared-transformation-logic)
     * [Row transformation detail](#row-transformation-detail)
@@ -40,8 +40,8 @@ For related context, see:
 2. Validate uploaded data and calculate preview statistics (created/updated/unchanged records) and summary
 3. Allow users to review preview before confirming submission
 4. Submit validated data by appending new versions to waste record version history
-5. Handle or prevent concurrent submissions for the same organisation/registration pair
-6. Prevent stale previews when new uploads supersede previous ones
+5. Prevent concurrent submissions for the same organisation/registration pair
+6. Detect and reject stale previews at submission time
 
 ### Non-functional requirements
 
@@ -66,8 +66,8 @@ sequenceDiagram
 
     User->>CDPUploader: Upload summary log
     CDPUploader->>API: Upload complete
-    API->>SummaryLogs: Supersede existing unsubmitted logs for org/reg
-    API->>SummaryLogs: Create new
+    API->>SummaryLogs: Find latest submitted for org/reg
+    API->>SummaryLogs: Create new (record baseline)
 
     API->>SummaryLogs: Extract & validate file
     API->>WasteRecords: Read existing records
@@ -78,13 +78,18 @@ sequenceDiagram
     API-->>User: Show loads from summary log
 
     User->>API: Submit (confirm)
-    API->>SummaryLogs: Verify still current for org/reg
-    API->>SummaryLogs: Transition to submitting
-    API->>WasteRecords: Read existing records
-    API->>API: Recalculate using same timestamp
-    API->>WasteRecords: Bulk append versions
-    API->>SummaryLogs: Mark as submitted
-    API-->>User: Submission complete
+    API->>SummaryLogs: Transition to submitting (atomic, exclusive)
+    API->>SummaryLogs: Check staleness (baseline vs current)
+    alt Stale
+        API->>SummaryLogs: Mark as superseded
+        API-->>User: Error: Preview is stale, re-upload required
+    else Fresh
+        API->>WasteRecords: Read existing records
+        API->>API: Recalculate using same timestamp
+        API->>WasteRecords: Bulk append versions
+        API->>SummaryLogs: Mark as submitted
+        API-->>User: Submission complete
+    end
 ```
 
 ### Summary log status transitions
@@ -100,11 +105,8 @@ stateDiagram-v2
     validating --> validation_failed: Processing failure
     validated --> submitting: User confirms submit
     submitting --> submitted: Submission complete
+    submitting --> superseded: Stale preview detected
     submitting --> submission_failed: Known failure
-
-    preprocessing --> superseded: New upload for org/reg
-    validating --> superseded: New upload for org/reg
-    validated --> superseded: New upload for org/reg
 
     rejected --> [*]
     invalid --> [*]
@@ -122,13 +124,14 @@ stateDiagram-v2
 
     note right of superseded
         Terminal state:
-        Another upload
-        for same org/reg
+        Preview was stale at
+        submission time.
+        User must re-upload.
     end note
 
     note right of submitting
-        Blocks new uploads
-        for same org/reg.
+        Atomic transition prevents
+        concurrent submissions.
         Manual intervention
         if stuck.
     end note
@@ -151,9 +154,9 @@ stateDiagram-v2
     end note
 ```
 
-### Organisation/registration level constraint
+### Deferred staleness detection
 
-The system enforces that only one active summary log can exist per organisation/registration pair. Uploads are blocked during submission, and "last upload wins" for unsubmitted logs.
+Multiple validated summary logs can coexist for the same organisation/registration pair. Staleness is detected at submission time by comparing the baseline (recorded when the summary log was created) to the current latest submitted log.
 
 ```mermaid
 sequenceDiagram
@@ -163,56 +166,85 @@ sequenceDiagram
     participant DB
 
     User1->>API: Upload summary log A
-    API->>DB: Supersede existing unsubmitted (org1/reg1)
-    API->>DB: Create log A (org1/reg1, status: validated)
-
-    User1->>API: View preview for log A
+    API->>DB: Find latest submitted for org1/reg1
+    DB-->>API: null (first submission)
+    API->>DB: Create log A (baseline: NO_PRIOR_SUBMISSION)
 
     User2->>API: Upload summary log B (same org1/reg1)
-    API->>DB: Supersede log A
-    API->>DB: Create log B (org1/reg1, status: validated)
+    API->>DB: Find latest submitted for org1/reg1
+    DB-->>API: null (still no submissions)
+    API->>DB: Create log B (baseline: NO_PRIOR_SUBMISSION)
+
+    Note over User1,User2: Both users have valid previews
 
     User1->>API: Submit log A
-    API->>DB: Check current log for org1/reg1
-    DB-->>API: Current is log B
-    API-->>User1: Error: Newer upload exists
+    API->>DB: Transition to submitting (atomic, exclusive)
+    API->>DB: Check staleness (baseline vs current)
+    DB-->>API: Current: null, Baseline: NO_PRIOR_SUBMISSION ✓
+    API->>DB: Process and mark as submitted
+
+    User2->>API: Submit log B
+    API->>DB: Transition to submitting (atomic, exclusive)
+    API->>DB: Check staleness (baseline vs current)
+    DB-->>API: Current: log A, Baseline: NO_PRIOR_SUBMISSION ✗
+    API->>DB: Mark log B as superseded
+    API-->>User2: Error: Preview is stale, re-upload required
 ```
 
 **Key operations:**
 
-On upload, check for active submission and supersede unsubmitted logs:
+On upload, record the baseline (latest submitted log at upload time):
 
 ```javascript
-// 1. Block if submission in progress
-const submitting = await findOne({
+// Find the latest submitted summary log for this org/reg
+const latestSubmitted = await findLatestSubmittedForOrgReg(
   organisationId,
-  registrationId,
-  status: 'submitting'
-})
-if (submitting) {
-  throw Boom.conflict('A submission is in progress. Please wait.')
-}
+  registrationId
+)
 
-// 2. Supersede unsubmitted logs
-status: { $in: ['preprocessing', 'validating', 'validated'] }
-  → status: 'superseded'
+// Record the baseline when creating the summary log
+const summaryLog = {
+  // ... other fields
+  validatedAgainstSummaryLogId: latestSubmitted?.id ?? NO_PRIOR_SUBMISSION
+}
 ```
 
-On submit, verify still current:
+On submit, atomically transition and check staleness:
 
 ```javascript
-// Ensure this log is still the current validated one
-if (currentValidatedLog.id !== submittedLogId) {
-  throw Boom.conflict('A newer summary log has been uploaded')
+// 1. Atomically transition to submitting (fails if another submission in progress)
+const result = await transitionToSubmittingExclusive(summaryLogId)
+if (!result.success) {
+  throw Boom.conflict('Another submission is in progress. Please try again.')
 }
+
+// 2. Check staleness
+const currentLatest = await findLatestSubmittedForOrgReg(
+  organisationId,
+  registrationId
+)
+const baseline = summaryLog.validatedAgainstSummaryLogId
+const current = currentLatest?.id ?? NO_PRIOR_SUBMISSION
+
+if (baseline !== current) {
+  // Mark as superseded - stale preview cannot be resubmitted
+  await update(summaryLogId, { status: 'superseded' })
+  throw Boom.conflict(
+    'Waste records have changed since preview was generated. Please re-upload.'
+  )
+}
+
+// 3. Proceed with submission
 ```
 
 **Rationale:**
 
-- Blocks uploads during submission to prevent partial data from superseded logs
-- Last upload wins for unsubmitted logs - simple mental model
-- Eliminates stale preview problem entirely
-- Clear error messages guide users
+- Never blocks uploads - users can always start a new upload
+- Multiple users can work on previews simultaneously
+- Staleness detected at submission time, not on upload
+- Stale previews marked as `superseded` - cannot be resubmitted
+- Atomic transition prevents concurrent submissions for the same org/reg
+- Clear error messages guide users to re-upload
 
 ### Repository port design
 
@@ -408,23 +440,28 @@ After user confirms preview, persist the changes:
 
 ```mermaid
 flowchart TD
-    A[User confirms submit] --> B[Verify log still current for org/reg]
-    B --> C{Still current?}
-    C -->|No| D[Error: Newer upload exists]
-    C -->|Yes| E[Transition to submitting]
-    E --> F[Transform using submission timestamp]
-    F --> G[Filter: only versions from this summary log]
-    G --> H[Build versionsByKey Map]
-    H --> I[Bulk append versions to waste records]
-    I --> J[Mark summary log as submitted]
-    J --> K[Complete]
+    A[User confirms submit] --> B[Transition to submitting - atomic, exclusive]
+    B --> C{Success?}
+    C -->|No| D[Error: Another submission in progress]
+    C -->|Yes| E[Check staleness: baseline vs current]
+    E --> F{Stale?}
+    F -->|Yes| G[Mark as superseded]
+    G --> H[Error: Preview stale, re-upload required]
+    F -->|No| I[Transform using submission timestamp]
+    I --> J[Filter: only versions from this summary log]
+    J --> K[Build versionsByKey Map]
+    K --> L[Bulk append versions to waste records]
+    L --> M[Mark summary log as submitted]
+    M --> N[Complete]
 ```
 
 **Key points:**
 
 - Uses same transformation logic as validation phase
 - Captures timestamp at submission start for consistent times across all rows
-- Org/reg constraint check prevents stale submissions
+- Atomic transition prevents concurrent submissions for same org/reg
+- Staleness check compares baseline (`validatedAgainstSummaryLogId`) to current latest submitted
+- Stale previews marked as `superseded` - user must re-upload
 - Bulk operation handles up to 15k records efficiently
 - On failure, leaves in 'submitting' state for recovery
 
@@ -493,10 +530,11 @@ The MongoDB adapter uses bulk operations for efficient version appending:
 3. Loads stored in summary log: `{ loads: { added: {valid: {count, rowIds}, invalid: {count, rowIds}}, unchanged: {...}, adjusted: {...} } }`
 4. Idempotency check happens in application layer before building the Map (avoids unnecessary writes)
 5. Map key format `"type:rowId"` naturally groups versions by waste record
-6. New uploads must supersede existing unsubmitted summary logs for the same org/reg
-7. Submit must verify the summary log is still current before processing
-8. The `superseded` status is a terminal state (no further transitions allowed)
-9. If memory usage becomes a concern with >15k records, batch the Map building and multiple `appendVersions` calls
+6. Multiple validated logs can coexist - staleness checked at submission time
+7. Baseline (`validatedAgainstSummaryLogId`) recorded at upload time, compared to current at submission
+8. The `superseded` status is a terminal state for stale previews (no further transitions allowed)
+9. Atomic `transitionToSubmittingExclusive` prevents concurrent submissions via MongoDB unique partial index
+10. If memory usage becomes a concern with >15k records, batch the Map building and multiple `appendVersions` calls
 
 ## Incremental delivery
 
@@ -506,17 +544,20 @@ The MongoDB adapter uses bulk operations for efficient version appending:
 
 **Scope**:
 
-- Org/reg level locking to prevent concurrent submissions
+- Deferred staleness detection at submission time
+- Atomic transition to `submitting` prevents concurrent submissions
 - Two-phase workflow (validate/preview + submit)
 - Idempotent version appending
 - Summary log status transitions: `preprocessing` → `validating` → `validated` → `submitting` → `submitted`
-- `superseded` state for uploads that are replaced
+- `superseded` state for stale previews detected at submission
 - Manual recovery for stuck submissions (left in `submitting` state)
 
 **Benefits**:
 
-- Eliminates stale preview problem
-- Prevents race conditions
+- Never blocks uploads - users can always start new uploads
+- Multiple users can work on previews simultaneously
+- Stale previews detected and rejected at submission time
+- Prevents concurrent submission race conditions
 - Handles 15k+ records efficiently
 - Safe retry on failure
 
