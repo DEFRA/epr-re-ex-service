@@ -1,0 +1,645 @@
+{
+  "basePath": "/",
+  "info": {
+    "title": "API Documentation",
+    "version": "1"
+  },
+  "swagger": "2.0",
+  "host": "localhost:3001",
+  "schemes": [
+    "http"
+  ],
+  "tags": [],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "health"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations": {
+      "get": {
+        "operationId": "getV1Organisations",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/system-logs": {
+      "get": {
+        "operationId": "getV1Systemlogs",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/form-submissions/{documentId}": {
+      "get": {
+        "operationId": "getV1FormsubmissionsDocumentid",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/me/organisations": {
+      "get": {
+        "operationId": "getV1MeOrganisations",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}": {
+      "get": {
+        "operationId": "getV1OrganisationsOrganisationid",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}": {
+      "get": {
+        "operationId": "getV1OrganisationsOrganisationidRegistrationsRegistrationidSummarylogsSummarylogid",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "uploadId",
+            "in": "query",
+            "required": false
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Model3"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/apply/accreditation": {
+      "post": {
+        "operationId": "postV1ApplyAccreditation",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Hidden Model"
+            }
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/apply/organisation": {
+      "post": {
+        "operationId": "postV1ApplyOrganisation",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Hidden Model"
+            }
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/apply/registration": {
+      "post": {
+        "operationId": "postV1ApplyRegistration",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Hidden Model"
+            }
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}/link": {
+      "post": {
+        "operationId": "postV1OrganisationsOrganisationidLink",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs": {
+      "post": {
+        "operationId": "postV1OrganisationsOrganisationidRegistrationsRegistrationidSummarylogs",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Model4"
+            }
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit": {
+      "post": {
+        "operationId": "postV1OrganisationsOrganisationidRegistrationsRegistrationidSummarylogsSummarylogidSubmit",
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Model3"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{id}": {
+      "put": {
+        "operationId": "putV1OrganisationsId",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Hidden Model"
+            }
+          }
+        ],
+        "tags": [
+          "v1"
+        ],
+        "responses": {
+          "default": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Successful"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "preprocessing",
+        "rejected",
+        "validating",
+        "invalid",
+        "validated",
+        "submitting",
+        "submitted",
+        "superseded",
+        "validation_failed"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning"
+      ]
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "row": {
+          "type": "number"
+        },
+        "rowId": {
+          "type": "string"
+        },
+        "header": {
+          "type": "string"
+        },
+        "column": {
+          "type": "string"
+        }
+      }
+    },
+    "Model1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/type"
+        },
+        "code": {
+          "type": "string"
+        },
+        "header": {
+          "type": "string"
+        },
+        "column": {
+          "type": "string"
+        },
+        "actual": {
+          "type": "string"
+        },
+        "expected": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/definitions/location"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Model1"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Model1"
+      }
+    },
+    "Model2": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "issues": {
+          "$ref": "#/definitions/issues"
+        }
+      },
+      "required": [
+        "row",
+        "issues"
+      ]
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Model2"
+      }
+    },
+    "string": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string"
+        },
+        "rows": {
+          "$ref": "#/definitions/rows"
+        }
+      },
+      "required": [
+        "sheet",
+        "rows"
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "failures": {
+          "$ref": "#/definitions/failures"
+        },
+        "concerns": {
+          "type": "object",
+          "properties": {
+            "string": {
+              "$ref": "#/definitions/string"
+            }
+          }
+        }
+      },
+      "required": [
+        "failures",
+        "concerns"
+      ]
+    },
+    "rowIds": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "x-alternatives": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          }
+        ]
+      }
+    },
+    "valid": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowIds": {
+          "$ref": "#/definitions/rowIds"
+        }
+      },
+      "required": [
+        "count",
+        "rowIds"
+      ]
+    },
+    "invalid": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowIds": {
+          "$ref": "#/definitions/rowIds"
+        }
+      },
+      "required": [
+        "count",
+        "rowIds"
+      ]
+    },
+    "included": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowIds": {
+          "$ref": "#/definitions/rowIds"
+        }
+      },
+      "required": [
+        "count",
+        "rowIds"
+      ]
+    },
+    "excluded": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowIds": {
+          "$ref": "#/definitions/rowIds"
+        }
+      },
+      "required": [
+        "count",
+        "rowIds"
+      ]
+    },
+    "added": {
+      "type": "object",
+      "properties": {
+        "valid": {
+          "$ref": "#/definitions/valid"
+        },
+        "invalid": {
+          "$ref": "#/definitions/invalid"
+        },
+        "included": {
+          "$ref": "#/definitions/included"
+        },
+        "excluded": {
+          "$ref": "#/definitions/excluded"
+        }
+      },
+      "required": [
+        "valid",
+        "invalid",
+        "included",
+        "excluded"
+      ]
+    },
+    "unchanged": {
+      "type": "object",
+      "properties": {
+        "valid": {
+          "$ref": "#/definitions/valid"
+        },
+        "invalid": {
+          "$ref": "#/definitions/invalid"
+        },
+        "included": {
+          "$ref": "#/definitions/included"
+        },
+        "excluded": {
+          "$ref": "#/definitions/excluded"
+        }
+      },
+      "required": [
+        "valid",
+        "invalid",
+        "included",
+        "excluded"
+      ]
+    },
+    "adjusted": {
+      "type": "object",
+      "properties": {
+        "valid": {
+          "$ref": "#/definitions/valid"
+        },
+        "invalid": {
+          "$ref": "#/definitions/invalid"
+        },
+        "included": {
+          "$ref": "#/definitions/included"
+        },
+        "excluded": {
+          "$ref": "#/definitions/excluded"
+        }
+      },
+      "required": [
+        "valid",
+        "invalid",
+        "included",
+        "excluded"
+      ]
+    },
+    "loads": {
+      "type": "object",
+      "properties": {
+        "added": {
+          "$ref": "#/definitions/added"
+        },
+        "unchanged": {
+          "$ref": "#/definitions/unchanged"
+        },
+        "adjusted": {
+          "$ref": "#/definitions/adjusted"
+        }
+      },
+      "required": [
+        "added",
+        "unchanged",
+        "adjusted"
+      ]
+    },
+    "Model3": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/status"
+        },
+        "validation": {
+          "$ref": "#/definitions/validation"
+        },
+        "loads": {
+          "$ref": "#/definitions/loads"
+        },
+        "processingType": {
+          "type": "string"
+        },
+        "material": {
+          "type": "string"
+        },
+        "accreditationNumber": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "Hidden Model": {
+      "type": "object"
+    },
+    "Model4": {
+      "type": "object",
+      "properties": {
+        "redirectUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "redirectUrl"
+      ]
+    }
+  }
+}
