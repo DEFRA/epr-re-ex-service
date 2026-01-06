@@ -64,7 +64,7 @@ flowchart TD
     end
 
     subgraph Linking["Organisation Linking"]
-        ACCOUNT["Account Page"]
+        ACCOUNT["Account Home"]
         LINKING["Link Organisation"]
         EMAIL_NOT_RECOG["Email Not Recognised"]
     end
