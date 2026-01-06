@@ -115,12 +115,12 @@ flowchart TD
     LOGOUT -->|Clear session| DEFRA_ID
     DEFRA_ID -->|Post-logout| HOME
 
-    classDef static fill:#e8f5e9,stroke:#2e7d32
-    classDef auth fill:#e3f2fd,stroke:#1565c0
-    classDef linking fill:#fff3e0,stroke:#ef6c00
-    classDef dashboard fill:#f3e5f5,stroke:#7b1fa2
-    classDef upload fill:#fce4ec,stroke:#c2185b
-    classDef external fill:#eceff1,stroke:#546e7a,stroke-dasharray: 5 5
+    classDef static fill:#51cf66,stroke:#2e7d32,color:#000,stroke-width:2px
+    classDef auth fill:#74c0fc,stroke:#1565c0,color:#000,stroke-width:2px
+    classDef linking fill:#ffd43b,stroke:#ef6c00,color:#000,stroke-width:2px
+    classDef dashboard fill:#b197fc,stroke:#7b1fa2,color:#000,stroke-width:2px
+    classDef upload fill:#FF8870,stroke:#5E342B,color:#000,stroke-width:2px
+    classDef external fill:#dee2e6,stroke:#546e7a,color:#000,stroke-width:2px,stroke-dasharray: 5 5
 
     class HOME,CONTACT,COOKIES,HEALTH static
     class LOGIN,CALLBACK,LOGOUT auth
