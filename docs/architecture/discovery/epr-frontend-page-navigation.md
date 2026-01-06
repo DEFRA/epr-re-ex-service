@@ -50,80 +50,71 @@ The EPR Frontend is a Hapi.js application that provides the user interface for t
 ```mermaid
 flowchart TD
     subgraph Static["Static Pages"]
-        HOME["/\nHome Page"]
-        CONTACT["/contact\nContact Page"]
-        COOKIES["/cookies\nCookie Policy"]
-        HEALTH["/health\nHealth Check"]
+        HOME["Home Page"]
+        CONTACT["Contact Page"]
+        COOKIES["Cookie Policy"]
+        HEALTH["Health Check"]
     end
 
     subgraph Auth["Authentication Flow"]
-        LOGIN["/login\nInitiate OIDC"]
-        CALLBACK["/auth/callback\nAuth Callback"]
-        LOGOUT["/logout\nClear Session"]
-        DEFRA_ID["Defra ID\n(External OIDC)"]
+        LOGIN["Login"]
+        CALLBACK["Auth Callback"]
+        LOGOUT["Logout"]
+        DEFRA_ID["Defra ID"]
     end
 
     subgraph Linking["Organisation Linking"]
-        ACCOUNT["/account\nAccount/Orgs Page"]
-        LINKING["/account/linking\nLink Organisation Form"]
-        EMAIL_NOT_RECOG["/email-not-recognised\nEmail Not Recognised"]
+        ACCOUNT["Account Page"]
+        LINKING["Link Organisation"]
+        EMAIL_NOT_RECOG["Email Not Recognised"]
     end
 
     subgraph OrgDashboard["Organisation Dashboard"]
-        ORG_DASH["/organisations/{id}\nOrg Dashboard\n(Reprocessing Tab)"]
-        ORG_EXPORT["/organisations/{id}/exporting\nOrg Dashboard\n(Exporting Tab)"]
+        ORG_DASH["Reprocessing Tab"]
+        ORG_EXPORT["Exporting Tab"]
     end
 
     subgraph AccreditationFlow["Accreditation & Upload"]
-        ACCRED["/organisations/{orgId}/accreditations/{accId}\nAccreditation Detail"]
-        REG["/organisations/{orgId}/registrations/{regId}\nRegistration Detail"]
-        UPLOAD["/organisations/{orgId}/registrations/{regId}/summary-logs/upload\nUpload Summary Log"]
-        PROGRESS["/organisations/{orgId}/registrations/{regId}/summary-logs/{id}\nProgress Tracker"]
-        SUBMIT["/organisations/{orgId}/registrations/{regId}/summary-logs/{id}/submit\nSubmit Summary Log"]
+        ACCRED["Accreditation Detail"]
+        REG["Registration Detail"]
+        UPLOAD["Upload Summary Log"]
+        PROGRESS["Progress Tracker"]
+        SUBMIT["Submit"]
     end
 
-    %% User Journey Start
-    HOME -->|"Sign In button"| LOGIN
-    LOGIN -->|"Redirect"| DEFRA_ID
-    DEFRA_ID -->|"Auth success"| CALLBACK
+    HOME -->|Sign In| LOGIN
+    LOGIN -->|Redirect| DEFRA_ID
+    DEFRA_ID -->|Auth success| CALLBACK
 
-    %% Auth Callback Decision
-    CALLBACK -->|"Has linked orgs"| ACCOUNT
-    CALLBACK -->|"No linked orgs"| LINKING
+    CALLBACK -->|Has linked orgs| ACCOUNT
+    CALLBACK -->|No linked orgs| LINKING
 
-    %% Linking Flow
-    LINKING -->|"Has unlinked orgs:\nSelect & submit"| ACCOUNT
-    LINKING -->|"No unlinked orgs"| EMAIL_NOT_RECOG
-    EMAIL_NOT_RECOG -->|"Contact support"| CONTACT
+    LINKING -->|Select and submit| ACCOUNT
+    LINKING -->|No unlinked orgs| EMAIL_NOT_RECOG
+    EMAIL_NOT_RECOG -->|Contact support| CONTACT
 
-    %% Account to Org Dashboard
-    ACCOUNT -->|"Select organisation"| ORG_DASH
-    ORG_DASH <-->|"Tab switch"| ORG_EXPORT
+    ACCOUNT -->|Select organisation| ORG_DASH
+    ORG_DASH <-->|Tab switch| ORG_EXPORT
 
-    %% Accreditation Flow
-    ORG_DASH -->|"Select accreditation"| ACCRED
-    ORG_EXPORT -->|"Select accreditation"| ACCRED
-    ACCRED -->|"Back"| ORG_DASH
-    ACCRED -->|"View registration"| REG
-    ACCRED -->|"Upload summary log"| UPLOAD
+    ORG_DASH -->|Select accreditation| ACCRED
+    ORG_EXPORT -->|Select accreditation| ACCRED
+    ACCRED -->|Back| ORG_DASH
+    ACCRED -->|View registration| REG
+    ACCRED -->|Upload summary log| UPLOAD
 
-    %% Upload & Processing Flow
-    UPLOAD -->|"File uploaded"| PROGRESS
+    UPLOAD -->|File uploaded| PROGRESS
 
-    %% Progress States
-    PROGRESS -->|"Status: preprocessing\nvalidating, submitting"| PROGRESS
-    PROGRESS -->|"Status: validated"| SUBMIT
-    SUBMIT -->|"POST submit"| PROGRESS
-    PROGRESS -->|"Status: invalid/rejected"| UPLOAD
-    PROGRESS -->|"Status: submitted\n(Success!)"| ACCRED
+    PROGRESS -->|Processing| PROGRESS
+    PROGRESS -->|Validated| SUBMIT
+    SUBMIT -->|POST| PROGRESS
+    PROGRESS -->|Invalid| UPLOAD
+    PROGRESS -->|Submitted| ACCRED
 
-    %% Logout from anywhere
-    ACCOUNT -->|"Sign Out"| LOGOUT
-    ORG_DASH -->|"Sign Out"| LOGOUT
-    LOGOUT -->|"Clear session"| DEFRA_ID
-    DEFRA_ID -->|"Post-logout redirect"| HOME
+    ACCOUNT -->|Sign Out| LOGOUT
+    ORG_DASH -->|Sign Out| LOGOUT
+    LOGOUT -->|Clear session| DEFRA_ID
+    DEFRA_ID -->|Post-logout| HOME
 
-    %% Styling
     classDef static fill:#e8f5e9,stroke:#2e7d32
     classDef auth fill:#e3f2fd,stroke:#1565c0
     classDef linking fill:#fff3e0,stroke:#ef6c00
