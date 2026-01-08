@@ -151,8 +151,11 @@ services:
       - ./compose/aws.env
     environment:
       ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-6f504113-6b64-43f2-ade9-242e05780007}
       EPR_BACKEND_URL: http://localhost:3001
       NODE_ENV: development
+      OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       PORT: 3002
       REDIS_HOST: redis
       USE_SINGLE_INSTANCE_CACHE: true
@@ -234,19 +237,21 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
-      ADMIN_UI_ENTRA_CLIENT_ID: bd06da51-53f6-46d0-a9f0-ac562864c887
+      ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       AUDIT_ENABLED: false
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       FEATURE_FLAG_DEFRA_ID_AUTH: ${FEATURE_FLAG_DEFRA_ID_AUTH:-true}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
       FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
+      FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
-      SERVICE_MAINTAINER_EMAILS: '["customer.test.user.2@defradev.onmicrosoft.com"]'
+      SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com"]}
     secrets:
       - govuk_notify_api_key
     networks:
