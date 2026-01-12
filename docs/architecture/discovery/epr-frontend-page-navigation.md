@@ -10,6 +10,7 @@
   * [All Routes](#all-routes)
   * [Navigation Flow Diagram](#navigation-flow-diagram)
   * [Key Conditional Logic](#key-conditional-logic)
+    * [Start Page Navigation](#start-page-navigation)
     * [Authentication & Organisation Linking](#authentication--organisation-linking)
     * [Summary Log Processing States](#summary-log-processing-states)
   * [Authentication Requirements](#authentication-requirements)
@@ -26,18 +27,18 @@ The EPR Frontend is a Hapi.js application that provides the user interface for t
 | Path | Method | Purpose | Auth Required |
 |------|--------|---------|---------------|
 | `/health` | GET | Health check endpoint | No |
-| `/` | GET | Home/landing page | No |
+| `/` | GET | Redirects to `/start` | No |
+| `/start` | GET | Start/landing page with conditional "Start now" button | No |
 | `/login` | GET | Initiates OIDC login flow | No |
 | `/auth/callback` | GET | OIDC callback handler | No |
 | `/auth/organisation` | GET | Fallback safeguard | No |
 | `/logout` | GET | Clears session & redirects to Defra ID logout | Yes |
-| `/account` | GET | User account/organisations page | Yes |
+| `/logged-out` | GET | Logout confirmation page | No |
 | `/account/linking` | GET | Account linking form | Yes |
 | `/account/linking` | POST | Process organisation linking | Yes |
 | `/email-not-recognised` | GET | Email not recognised page | Yes |
 | `/organisations/{id}` | GET | Organisation dashboard (reprocessing tab) | Yes |
 | `/organisations/{id}/exporting` | GET | Organisation dashboard (exporting tab) | Yes |
-| `/organisations/{organisationId}/accreditations/{accreditationId}` | GET | Accreditation detail dashboard | Yes |
 | `/organisations/{organisationId}/registrations/{registrationId}` | GET | Registration detail page | Yes |
 | `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/upload` | GET | Summary log upload page | Yes |
 | `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}` | GET | Summary log progress tracker | Yes |
@@ -50,10 +51,12 @@ The EPR Frontend is a Hapi.js application that provides the user interface for t
 ```mermaid
 flowchart TD
     subgraph Static["Static Pages"]
-        HOME["Home Page"]
+        ROOT["/ (Redirect)"]
+        START["Start Page"]
         CONTACT["Contact Page"]
         COOKIES["Cookie Policy"]
         HEALTH["Health Check"]
+        LOGGED_OUT["Logged Out"]
     end
 
     subgraph Auth["Authentication Flow"]
@@ -64,7 +67,6 @@ flowchart TD
     end
 
     subgraph Linking["Organisation Linking"]
-        ACCOUNT["Account Home"]
         LINKING["Link Organisation"]
         EMAIL_NOT_RECOG["Email Not Recognised"]
     end
@@ -74,33 +76,34 @@ flowchart TD
         ORG_EXPORT["Exporting Tab"]
     end
 
-    subgraph AccreditationFlow["Accreditation & Upload"]
-        ACCRED["Accreditation Detail"]
+    subgraph RegistrationFlow["Registration & Upload"]
         REG["Registration Detail"]
         UPLOAD["Upload Summary Log"]
         PROGRESS["Progress Tracker"]
         SUBMIT["Submit"]
     end
 
-    HOME -->|Sign In| LOGIN
+    ROOT -->|Redirect| START
+    START -->|"Start Now (not logged in)"| LOGIN
+    START -->|"Start Now (logged in, linked)"| ORG_DASH
+    START -->|"Start Now (logged in, unlinked)"| LINKING
+
     LOGIN -->|Redirect| DEFRA_ID
     DEFRA_ID -->|Auth success| CALLBACK
 
-    CALLBACK -->|Has linked orgs| ACCOUNT
-    CALLBACK -->|No linked orgs| LINKING
+    CALLBACK -->|Has linked org| ORG_DASH
+    CALLBACK -->|No linked org| LINKING
 
-    LINKING -->|Select and submit| ACCOUNT
+    LINKING -->|Select and submit| ORG_DASH
     LINKING -->|No unlinked orgs| EMAIL_NOT_RECOG
     EMAIL_NOT_RECOG -->|Contact support| CONTACT
 
-    ACCOUNT -->|Select organisation| ORG_DASH
     ORG_DASH <-->|Tab switch| ORG_EXPORT
 
-    ORG_DASH -->|Select accreditation| ACCRED
-    ORG_EXPORT -->|Select accreditation| ACCRED
-    ACCRED -->|Back| ORG_DASH
-    ACCRED -->|View registration| REG
-    ACCRED -->|Upload summary log| UPLOAD
+    ORG_DASH -->|View registration| REG
+    ORG_EXPORT -->|View registration| REG
+    REG -->|Back| ORG_DASH
+    REG -->|Upload summary log| UPLOAD
 
     UPLOAD -->|File uploaded| PROGRESS
 
@@ -108,12 +111,11 @@ flowchart TD
     PROGRESS -->|Validated| SUBMIT
     SUBMIT -->|POST| PROGRESS
     PROGRESS -->|Invalid| UPLOAD
-    PROGRESS -->|Submitted| ACCRED
+    PROGRESS -->|Submitted| REG
 
-    ACCOUNT -->|Sign Out| LOGOUT
     ORG_DASH -->|Sign Out| LOGOUT
     LOGOUT -->|Clear session| DEFRA_ID
-    DEFRA_ID -->|Post-logout| HOME
+    DEFRA_ID -->|Post-logout| LOGGED_OUT
 
     classDef static fill:#51cf66,stroke:#2e7d32,color:#000,stroke-width:2px
     classDef auth fill:#74c0fc,stroke:#1565c0,color:#000,stroke-width:2px
@@ -122,15 +124,29 @@ flowchart TD
     classDef upload fill:#FF8870,stroke:#5E342B,color:#000,stroke-width:2px
     classDef external fill:#dee2e6,stroke:#546e7a,color:#000,stroke-width:2px,stroke-dasharray: 5 5
 
-    class HOME,CONTACT,COOKIES,HEALTH static
+    class ROOT,START,CONTACT,COOKIES,HEALTH,LOGGED_OUT static
     class LOGIN,CALLBACK,LOGOUT auth
-    class ACCOUNT,LINKING,EMAIL_NOT_RECOG linking
+    class LINKING,EMAIL_NOT_RECOG linking
     class ORG_DASH,ORG_EXPORT dashboard
-    class ACCRED,REG,UPLOAD,PROGRESS,SUBMIT upload
+    class REG,UPLOAD,PROGRESS,SUBMIT upload
     class DEFRA_ID external
 ```
 
 ## Key Conditional Logic
+
+### Start Page Navigation
+
+**Root URL (`/`):**
+
+Redirects immediately to `/start`.
+
+**Start Page (`/start`):**
+
+The "Start now" button destination is determined dynamically based on authentication state:
+
+1. **Not logged in** → `/login`
+2. **Logged in with linked organisation** → `/organisations/{linkedOrgId}`
+3. **Logged in without linked organisation** → `/account/linking`
 
 ### Authentication & Organisation Linking
 
@@ -138,8 +154,10 @@ flowchart TD
 
 1. Session is created and stored in cache
 2. User organisations are fetched from the backend API
-3. If the user has **no linked organisations** → redirect to `/account/linking`
-4. If the user has **linked organisations** → continue to referrer or `/`
+3. If the user has **no linked organisation** → redirect to `/account/linking`
+4. If the user has a **linked organisation**:
+   - If referrer exists and is NOT the start page → redirect to referrer
+   - Otherwise → redirect to `/organisations/{linkedOrgId}`
 
 **On `/account/linking` (GET):**
 
@@ -152,7 +170,7 @@ flowchart TD
 
 1. Validate `organisationId` in payload
 2. If validation fails → re-render form with error
-3. If validation passes → call `linkOrganisation()` API → redirect to `/account`
+3. If validation passes → call `linkOrganisation()` API → redirect to `/organisations/{organisationId}`
 
 ### Summary Log Processing States
 
@@ -174,7 +192,6 @@ The summary log upload workflow uses asynchronous processing with status polling
 
 **Protected routes** (require authenticated session):
 
-- `/account`
 - `/account/linking`
 - `/email-not-recognised`
 - `/organisations/**`
@@ -182,10 +199,12 @@ The summary log upload workflow uses asynchronous processing with status polling
 
 **Public routes:**
 
-- `/` (home)
+- `/` (redirect to `/start`)
+- `/start`
 - `/health`
 - `/login`
 - `/auth/callback`
+- `/logged-out`
 - `/contact`
 - `/cookies`
 
