@@ -225,6 +225,20 @@ services:
     networks:
       - cdp-tenant
 
+  # Load balancer for epr-backend (enables horizontal scaling)
+  # Usage: docker compose --profile epr-backend up -d --scale epr-backend=3
+  backend-lb:
+    profiles: ['all', 'epr-backend']
+    image: nginx:alpine
+    ports:
+      - '3001:80'
+    volumes:
+      - ./compose/backend-lb.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - epr-backend
+    networks:
+      - cdp-tenant
+
   epr-backend:
     profiles: ['all', 'epr-backend']
     image: defradigital/epr-backend:${BACKEND_VERSION:-latest}
@@ -233,8 +247,9 @@ services:
       context: ./lib/epr-backend
       target: development
       dockerfile: ./Dockerfile
-    ports:
-      - '3001:3001'
+    # No host port - accessed via backend-lb load balancer on port 3001
+    expose:
+      - '3001'
     extra_hosts:
       - 'localhost:host-gateway'
     links:
