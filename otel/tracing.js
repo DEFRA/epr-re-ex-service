@@ -19,7 +19,9 @@ const sdk = new NodeSDK({
     getNodeAutoInstrumentations({
       // Disable MongoDB instrumentation - known issue with cursor operations in MongoDB 7+
       // See: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1936
-      '@opentelemetry/instrumentation-mongodb': { enabled: false }
+      '@opentelemetry/instrumentation-mongodb': { enabled: false },
+      // Disable fs instrumentation - too noisy, not useful for perf analysis
+      '@opentelemetry/instrumentation-fs': { enabled: false }
     })
   ]
 })

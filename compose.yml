@@ -180,6 +180,7 @@ services:
     build:
       context: ./lib/epr-frontend
       dockerfile: Dockerfile.local
+    command: ['node', './src']  # Skip nodemon - run node directly so OTel instrumentation loads
     ports:
       - '3000:3000'
     extra_hosts:
@@ -219,9 +220,15 @@ services:
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://localhost:3001
       NODE_ENV: development
+      NODE_OPTIONS: --require /opt/otel/tracing.js
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: epr-frontend
+      OTEL_TRACES_SAMPLER: always_on
       PORT: 3000
       REDIS_HOST: redis
       USE_SINGLE_INSTANCE_CACHE: true
+    volumes:
+      - ./otel:/opt/otel:ro
     networks:
       - cdp-tenant
 
