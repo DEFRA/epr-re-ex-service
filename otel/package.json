@@ -1,0 +1,9 @@
+{
+  "name": "otel-instrumentation",
+  "private": true,
+  "dependencies": {
+    "@opentelemetry/sdk-node": "^0.52.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.47.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.52.0"
+  }
+}

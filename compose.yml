@@ -275,6 +275,7 @@ services:
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
+      NODE_OPTIONS: --require /opt/otel/tracing.js
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: epr-backend
       OTEL_TRACES_SAMPLER: always_on
@@ -288,6 +289,7 @@ services:
     volumes:
       - ./lib/epr-backend/src:/home/node/src
       - ./lib/epr-backend/package.json:/home/node/package.json
+      - ./otel:/opt/otel:ro
 
 ################################################################################
 
