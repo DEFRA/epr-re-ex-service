@@ -17,12 +17,12 @@ const sdk = new NodeSDK({
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
-      // MongoDB instrumentation breaks cursor operations regardless of MongoDB version
-      // The instrumentation loses async context during cursor creation, causing:
-      // "Unexpected null cursor id. A cursor creating command should have set this"
-      // This is a fundamental OTel/driver compatibility issue, not version-specific
-      // See: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1936
-      '@opentelemetry/instrumentation-mongodb': { enabled: false },
+      // MongoDB: enable traces even outside HTTP context (e.g. startup operations)
+      // See: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1910
+      '@opentelemetry/instrumentation-mongodb': {
+        enabled: true,
+        requireParentSpan: false
+      },
       // Disable fs instrumentation - too noisy, not useful for perf analysis
       '@opentelemetry/instrumentation-fs': { enabled: false },
       // Disable DNS instrumentation - creates noise for every connection
