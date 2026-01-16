@@ -247,6 +247,8 @@ services:
       context: ./lib/epr-backend
       target: development
       dockerfile: ./Dockerfile
+    # Skip nodemon - run node directly so OTel instrumentation loads before app
+    command: ['node', './src']
     # No host port - accessed via backend-lb load balancer on port 3001
     expose:
       - '3001'
