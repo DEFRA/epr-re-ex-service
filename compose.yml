@@ -113,7 +113,9 @@ services:
       - cdp-tenant
 
   mongodb:
-    image: mongo:7.0.28
+    # Staying on 6.0 for compatibility; OTel MongoDB instrumentation remains disabled
+    # due to async context loss in cursor operations (affects all MongoDB versions)
+    image: mongo:6.0
     networks:
       - cdp-tenant
     ports:
