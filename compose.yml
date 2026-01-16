@@ -101,6 +101,17 @@ services:
 
   ################################################################################
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    ports:
+      - '16686:16686' # Jaeger UI
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - cdp-tenant
+
   mongodb:
     image: mongo:7.0.28
     networks:
@@ -249,6 +260,9 @@ services:
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: epr-backend
+      OTEL_TRACES_SAMPLER: always_on
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com"]}
