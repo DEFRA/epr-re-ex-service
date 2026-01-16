@@ -17,11 +17,14 @@ const sdk = new NodeSDK({
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
-      // Disable MongoDB instrumentation - known issue with cursor operations in MongoDB 7+
-      // See: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1936
+      // Disable MongoDB instrumentation - breaks cursor operations with MongoDB 7+
+      // Error: "Unexpected null cursor id. A cursor creating command should have set this"
+      // Workaround: downgrade MongoDB to 6.x or wait for OTel fix
       '@opentelemetry/instrumentation-mongodb': { enabled: false },
       // Disable fs instrumentation - too noisy, not useful for perf analysis
-      '@opentelemetry/instrumentation-fs': { enabled: false }
+      '@opentelemetry/instrumentation-fs': { enabled: false },
+      // Disable DNS instrumentation - creates noise for every connection
+      '@opentelemetry/instrumentation-dns': { enabled: false }
     })
   ]
 })
