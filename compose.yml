@@ -113,8 +113,7 @@ services:
       - cdp-tenant
 
   mongodb:
-    # Staying on 6.0 for compatibility; OTel MongoDB instrumentation remains disabled
-    # due to async context loss in cursor operations (affects all MongoDB versions)
+    # Using 6.0 for local dev; OTel MongoDB instrumentation works with updated packages
     image: mongo:6.0
     networks:
       - cdp-tenant
