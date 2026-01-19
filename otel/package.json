@@ -1,9 +1,13 @@
 {
   "name": "otel-instrumentation",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@opentelemetry/sdk-node": "^0.210.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.68.0",
-    "@opentelemetry/exporter-trace-otlp-proto": "^0.210.0"
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.210.0",
+    "@opentelemetry/instrumentation-http": "^0.210.0",
+    "@opentelemetry/instrumentation-mongodb": "^0.63.0",
+    "@opentelemetry/instrumentation-hapi": "^0.56.0",
+    "import-in-the-middle": "^2.0.4"
   }
 }

@@ -9,7 +9,8 @@
 # Access Jaeger UI at: http://localhost:16686
 #
 # Note: Hot-reload is disabled when using OTel (nodemon bypassed for instrumentation to load)
-# Note: ESM apps require the instrumentation loader hook for proper module patching
+# Note: loader.mjs uses module.register() to enable ESM instrumentation while excluding pino
+#       (pino-pretty's worker thread transport conflicts with the ESM loader hook)
 
 services:
   jaeger:
@@ -31,10 +32,12 @@ services:
     # Bypass nodemon so OTel instrumentation loads before app
     command: ['node', './src']
     environment:
-      NODE_OPTIONS: --import /opt/otel/tracing.mjs
+      NODE_OPTIONS: --import /opt/otel/loader.mjs
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: epr-frontend
       OTEL_TRACES_SAMPLER: always_on
+      # Use ECS log format to avoid pino-pretty transport (conflicts with ESM loader)
+      LOG_FORMAT: ecs
     volumes:
       - ./otel:/opt/otel:ro
 
@@ -42,9 +45,11 @@ services:
     # Bypass nodemon so OTel instrumentation loads before app
     command: ['node', './src']
     environment:
-      NODE_OPTIONS: --import /opt/otel/tracing.mjs
+      NODE_OPTIONS: --import /opt/otel/loader.mjs
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: epr-backend
       OTEL_TRACES_SAMPLER: always_on
+      # Use ECS log format to avoid pino-pretty transport (conflicts with ESM loader)
+      LOG_FORMAT: ecs
     volumes:
       - ./otel:/opt/otel:ro
