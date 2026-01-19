@@ -22,14 +22,8 @@ const { NodeSDK } = await import('@opentelemetry/sdk-node')
 const { OTLPTraceExporter } = await import(
   '@opentelemetry/exporter-trace-otlp-proto'
 )
-const { HttpInstrumentation } = await import(
-  '@opentelemetry/instrumentation-http'
-)
-const { MongoDBInstrumentation } = await import(
-  '@opentelemetry/instrumentation-mongodb'
-)
-const { HapiInstrumentation } = await import(
-  '@opentelemetry/instrumentation-hapi'
+const { getNodeAutoInstrumentations } = await import(
+  '@opentelemetry/auto-instrumentations-node'
 )
 
 const sdk = new NodeSDK({
@@ -40,13 +34,12 @@ const sdk = new NodeSDK({
       '/v1/traces'
   }),
   instrumentations: [
-    new HttpInstrumentation(),
-    new MongoDBInstrumentation({
-      // Enable traces even outside HTTP context (e.g. startup operations)
-      // See: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1910
-      requireParentSpan: false
-    }),
-    new HapiInstrumentation()
+    getNodeAutoInstrumentations({
+      // Enable MongoDB traces even outside HTTP context (e.g. startup operations)
+      '@opentelemetry/instrumentation-mongodb': { requireParentSpan: false },
+      // Disable fs instrumentation - too noisy, not useful for perf analysis
+      '@opentelemetry/instrumentation-fs': { enabled: false }
+    })
   ]
 })
 
