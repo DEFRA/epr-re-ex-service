@@ -9,6 +9,7 @@
 # Access Jaeger UI at: http://localhost:16686
 #
 # Note: Hot-reload is disabled when using OTel (nodemon bypassed for instrumentation to load)
+# Note: ESM apps require the instrumentation loader hook for proper module patching
 
 services:
   jaeger:
@@ -30,7 +31,7 @@ services:
     # Bypass nodemon so OTel instrumentation loads before app
     command: ['node', './src']
     environment:
-      NODE_OPTIONS: --require /opt/otel/tracing.js
+      NODE_OPTIONS: --import /opt/otel/tracing.mjs
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: epr-frontend
       OTEL_TRACES_SAMPLER: always_on
@@ -41,7 +42,7 @@ services:
     # Bypass nodemon so OTel instrumentation loads before app
     command: ['node', './src']
     environment:
-      NODE_OPTIONS: --require /opt/otel/tracing.js
+      NODE_OPTIONS: --import /opt/otel/tracing.mjs
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: epr-backend
       OTEL_TRACES_SAMPLER: always_on
