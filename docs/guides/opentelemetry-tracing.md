@@ -45,7 +45,6 @@ Access the Jaeger UI at: http://localhost:16686
 When using OTel:
 
 - **Hot-reload is disabled** - nodemon is bypassed so OTel instrumentation loads before the app
-- **MongoDB 6.0** - OTel MongoDB instrumentation requires MongoDB 6.x (7.x has cursor context issues)
 
 ## Disabling OTel
 
