@@ -1,32 +1,21 @@
 /**
  * OpenTelemetry ESM Bootstrap Loader
  *
- * This file registers the ESM loader hook with exclusions for pino modules,
- * then initialises the OpenTelemetry SDK. The loader hook enables proper
- * instrumentation of ESM modules like Hapi.
+ * Registers the ESM loader hook then initialises the OpenTelemetry SDK.
+ * The loader hook enables proper instrumentation of ESM modules like Hapi,
+ * giving us route-level spans instead of just generic HTTP spans.
  *
  * Usage: NODE_OPTIONS="--import /opt/otel/loader.mjs"
  *
- * Why exclusions? The pino-pretty transport uses worker threads, and the
- * ESM loader hook interferes with how pino resolves transport targets.
- * By excluding pino modules, we avoid the conflict while still getting
- * Hapi route-level spans.
+ * IMPORTANT: pino-pretty's worker thread transport conflicts with the ESM
+ * loader hook. Set LOG_FORMAT=ecs in compose.otel.yml to use ECS logging
+ * instead, which bypasses pino-pretty entirely.
  */
 
 import { register } from 'node:module'
-import { createAddHookMessageChannel } from 'import-in-the-middle'
 
-// Register the ESM loader hook with exclusions for pino (which breaks with the loader)
-const { registerOptions, waitForAllMessagesAcknowledged } =
-  createAddHookMessageChannel()
-
-register('import-in-the-middle/hook.mjs', import.meta.url, {
-  ...registerOptions,
-  data: {
-    ...registerOptions.data,
-    exclude: ['pino', 'pino-pretty', 'hapi-pino']
-  }
-})
+// Register the OpenTelemetry ESM loader hook for module instrumentation
+register('@opentelemetry/instrumentation/hook.mjs', import.meta.url)
 
 // Import and configure the SDK after the loader is registered
 const { NodeSDK } = await import('@opentelemetry/sdk-node')
@@ -62,6 +51,3 @@ const sdk = new NodeSDK({
 })
 
 sdk.start()
-
-// Wait for the loader hook to be fully initialised before the app starts
-await waitForAllMessagesAcknowledged()
