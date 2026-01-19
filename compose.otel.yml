@@ -24,10 +24,6 @@ services:
     networks:
       - cdp-tenant
 
-  # Downgrade MongoDB for OTel instrumentation compatibility
-  mongodb:
-    image: mongo:6.0
-
   epr-frontend:
     # Bypass nodemon so OTel instrumentation loads before app
     command: ['node', './src']
