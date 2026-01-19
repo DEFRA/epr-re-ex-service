@@ -21,6 +21,7 @@
       * [Waste Record Type: sentOn](#waste-record-type-senton)
       * [Waste Balance](#waste-balance)
     * [PRN](#prn)
+      * [PRN creation schema & sequence diagram](#prn-creation-schema--sequence-diagram)
     * [Report](#report)
     * [Summary Log upload & ingest](#summary-log-upload--ingest)
       * [Phase 1: upload & async processes: preprocessing, file parsing & data validation](#phase-1-upload--async-processes-preprocessing-file-parsing--data-validation)
@@ -644,6 +645,152 @@ erDiagram
   PRN ||--|{ PRN-STATUS-VERSION : contains
   PRN-STATUS-VERSION ||--|| USER-SUMMARY : contains
   PRN ||--|| USER-SUMMARY-WITH-POSITION : contains
+```
+
+### PRN creation schema & sequence diagram
+
+The journey goes through three stages, creation, decoration and submission, which sets the PRN status to `AWAITING_AUTHORISATION`. This is acheived through three endpoints
+
+#### POST /packaging-recycling-notes
+
+**payload values**
+  - organisationId, uuid, required
+  - accreditationId, uuid, required
+
+**example**
+```javascript
+{
+  organisationId: 'b0b08519-bbc8-4222-a5c8-44d7ade5b995'
+  accreditationId: '753c5bf9-1bbc-40e8-9b88-475f6e5efba9'
+}
+```
+
+**returns**
+ID of created PRN.
+
+```javascript
+{
+  prnId: '167bd693-3e8a-4291-b2c0-4d1740744180'
+}
+```
+
+#### PATCH /packaging-recycling-notes/{id}
+
+**payload values**
+  - tonnage, floating point number to two decimal places, optional
+  - issuedToOrganisation, object, optional
+    - id: string, uuid, required
+    - name: string, required
+    - tradingName: string, optional
+  - notes, string, max length 200, optional
+
+**returns**
+204 OK
+
+**example**
+```javascript
+{
+  tonnage: '100.00',
+  issuedToOrganisation: {
+    id: 'ebdfb7d9-3d55-4788-ad33-dbd7c885ef20',
+    name: 'Sauce Makers Limited',
+    tradingName: 'Awesome Sauce',
+  },
+  notes: 'REF: 101010'
+}
+```
+
+#### POST /packaging-recycling-notes/{id}/status
+Update the status of a PRN.
+
+**payload values**
+
+  - status: enum, required
+
+**status values**
+  - DRAFT
+  - AWAITING_AUTHORISATION
+  - AWAITING_ACCEPTANCE
+  - AWAITING_CANCELLATION
+  - ACCEPTED
+  - CANCELLED
+  - DELETED
+
+**example**
+```javascript
+{
+  status: 'AWAITING_AUTHORISATION'
+}
+```
+
+**returns**
+204 OK
+
+```mermaid
+sequenceDiagram
+  actor user
+  participant epr-frontend
+  participant epr-backend
+  participant mongo-db@{ "type": "database" }
+  participant waste-organisations
+
+  user ->> epr-frontend: Start PRN journey
+  epr-frontend ->> epr-backend: POST /prn (create draft)
+  epr-backend ->> mongo-db: find epr-organisation (id)
+  mongo-db -->> epr-backend: (organisation)
+  epr-backend ->> mongo-db: insert PRN (prn)
+  mongo-db -->> epr-backend: (prnId)
+  epr-backend -->> epr-frontend: 201 Created (prnId)
+
+  note over epr-frontend: redirect to <br/>/tonnage
+  user ->> epr-frontend: Enter tonnage
+  epr-frontend ->> epr-backend: PATCH /prn/{id} (tonnage)
+  epr-backend ->> mongo-db: update PRN (tonnage)
+  epr-backend -->> epr-frontend: 204 OK
+
+  note over epr-frontend: redirect to <br/>/recipient
+  epr-frontend ->> waste-organisations: GET (organisations)
+  waste-organisations -->> epr-frontend: 200 (organisations)
+  user ->> epr-frontend: Enter recipient
+  epr-frontend ->> epr-backend: PATCH /prn/{id} (recipient)
+  epr-backend ->> waste-organisations: GET (organisation by id)
+  waste-organisations -->> epr-backend: 200 (organisation)
+  epr-backend ->> mongo-db: update PRN (recipient)
+  epr-backend -->> epr-frontend: 204 OK
+
+  note over epr-frontend: redirect to <br/>/notes
+  user ->> epr-frontend: Enter notes
+  epr-frontend ->> epr-backend: PATCH /prn/{id} (notes)
+  epr-backend ->> mongo-db: update PRN (notes)
+  epr-backend -->> epr-frontend: 204 OK
+
+  note over epr-frontend: redirect to <br/>/recipient
+  user ->> epr-frontend: View check answers
+  epr-frontend ->> epr-backend: GET /prn/{id}
+  epr-backend ->> mongo-db: find PRN (id)
+  mongo-db -->> epr-backend: (prn)
+  epr-backend -->> epr-frontend: 200 OK (full draft prn)
+
+  user ->> epr-frontend: Submit PRN
+  epr-frontend ->> epr-backend: POST /prn/{id}/status
+  epr-backend ->> mongo-db: update waste balance
+  epr-backend ->> mongo-db: update PRN (status)
+  epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
+
+  note over epr-frontend: redirect to <br/>/prn/{id}
+  epr-frontend ->> epr-backend: GET /prn/{id}
+  epr-backend ->> mongo-db: find PRN (id)
+  mongo-db -->> epr-backend: (prn)
+  epr-backend -->> epr-frontend: 200 OK (prn)
+
+  opt Re/Ex delete PRN
+  user ->> epr-frontend: delete PRN
+  epr-frontend ->> epr-backend: POST /prn/{id}/status
+  epr-backend ->> mongo-db: update PRN (status)
+  epr-backend -->> epr-frontend: 200 OK (CANCELLED)
+  note over epr-frontend: redirect to <br/> ??
+  end
+
 ```
 
 ### Report
