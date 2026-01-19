@@ -18,3 +18,7 @@ mongodb-backups/
 backups-mongo/
 data-mongo/
 data-redis/
+
+# Local scripts (not for commit)
+scripts/seed-*.mjs
+scripts/local/

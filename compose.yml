@@ -101,20 +101,8 @@ services:
 
   ################################################################################
 
-  jaeger:
-    image: jaegertracing/all-in-one:1.52
-    ports:
-      - '16686:16686' # Jaeger UI
-      - '4317:4317' # OTLP gRPC
-      - '4318:4318' # OTLP HTTP
-    environment:
-      COLLECTOR_OTLP_ENABLED: true
-    networks:
-      - cdp-tenant
-
   mongodb:
-    # Using 6.0 for local dev; OTel MongoDB instrumentation works with updated packages
-    image: mongo:6.0
+    image: mongo:7.0.28
     networks:
       - cdp-tenant
     ports:
@@ -181,7 +169,6 @@ services:
     build:
       context: ./lib/epr-frontend
       dockerfile: Dockerfile.local
-    command: ['node', './src']  # Skip nodemon - run node directly so OTel instrumentation loads
     ports:
       - '3000:3000'
     extra_hosts:
@@ -221,29 +208,9 @@ services:
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://localhost:3001
       NODE_ENV: development
-      NODE_OPTIONS: --require /opt/otel/tracing.js
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_SERVICE_NAME: epr-frontend
-      OTEL_TRACES_SAMPLER: always_on
       PORT: 3000
       REDIS_HOST: redis
       USE_SINGLE_INSTANCE_CACHE: true
-    volumes:
-      - ./otel:/opt/otel:ro
-    networks:
-      - cdp-tenant
-
-  # Load balancer for epr-backend (enables horizontal scaling)
-  # Usage: docker compose --profile epr-backend up -d --scale epr-backend=3
-  backend-lb:
-    profiles: ['all', 'epr-backend']
-    image: nginx:alpine
-    ports:
-      - '3001:80'
-    volumes:
-      - ./compose/backend-lb.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - epr-backend
     networks:
       - cdp-tenant
 
@@ -255,11 +222,8 @@ services:
       context: ./lib/epr-backend
       target: development
       dockerfile: ./Dockerfile
-    # Skip nodemon - run node directly so OTel instrumentation loads before app
-    command: ['node', './src']
-    # No host port - accessed via backend-lb load balancer on port 3001
-    expose:
-      - '3001'
+    ports:
+      - '3001:3001'
     extra_hosts:
       - 'localhost:host-gateway'
     links:
@@ -285,10 +249,6 @@ services:
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
-      NODE_OPTIONS: --require /opt/otel/tracing.js
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_SERVICE_NAME: epr-backend
-      OTEL_TRACES_SAMPLER: always_on
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com"]}
@@ -299,7 +259,6 @@ services:
     volumes:
       - ./lib/epr-backend/src:/home/node/src
       - ./lib/epr-backend/package.json:/home/node/package.json
-      - ./otel:/opt/otel:ro
 
 ################################################################################
 

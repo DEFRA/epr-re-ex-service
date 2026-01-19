@@ -1,0 +1,49 @@
+# OpenTelemetry tracing configuration overlay
+#
+# Usage:
+#   docker compose -f compose.yml -f compose.otel.yml --profile epr-backend --profile epr-frontend up -d
+#
+# Prerequisites:
+#   cd otel && npm install
+#
+# Access Jaeger UI at: http://localhost:16686
+#
+# Note: Hot-reload is disabled when using OTel (nodemon bypassed for instrumentation to load)
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    ports:
+      - '16686:16686' # Jaeger UI
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - cdp-tenant
+
+  # Downgrade MongoDB for OTel instrumentation compatibility
+  mongodb:
+    image: mongo:6.0
+
+  epr-frontend:
+    # Bypass nodemon so OTel instrumentation loads before app
+    command: ['node', './src']
+    environment:
+      NODE_OPTIONS: --require /opt/otel/tracing.js
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: epr-frontend
+      OTEL_TRACES_SAMPLER: always_on
+    volumes:
+      - ./otel:/opt/otel:ro
+
+  epr-backend:
+    # Bypass nodemon so OTel instrumentation loads before app
+    command: ['node', './src']
+    environment:
+      NODE_OPTIONS: --require /opt/otel/tracing.js
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: epr-backend
+      OTEL_TRACES_SAMPLER: always_on
+    volumes:
+      - ./otel:/opt/otel:ro
