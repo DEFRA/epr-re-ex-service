@@ -24,3 +24,4 @@
 * [22. Translation process for English/Welsh strings](0022-translation-process-for-english-welsh-strings.md)
 * [23. Hybrid seed data strategy for non-prod environments](0023-hybrid-seed-data-strategy-for-non-prod-environments.md)
 * [24. Create PRN API strategy](0024-create-prn-api-strategy.md)
+* [23. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
