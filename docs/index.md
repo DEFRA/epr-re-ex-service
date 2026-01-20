@@ -1,3 +1,3 @@
-1. [Architecture](architecturendex.md)
-2. [Guides](guidesndex.md)
-3. [Testing](testingndex.md)
+1. [Architecture](architecture/index.md)
+2. [Guides](guides/index.md)
+3. [Testing](testing/index.md)
