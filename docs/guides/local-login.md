@@ -11,7 +11,7 @@ npm run dev
 
 Or equivalently:
 ```bash
-GOVUK_NOTIFY_API_KEY=test-key docker compose --profile all up --watch
+GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch
 ```
 
 ## Login Steps
