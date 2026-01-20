@@ -98,6 +98,6 @@ Visit http://localhost:3000/auth/organisation to force organisation reselection.
 
 ## Troubleshooting
 
-### Defra Id Stub - Login link not appearing
+### Defra ID Stub - Login link not appearing
 
 After adding a relationship, you should see a "Registered users" screen with a **Log in** link next to your email. If the Log in link doesn't render, navigate back to http://localhost:3000 and click Sign in again - the stub will remember your registered user.
