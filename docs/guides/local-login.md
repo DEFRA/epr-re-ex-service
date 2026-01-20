@@ -5,11 +5,13 @@ Login to the EPR frontend locally using the Defra ID stub.
 ## Prerequisites
 
 Start the services:
+
 ```bash
 npm run dev
 ```
 
 Or equivalently:
+
 ```bash
 GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch
 ```
@@ -24,21 +26,22 @@ GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch
 The stub presents a user registration form.
 
 **Auto-generated fields (leave as-is):**
+
 - User ID (B2C object ID)
 - Contact ID
 - Unique reference
 
 **Fill in these fields:**
 
-| Field | Value |
-|-------|-------|
-| Email address | `tester@example.com` |
-| First name | `Test` |
-| Last name | `User` |
-| Level of assurance | `LOA1` (default) |
-| MFA Performed | `No` (default) |
-| Enrolments | `1` |
-| Enrolment Requests | `0` |
+| Field              | Value                |
+| ------------------ | -------------------- |
+| Email address      | `tester@example.com` |
+| First name         | `Test`               |
+| Last name          | `User`               |
+| Level of assurance | `LOA1` (default)     |
+| MFA Performed      | `No` (default)       |
+| Enrolments         | `1`                  |
+| Enrolment Requests | `0`                  |
 
 Click **Continue**.
 
@@ -46,12 +49,12 @@ Click **Continue**.
 
 On the relationships screen, enter the organisation details:
 
-| Field | Value |
-|-------|-------|
-| Relationship ID | Any value (e.g. `1234`) |
-| Organisation ID | The `linkedDefraOrganisation.orgId` UUID from MongoDB (see below) |
-| Organisation Name | Any value (e.g. `Test Organisation`) |
-| Relationship role | `Employee` |
+| Field             | Value                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| Relationship ID   | Any value (e.g. `1234`)                                           |
+| Organisation ID   | The `linkedDefraOrganisation.orgId` UUID from MongoDB (see below) |
+| Organisation Name | Any value (e.g. `Test Organisation`)                              |
+| Relationship role | `Employee`                                                        |
 
 Click **Add relationship** to complete the login.
 
@@ -76,6 +79,7 @@ db["epr-organisations"].findOne(
 ```
 
 Example output:
+
 ```javascript
 {
   _id: ObjectId('...'),
@@ -88,8 +92,8 @@ Copy the `linkedDefraOrganisation.orgId` UUID and use it in the Defra ID stub fo
 
 ## Linked Test Users
 
-| Email | orgId | Organisation Type |
-|-------|-------|-------------------|
+| Email                | orgId | Organisation Type                              |
+| -------------------- | ----- | ---------------------------------------------- |
 | `tester@example.com` | 50030 | Active organisation with approved registration |
 
 ## Switching Organisations
@@ -101,3 +105,15 @@ Visit http://localhost:3000/auth/organisation to force organisation reselection.
 ### Defra ID Stub - Login link not appearing
 
 After adding a relationship, you should see a "Registered users" screen with a **Log in** link next to your email. If the Log in link doesn't render, navigate back to http://localhost:3000 and click Sign in again - the stub will remember your registered user.
+
+Also consider running the DefraId stub container locally, instead of the latest published image. Example:
+
+```yaml
+# ...
+defra-id-stub:
+  # image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
+  build:
+    context: ./cdp-defra-id-stub
+    dockerfile: Dockerfile
+# ...
+```
