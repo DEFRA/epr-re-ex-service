@@ -60,6 +60,18 @@ Run everything in Docker with build & watch mode
 docker compose --profile all up --watch
 ```
 
+Alternatively, use the npm scripts for a streamlined development experience:
+
+```bash
+npm run dev      # Runs all services with watch mode using a test GOV.UK Notify API key
+npm run dev:env  # Runs all services using environment variables from a local .env file
+```
+
+The `dev` script is suitable for most local development as it provides a placeholder API key. Use `dev:env` when you need to work with real credentials stored in a `.env` file at the repository root.
+
+> [!NOTE]
+> The `dev:env` script requires [dotenvx](https://dotenvx.com/) to be installed.
+
 See the running services with:
 
 ```bash
