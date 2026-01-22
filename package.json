@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
-    "dev:env": "npx @dotenvx/dotenvx run -- docker compose --profile all up",
+    "dev:env": "npx @dotenvx/dotenvx run -- docker compose --profile all up --watch",
     "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
