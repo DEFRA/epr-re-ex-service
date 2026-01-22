@@ -186,13 +186,13 @@ This repository and it's child repositories are configured to only allow updates
 
 Dependabot is configured for this repository. You can [find the configuration here](.github/dependabot.yml).
 
-### SonarCloud
+### SonarQube
 
-SonarCloud is configured for this repository. You can [find the configuration here](./sonar-project.properties).
+SonarQube is configured for this repository. You can [find the configuration here](./sonar-project.properties).
 
 #### Requesting Access
 
-To gain access to SonarCloud, submit a request in the `#sonar-support` channel on the Defra Digital (green) Slack workspace. Include your GitHub username in the request to enable GitHub SSO authentication.
+To gain access to SonarQube, submit a request in the `#sonar-support` channel on the Defra Digital (green) Slack workspace. Include your GitHub username in the request to enable GitHub SSO authentication.
 
 ## Deployments
 
