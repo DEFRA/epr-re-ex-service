@@ -99,6 +99,28 @@ services:
     networks:
       - cdp-tenant
 
+  entra-stub:
+    image: defradigital/epr-re-ex-entra-stub:${ENTRA_STUB_VERSION:-latest}
+    ports:
+      - '3010:3010'
+    links:
+      - 'redis:redis'
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:3002}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
+      NODE_ENV: development
+      PORT: 3010
+      REDIS_HOST: redis
+      STUB_EXTERNAL_URL: http://localhost:3010
+      STUB_INTERNAL_URL: http://entra-stub:3010
+      USE_SINGLE_INSTANCE_CACHE: true
+    networks:
+      - cdp-tenant
+
   ################################################################################
 
   mongodb:
@@ -106,7 +128,7 @@ services:
     networks:
       - cdp-tenant
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongodb-data:/data
       - ./mongodb-backups:/backups
@@ -252,7 +274,7 @@ services:
       NODE_ENV: development
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
-      SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com"]}
+      SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
     secrets:
       - govuk_notify_api_key
     networks:
