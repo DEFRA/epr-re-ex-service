@@ -60,6 +60,18 @@ Run everything in Docker with build & watch mode
 docker compose --profile all up --watch
 ```
 
+Alternatively, use the npm scripts for a streamlined development experience:
+
+```bash
+npm run dev      # Runs all services with watch mode using a test GOV.UK Notify API key
+npm run dev:env  # Runs all services using environment variables from a local .env file
+```
+
+The `dev` script is suitable for most local development as it provides a placeholder API key. Use `dev:env` when you need to work with real credentials stored in a `.env` file at the repository root.
+
+> [!NOTE]
+> The `dev:env` script requires [dotenvx](https://dotenvx.com/) to be installed.
+
 See the running services with:
 
 ```bash
@@ -174,9 +186,13 @@ This repository and it's child repositories are configured to only allow updates
 
 Dependabot is configured for this repository. You can [find the configuration here](.github/dependabot.yml).
 
-### SonarCloud
+### SonarQube
 
-SonarCloud is configured for this repository. You can [find the configuration here](./sonar-project.properties).
+SonarQube is configured for this repository. You can [find the configuration here](./sonar-project.properties).
+
+#### Requesting Access
+
+To gain access to SonarQube, submit a request in the `#sonar-support` channel on the Defra Digital (green) Slack workspace. Include your GitHub username in the request to enable GitHub SSO authentication.
 
 ## Deployments
 
