@@ -1,6 +1,6 @@
 # Admin Local Login Guide
 
-Login to the EPR admin frontend locally using the Entra ID stub.
+Log in to the EPR admin frontend locally using the Entra ID stub.
 
 ## Prerequisites
 
