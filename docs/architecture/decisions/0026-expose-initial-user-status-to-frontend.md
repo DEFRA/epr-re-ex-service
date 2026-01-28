@@ -63,8 +63,9 @@ Create a new endpoint e.g. `GET /v1/me/roles` that returns the user's roles acro
 
 **Cons:**
 
-- Additional roundtrip at sign-in time
+- Additional roundtrip at sign-in time (albeit parallel call is possible)
 - More infrastructure to maintain
+- Continuing to overload the concept of `roles` between internal data (mongo items) and auth/JWT concepts
 
 ### Option 3: Emit metric from backend instead
 
