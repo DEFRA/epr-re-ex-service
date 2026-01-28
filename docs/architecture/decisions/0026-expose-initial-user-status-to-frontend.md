@@ -83,7 +83,7 @@ Move the metric emission to the backend, where `initial_user` status is already 
 
 ## Decision
 
-TBD
+Option 2 seems the simplest compared to the others although it seems like overkill for the sake of a dashboard metric.
 
 ## Consequences
 
