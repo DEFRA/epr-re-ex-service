@@ -4,7 +4,7 @@ Date: 2026-01-28
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -25,6 +25,8 @@ This role is used server-side in the backend for authorization (e.g. only `initi
 The frontend currently has no way to know whether the signed-in user has `initial_user` status.
 
 ## Options
+
+> **Note on backend options (1, 2, 3):** Any option that touches the backend is complicated by how users get populated in the `epr-organisation.users` array. This happens as a side-effect of the backend serving a response to any API call that performs "is this a Defra ID user?" authorisation. The `users` array may not exist or be fully populated at the time of the `/v1/me/organisations` call during sign-in.
 
 ### Option 1: Add field to `/v1/me/organisations` response
 
@@ -109,8 +111,20 @@ if (isNonInitialUser) {
 
 ## Decision
 
-Option 2 seems the simplest compared to the others although it seems like overkill for the sake of a dashboard metric.
+Option 4: Use `linkedBy.id` as a proxy for initial user status.
+
+While not a precise match for the `initial_user` role, this approach is pragmatic for the current requirement (a dashboard metric). The imprecision is acceptable because:
+
+- The metric's purpose is to understand adoption patterns, not enforce access control
+- The proxy captures the most common case (the person who linked is typically an initial user)
+- No backend changes are required
+- The implementation already exists (PR #396)
+
+If precise `initial_user` status becomes necessary for other features (e.g. access control in the frontend), we can revisit Option 1 or Option 2.
 
 ## Consequences
 
-TBD
+- The `signInSuccessNonInitialUser` metric measures "user is not the person who linked the organisation" rather than "user does not have initial_user role"
+- Some initial users (e.g. approved persons, signatories who didn't perform the linking) will be counted as non-initial users
+- No backend API changes required
+- Frontend implementation is simpler with no additional API calls
