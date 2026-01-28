@@ -180,6 +180,7 @@ services:
       OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       PORT: 3002
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
@@ -233,6 +234,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
