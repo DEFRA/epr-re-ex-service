@@ -81,6 +81,32 @@ Move the metric emission to the backend, where `initial_user` status is already 
 - Sign-in flow is handled by frontend; backend would need a hook/event
 - Changes where metrics are emitted (currently frontend handles sign-in metrics)
 
+### Option 4: Use `linkedBy.id` as proxy
+
+The `/v1/me/organisations` response already includes `linkedBy` - the user who linked the Defra ID to the organisation. The frontend can compare `linkedBy.id` with the signed-in user's ID to approximate "non-initial user".
+
+```javascript
+const isNonInitialUser =
+  organisations.linked?.linkedBy?.id !== session.profile.id
+if (isNonInitialUser) {
+  await metrics.signInSuccessNonInitialUser()
+}
+```
+
+**Pros:**
+
+- No backend changes required
+- Uses existing data from existing endpoint
+- Already implemented (PR #396)
+
+**Cons:**
+
+- Not a precise match for `initial_user` role:
+  - Multiple users can have `initial_user` (submitter, approved persons, signatories)
+  - Only one user is recorded as `linkedBy`
+  - A user with `initial_user` who isn't the linker would be counted as "non-initial"
+- Measures "not the person who linked" rather than "not named in original application"
+
 ## Decision
 
 Option 2 seems the simplest compared to the others although it seems like overkill for the sake of a dashboard metric.
