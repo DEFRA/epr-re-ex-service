@@ -731,21 +731,21 @@ sequenceDiagram
   actor user
   participant epr-frontend
   participant epr-backend
-  participant mongo-db@{ "type": "database" }
+  participant mongodb@{ "type": "database" }
   participant waste-organisations
 
   user ->> epr-frontend: Start PRN journey
   epr-frontend ->> epr-backend: POST /prn (create draft)
-  epr-backend ->> mongo-db: find epr-organisation (id)
-  mongo-db -->> epr-backend: (organisation)
-  epr-backend ->> mongo-db: insert PRN (prn)
-  mongo-db -->> epr-backend: (prnId)
+  epr-backend ->> mongodb: find epr-organisation (id)
+  mongodb -->> epr-backend: (organisation)
+  epr-backend ->> mongodb: insert PRN (prn)
+  mongodb -->> epr-backend: (prnId)
   epr-backend -->> epr-frontend: 201 Created (prnId)
 
   note over epr-frontend: redirect to <br/>/tonnage
   user ->> epr-frontend: Enter tonnage
   epr-frontend ->> epr-backend: PATCH /prn/{id} (tonnage)
-  epr-backend ->> mongo-db: update PRN (tonnage)
+  epr-backend ->> mongodb: update PRN (tonnage)
   epr-backend -->> epr-frontend: 204 OK
 
   note over epr-frontend: redirect to <br/>/recipient
@@ -755,38 +755,38 @@ sequenceDiagram
   epr-frontend ->> epr-backend: PATCH /prn/{id} (recipient)
   epr-backend ->> waste-organisations: GET (organisation by id)
   waste-organisations -->> epr-backend: 200 (organisation)
-  epr-backend ->> mongo-db: update PRN (recipient)
+  epr-backend ->> mongodb: update PRN (recipient)
   epr-backend -->> epr-frontend: 204 OK
 
   note over epr-frontend: redirect to <br/>/notes
   user ->> epr-frontend: Enter notes
   epr-frontend ->> epr-backend: PATCH /prn/{id} (notes)
-  epr-backend ->> mongo-db: update PRN (notes)
+  epr-backend ->> mongodb: update PRN (notes)
   epr-backend -->> epr-frontend: 204 OK
 
   note over epr-frontend: redirect to <br/>/recipient
   user ->> epr-frontend: View check answers
   epr-frontend ->> epr-backend: GET /prn/{id}
-  epr-backend ->> mongo-db: find PRN (id)
-  mongo-db -->> epr-backend: (prn)
+  epr-backend ->> mongodb: find PRN (id)
+  mongodb -->> epr-backend: (prn)
   epr-backend -->> epr-frontend: 200 OK (full draft prn)
 
   user ->> epr-frontend: Submit PRN
   epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongo-db: update waste balance
-  epr-backend ->> mongo-db: update PRN (status)
+  epr-backend ->> mongodb: update waste balance
+  epr-backend ->> mongodb: update PRN (status)
   epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
 
   note over epr-frontend: redirect to <br/>/prn/{id}
   epr-frontend ->> epr-backend: GET /prn/{id}
-  epr-backend ->> mongo-db: find PRN (id)
-  mongo-db -->> epr-backend: (prn)
+  epr-backend ->> mongodb: find PRN (id)
+  mongodb -->> epr-backend: (prn)
   epr-backend -->> epr-frontend: 200 OK (prn)
 
   opt Re/Ex delete PRN
   user ->> epr-frontend: delete PRN
   epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongo-db: update PRN (status)
+  epr-backend ->> mongodb: update PRN (status)
   epr-backend -->> epr-frontend: 200 OK (CANCELLED)
   note over epr-frontend: redirect to <br/> ??
   end
