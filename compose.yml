@@ -229,6 +229,7 @@ services:
       DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://localhost:3001
+      FEATURE_FLAG_PRNS: ${FEATURE_FLAG_PRNS:-false}
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
@@ -269,6 +270,7 @@ services:
       FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
       FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
+      FEATURE_FLAG_CREATE_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PRNS:-false}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
