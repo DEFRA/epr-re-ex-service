@@ -2,6 +2,21 @@
 
 Login to the EPR frontend locally using the Defra ID stub.
 
+## Quick Start (Automated)
+
+After starting the services and waiting for the backend to seed:
+
+```bash
+npm run seed:stub
+```
+
+Then visit http://localhost:3000 - click "Start now" and select the pre-registered user.
+
+This script automatically:
+
+1. Queries MongoDB for the seeded organisation's DefraId UUID
+2. Registers `tester@example.com` in the Defra ID stub with that organisation
+
 ## Prerequisites
 
 Start the services:
@@ -16,7 +31,9 @@ Or equivalently:
 GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch
 ```
 
-## Login Steps
+## Manual Login Steps
+
+If you need to register a different user or can't use the automated script:
 
 1. Open http://localhost:3000
 2. Click **Start now** - redirects to Defra ID stub at http://localhost:3200
