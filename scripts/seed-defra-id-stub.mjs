@@ -15,7 +15,10 @@ import { MongoClient } from 'mongodb'
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017'
 const STUB_URL = process.env.DEFRA_ID_STUB_URL || 'http://localhost:3200'
 const TESTER_EMAIL = process.env.SEED_TESTER_EMAIL || 'tester@example.com'
+
+// Must match SCENARIO_ORG_IDS.ACTIVE in epr-backend seed-scenarios.js
 const ACTIVE_ORG_ID = 50030
+const FETCH_TIMEOUT_MS = 5000
 
 async function main() {
   const client = new MongoClient(MONGO_URI)
@@ -57,7 +60,8 @@ async function main() {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
       }
     )
 
@@ -73,4 +77,7 @@ async function main() {
   }
 }
 
-main().catch(console.error)
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
