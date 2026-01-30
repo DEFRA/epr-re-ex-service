@@ -13,6 +13,7 @@
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
     "git:pre-commit-hook": "npm run format:check",
     "postinstall": "npm run setup:husky",
+    "seed:stub": "node scripts/seed-defra-id-stub.mjs",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module"
   },
   "author": "Defra DDTS",
@@ -22,6 +23,7 @@
     "@dotenvx/dotenvx": "1.52.0",
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
+    "mongodb": "7.0.0",
     "prettier": "3.8.0"
   }
 }
