@@ -7,6 +7,7 @@ Login to the EPR frontend locally using the Defra ID stub.
 After starting the services and waiting for the backend to seed:
 
 ```bash
+npm install      # if you haven't already
 npm run seed:stub
 ```
 
