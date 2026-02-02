@@ -74,7 +74,7 @@ validation
 ***NOTE: delivered by PAE-926***
 
 
-#### GET /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}
+#### GET /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}
 
 surfaces latest data for specified PRN
 validation
