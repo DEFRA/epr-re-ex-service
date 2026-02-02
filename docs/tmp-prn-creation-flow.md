@@ -92,7 +92,7 @@ validation
  - sufficient waste balance available for specified tonnage
 
 
-#### POST /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}/issue
+#### POST /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}/issue
 body: `empty`
 
 performs the transition from `status: awaiting_authorisation -> awaiting_acceptance`
