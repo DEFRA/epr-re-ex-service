@@ -82,7 +82,7 @@ validation
 
 ***NOTE: delivered by PAE-926***
 
-####POST /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}/submit
+####POST /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}/submit
 body: `empty`
 
 performs the transition from `status: draft -> awaiting_authorisation`
