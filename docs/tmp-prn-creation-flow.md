@@ -20,7 +20,7 @@ U->>FE: POST /create
 alt if validation errors
   FE->>U: <html>create page with errors</html>
 end
-FE->>BE: POST /organisation/{organisationId}/accreditation/{accreditationId}/prn<br>payload { tonnage, producerId, issuerNotes }
+FE->>BE: POST /organisations/{organisationId}/accreditations/{accreditationId}/prn<br>payload { tonnage, producerId, issuerNotes }
 BE->>DB: create PRN document, status = draft
 alt if backend returns error
   BE->>FE: 4XX or 5XX
@@ -30,7 +30,7 @@ BE->>FE: 200 prnId
 FE->>U: 301: /cya/{prnId}
 
 U->>FE: GET /cya/{prnId}
-FE->>BE: GET /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}
+FE->>BE: GET /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}
 BE->>FE: 200 { prnData }
 note over FE: check status is "draft"
 alt status not draft
@@ -39,7 +39,7 @@ end
 FE->>U: <html>cya page</html>
 note over U: click "submit"
 U->>FE: POST /cya/{prnId}
-FE->>BE: **POST /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}/submit**
+FE->>BE: **POST /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}/submit**
 BE->>DB: update PRN document, status = awaiting_authorisation
 alt if backend returns error
   BE->>FE: 4XX or 5XX
@@ -49,7 +49,7 @@ BE->>FE: 200
 FE->>U: 301: /confirmation
 
 U->>FE: GET /confirmation
-FE->>BE: GET /organisation/{organisationId}/accreditation/{accreditationId}/prns/{prnId}
+FE->>BE: GET /organisations/{organisationId}/accreditations/{accreditationId}/prns/{prnId}
 BE->>FE: 200 { prnData }
 note over FE: check status is "awaiting_authorisation"
 alt status not awaiting_authorisation
