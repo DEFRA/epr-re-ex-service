@@ -62,7 +62,7 @@ FE->>U: <html>confirmation page</html>
 
 ### New APIs
 
-#### POST /organisation/{organisationId}/accreditation/{accreditationId}/prn
+#### POST /organisations/{organisationId}/accreditations/{accreditationId}/prn
 body: `{ tonnage, producerId, issuerNotes }`
 
 creates PRN document with `status: draft`
