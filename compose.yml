@@ -265,7 +265,6 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       AUDIT_ENABLED: false
       COMMAND_QUEUE_SQS_ENDPOINT: http://localstack:4566
-      COMMAND_QUEUE_SQS_QUEUE_NAME: epr_backend_commands
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
