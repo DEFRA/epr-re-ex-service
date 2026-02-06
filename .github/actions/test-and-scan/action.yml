@@ -34,13 +34,9 @@ runs:
 #      shell: bash
 #      run: npm test
 
-#    - name: SonarCloud Scan
-#      if: ${{ github.actor != 'dependabot[bot]' }}
-#      uses: SonarSource/sonarqube-scan-action@v6
-#      env:
-#        GITHUB_TOKEN: ${{ inputs.github-token }}
-#        SONAR_TOKEN: ${{ inputs.sonar-token }}
-
-    - name: Placeholder
-      shell: bash
-      run: echo "No checks configured yet"
+    - name: SonarCloud Scan
+      if: ${{ github.actor != 'dependabot[bot]' }}
+      uses: SonarSource/sonarqube-scan-action@v6
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
