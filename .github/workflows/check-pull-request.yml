@@ -28,7 +28,7 @@ jobs:
               pull_number: context.payload.pull_request.number
             });
 
-            const docsOnly = files.length > 0 && files.every(file => file.filename.endsWith('.md'));
+            const docsOnly = files.length > 0 && files.every(file => file.filename.endsWith('.md') || file.filename.startsWith('docs/'));
 
             core.setOutput('docs-only', docsOnly);
             console.log(`Documentation-only changes: ${docsOnly}`);
