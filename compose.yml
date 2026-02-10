@@ -28,10 +28,10 @@ services:
       - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
       - ./compose/01-start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
     healthcheck:
-      test: ['CMD', 'curl', 'localhost:4566']
+      test: ['CMD', 'test', '-f', '/tmp/READY']
       interval: 5s
       start_period: 5s
-      retries: 3
+      retries: 10
     networks:
       - cdp-tenant
 
@@ -273,6 +273,7 @@ services:
       FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
       FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
       FEATURE_FLAG_CREATE_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PRNS:-false}
+      FEATURE_FLAG_SQS_COMMANDS: ${FEATURE_FLAG_SQS_COMMANDS:-true}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
