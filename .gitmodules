@@ -1,20 +1,20 @@
-[submodule "lib/epr-frontend"]
-	path = lib/epr-frontend
-	url = git@github.com:DEFRA/epr-frontend.git
 [submodule "lib/epr-backend"]
 	path = lib/epr-backend
 	url = git@github.com:DEFRA/epr-backend.git
-[submodule "lib/epr-re-ex-admin-frontend"]
-	path = lib/epr-re-ex-admin-frontend
-	url = git@github.com:DEFRA/epr-re-ex-admin-frontend.git
-[submodule "lib/epr-frontend-journey-tests"]
-	path = lib/epr-frontend-journey-tests
-	url = git@github.com:DEFRA/epr-frontend-journey-tests.git
-	branch = main
 [submodule "lib/epr-backend-journey-tests"]
 	path = lib/epr-backend-journey-tests
 	url = git@github.com:DEFRA/epr-backend-journey-tests.git
 	branch = main
+[submodule "lib/epr-frontend"]
+	path = lib/epr-frontend
+	url = git@github.com:DEFRA/epr-frontend.git
+[submodule "lib/epr-frontend-journey-tests"]
+	path = lib/epr-frontend-journey-tests
+	url = git@github.com:DEFRA/epr-frontend-journey-tests.git
+	branch = main
+[submodule "lib/epr-re-ex-admin-frontend"]
+	path = lib/epr-re-ex-admin-frontend
+	url = git@github.com:DEFRA/epr-re-ex-admin-frontend.git
 [submodule "lib/epr-re-ex-admin-frontend-tests"]
 	path = lib/epr-re-ex-admin-frontend-tests
 	url = git@github.com:DEFRA/epr-re-ex-admin-frontend-tests.git
