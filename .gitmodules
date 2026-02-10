@@ -11,3 +11,7 @@
 	path = lib/epr-frontend-journey-tests
 	url = git@github.com:DEFRA/epr-frontend-journey-tests.git
 	branch = main
+[submodule "lib/epr-backend-journey-tests"]
+	path = lib/epr-backend-journey-tests
+	url = git@github.com:DEFRA/epr-backend-journey-tests.git
+	branch = main
