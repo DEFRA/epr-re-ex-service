@@ -7,3 +7,7 @@
 [submodule "lib/epr-re-ex-admin-frontend"]
 	path = lib/epr-re-ex-admin-frontend
 	url = git@github.com:DEFRA/epr-re-ex-admin-frontend.git
+[submodule "lib/epr-frontend-journey-tests"]
+	path = lib/epr-frontend-journey-tests
+	url = git@github.com:DEFRA/epr-frontend-journey-tests.git
+	branch = main
