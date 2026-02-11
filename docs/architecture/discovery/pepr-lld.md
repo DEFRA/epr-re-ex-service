@@ -112,6 +112,7 @@ TBD
 ### Waste Record & Waste Balance
 
 #### Disambiguation
+
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
 
@@ -151,14 +152,15 @@ WasteBalance-->SummaryLogSuccess[Page: Success]
 ```
 
 #### Summary Log LLDs
+
 For detailed Summary Log LLDs, see the following:
 
 1. [Summary Log validation](./summary-log-validation-lld.md)
 1. [Summary Log row validation classification](./summary-log-row-validation-classification.md)
 1. [Summary Log submission](./summary-log-submission-lld.md)
 
-
 #### Entity Relationships
+
 > [!NOTE]
 > `accreditationId` is optional on waste records to support organisations that have a registration but no accreditation.
 
@@ -508,7 +510,7 @@ An example of an object in the Waste Balance collection
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      amount: 25.00,
+      amount: 25.0,
       openingAmount: 48.99,
       closingAmount: 48.99,
       openingAvailableAmount: 48.99,
@@ -516,7 +518,7 @@ An example of an object in the Waste Balance collection
       entities: [
         {
           id: 'd1234567890a12345a05',
-          type: 'prn:created',
+          type: 'prn:created'
         }
       ]
     },
@@ -530,14 +532,14 @@ An example of an object in the Waste Balance collection
         name: 'Charlie'
       },
       amount: 1.01,
-      openingAmount: 50.00,
+      openingAmount: 50.0,
       closingAmount: 48.99,
-      openingAvailableAmount: 50.00,
+      openingAvailableAmount: 50.0,
       closingAvailableAmount: 48.99,
       entities: [
         {
           id: 'd1234567890a12345a04',
-          type: 'waste_record:sent_on',
+          type: 'waste_record:sent_on'
         }
       ]
     },
@@ -550,19 +552,19 @@ An example of an object in the Waste Balance collection
         _id: 'd1234567890a12345a04',
         name: 'Bob'
       },
-      amount: 40.00,
-      openingAmount: 10.00,
-      closingAmount: 50.00,
-      openingAvailableAmount: 10.00,
-      closingAvailableAmount: 50.00,
+      amount: 40.0,
+      openingAmount: 10.0,
+      closingAmount: 50.0,
+      openingAvailableAmount: 10.0,
+      closingAvailableAmount: 50.0,
       entities: [
         {
           id: 'd1234567890a12345a03',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         },
         {
           id: 'd1234567890a12345a02',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         }
       ]
     },
@@ -575,15 +577,15 @@ An example of an object in the Waste Balance collection
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      amount: 10.00,
+      amount: 10.0,
       openingAmount: 0,
-      closingAmount: 10.00,
+      closingAmount: 10.0,
       openingAvailableAmount: 0,
-      closingAvailableAmount: 10.00,
+      closingAvailableAmount: 10.0,
       entities: [
         {
           id: 'd1234567890a12345a01',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         }
       ]
     }
@@ -682,9 +684,10 @@ erDiagram
 ### PRN creation & issuing
 
 The journey goes through two stages
- - creating a PRN (sets PRN status to `AWAITING_AUTHORISATION`)
- - issuing a PRN (sets PRN status to `AWAITING_ACCEPTANCE`)
- 
+
+- creating a PRN (sets PRN status to `AWAITING_AUTHORISATION`)
+- issuing a PRN (sets PRN status to `AWAITING_ACCEPTANCE`)
+
 This is supported through two API endpoints
 
 #### POST /v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes
@@ -692,14 +695,16 @@ This is supported through two API endpoints
 Creates a PRN in `draft` status
 
 **payload values**
-  - tonnage, floating point number to two decimal places, required
-  - issuedToOrganisation, object, required
-    - id: string, uuid, required
-    - name: string, required
-    - tradingName: string, optional
-  - notes, string, max length 200, optional
+
+- tonnage, floating point number to two decimal places, required
+- issuedToOrganisation, object, required
+  - id: string, uuid, required
+  - name: string, required
+  - tradingName: string, optional
+- notes, string, max length 200, optional
 
 **example**
+
 ```javascript
 {
   tonnage: 100.00,
@@ -725,22 +730,25 @@ Response body is an object that is a partial representation of the PRN, includin
 ```
 
 #### POST /v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{id}/status
+
 Update the status of a PRN.
 
 **payload values**
 
-  - status: enum, required
+- status: enum, required
 
 **status values**
-  - DRAFT
-  - AWAITING_AUTHORISATION
-  - AWAITING_ACCEPTANCE
-  - AWAITING_CANCELLATION
-  - ACCEPTED
-  - CANCELLED
-  - DELETED
+
+- DRAFT
+- AWAITING_AUTHORISATION
+- AWAITING_ACCEPTANCE
+- AWAITING_CANCELLATION
+- ACCEPTED
+- CANCELLED
+- DELETED
 
 **example**
+
 ```javascript
 {
   status: 'AWAITING_AUTHORISATION'
@@ -772,7 +780,7 @@ sequenceDiagram
   mongodb -->> epr-backend: (prnId)
   epr-backend -->> epr-frontend: 201 Created (prnId)
   note over epr-frontend: redirect to <br/>check answers page
-  
+
   user ->> epr-frontend: View check answers
   epr-frontend ->> epr-backend: GET /prn/{id}
   epr-backend ->> mongodb: find PRN (id)
