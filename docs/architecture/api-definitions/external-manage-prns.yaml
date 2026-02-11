@@ -379,7 +379,6 @@ components:
             - accepted
             - awaiting_cancellation
             - cancelled
-            - rejected
           description: Current status of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
           example: awaiting_acceptance
         authorisedBy:
