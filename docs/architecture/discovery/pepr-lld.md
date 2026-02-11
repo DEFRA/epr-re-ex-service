@@ -641,6 +641,7 @@ erDiagram
 
   PRN-STATUS {
     enum currentStatus "draft, discarded, awaiting_authorisation, deleted, awaiting_acceptance, accepted, awaiting_cancellation, cancelled"
+    ISO8601 currentStatusAt
     PRN-STATUS-TRANSITION created "optional, transition from draft > awaiting_authorisation"
     PRN-STATUS-TRANSITION deleted "optional, transition from awaiting_authorisation > deleted"
     PRN-STATUS-TRANSITION issued "optional, transition from awaiting_authorisation > awaiting_acceptance"
