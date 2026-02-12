@@ -28,10 +28,10 @@ services:
       - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
       - ./compose/01-start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
     healthcheck:
-      test: ['CMD', 'curl', 'localhost:4566']
+      test: ['CMD', 'test', '-f', '/tmp/READY']
       interval: 5s
       start_period: 5s
-      retries: 3
+      retries: 10
     networks:
       - cdp-tenant
 
@@ -180,6 +180,7 @@ services:
       OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       PORT: 3002
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
@@ -229,9 +230,11 @@ services:
       DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://localhost:3001
+      FEATURE_FLAG_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES:-false}
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
@@ -264,14 +267,18 @@ services:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
+      FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
       FEATURE_FLAG_DEFRA_ID_AUTH: ${FEATURE_FLAG_DEFRA_ID_AUTH:-true}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
-      FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
-      FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
+      FEATURE_FLAG_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES:-false}
+      SQS_ENDPOINT: http://localstack:4566
+      FEATURE_FLAG_SQS_COMMANDS: ${FEATURE_FLAG_SQS_COMMANDS:-true}
+      FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-stub-client-id}
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}

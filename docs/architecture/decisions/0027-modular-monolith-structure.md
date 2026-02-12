@@ -1,4 +1,4 @@
-# 26. Modular monolith structure
+# 27. Modular monolith structure
 
 Date: 2026-01-26
 
