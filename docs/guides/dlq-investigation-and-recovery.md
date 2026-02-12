@@ -97,14 +97,20 @@ Operations are idempotent by design ([ADR-0021](../architecture/decisions/0021-i
 Use the AWS CLI via CDP Terminal:
 
 ```bash
-# Start the redrive
+# Get the queue ARNs
+aws sqs get-queue-url --queue-name epr_backend_commands-deadletter
+aws sqs get-queue-attributes --queue-url <dlq-url> --attribute-names QueueArn
+aws sqs get-queue-url --queue-name epr_backend_commands
+aws sqs get-queue-attributes --queue-url <main-queue-url> --attribute-names QueueArn
+
+# Start the redrive (substitute the ARNs from above)
 aws sqs start-message-move-task \
-  --source-arn arn:aws:sqs:<region>:<account-id>:epr_backend_commands-deadletter \
-  --destination-arn arn:aws:sqs:<region>:<account-id>:epr_backend_commands
+  --source-arn <dlq-arn> \
+  --destination-arn <main-queue-arn>
 
 # Check redrive progress
 aws sqs list-message-move-tasks \
-  --source-arn arn:aws:sqs:<region>:<account-id>:epr_backend_commands-deadletter
+  --source-arn <dlq-arn>
 ```
 
 After starting the redrive:
@@ -119,8 +125,11 @@ After starting the redrive:
 Only purge if messages are genuinely unprocessable and you have confirmed they cannot be redriven:
 
 ```bash
-aws sqs purge-queue \
-  --queue-url https://sqs.<region>.amazonaws.com/<account-id>/epr_backend_commands-deadletter
+# Get the queue URL (if not already known from earlier steps)
+aws sqs get-queue-url --queue-name epr_backend_commands-deadletter
+
+# Purge all messages
+aws sqs purge-queue --queue-url <dlq-url>
 ```
 
 **Warning**: this permanently deletes all messages in the queue. The affected summary logs will remain in a failed state. Ensure you have recorded the affected `summaryLogId` values before purging.
