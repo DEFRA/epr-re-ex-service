@@ -25,9 +25,9 @@ The consumer distinguishes between **permanent** and **transient** errors:
 **Key implication**: messages in the DLQ are always from transient failures that exhausted all retries. The summary log will already be marked as failed.
 
 Source files:
-- `lib/epr-backend/src/server/queue-consumer/consumer.js` — error handling and retry logic
-- `lib/epr-backend/src/server/queue-consumer/permanent-error.js` — permanent error class
-- `lib/epr-backend/src/config.js` — queue configuration
+- [consumer.js](https://github.com/DEFRA/epr-backend/blob/main/src/server/queue-consumer/consumer.js) — error handling and retry logic
+- [permanent-error.js](https://github.com/DEFRA/epr-backend/blob/main/src/server/queue-consumer/permanent-error.js) — permanent error class
+- [config.js](https://github.com/DEFRA/epr-backend/blob/main/src/config.js) — queue configuration
 
 ## When this applies
 
