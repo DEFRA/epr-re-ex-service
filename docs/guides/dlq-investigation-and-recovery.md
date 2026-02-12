@@ -50,8 +50,12 @@ A small number of messages after a brief infrastructure blip is low severity. A 
 Use the AWS CLI via **CDP Terminal** to peek at messages without consuming them:
 
 ```bash
+# Get the queue URL
+aws sqs get-queue-url --queue-name epr_backend_commands-deadletter
+
+# Peek at messages (substitute the queue URL from above)
 aws sqs receive-message \
-  --queue-url https://sqs.<region>.amazonaws.com/<account-id>/epr_backend_commands-deadletter \
+  --queue-url <queue-url> \
   --max-number-of-messages 10 \
   --visibility-timeout 0 \
   --attribute-names All \
