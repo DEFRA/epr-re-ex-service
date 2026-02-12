@@ -4,4 +4,4 @@
 2. [OpenTelemetry Tracing](opentelemetry-tracing.md)
 3. [Logging In Locally](local-login.md)
 4. [Admin Logging In Locally](admin-local-login.md)
-5. [DLQ Investigation and Recovery](dlq-investigation-and-recovery.md)
+5. [DLQ Investigation](dlq-investigation-and-recovery.md)

@@ -1,6 +1,6 @@
-# DLQ Investigation and Recovery
+# DLQ Investigation
 
-This guide covers monitoring, investigating, and recovering messages from the backend commands dead-letter queue (DLQ).
+This guide covers monitoring and investigating messages in the backend commands dead-letter queue (DLQ).
 
 ## Overview
 
@@ -84,70 +84,52 @@ Check the application logs for the `summaryLogId` values found in the DLQ messag
 
 | Pattern | Symptoms | Action |
 |---------|----------|--------|
-| Transient infrastructure failure (MongoDB, network) | Errors reference connection timeouts or MongoDB errors; issues have since resolved | Redrive — the underlying issue is gone |
-| Consumer crash or restart during processing | Messages failed during a deployment; consumer is now healthy | Redrive — the new deployment should process successfully |
-| Sustained downstream failure | Errors ongoing; same failure on every retry | Fix the downstream issue first, then redrive |
+| Transient infrastructure failure (MongoDB, network) | Errors reference connection timeouts or MongoDB errors; issues have since resolved | Fix root cause, purge DLQ, affected users retry |
+| Consumer crash or restart during processing | Messages failed during a deployment; consumer is now healthy | Purge DLQ, affected users retry |
+| Sustained downstream failure | Errors ongoing; same failure on every retry | Fix the downstream issue first, then purge DLQ |
 
 **Note**: permanent errors (e.g. invalid data, business rule violations) are acknowledged immediately by the consumer and never reach the DLQ. If you see messages in the DLQ, the root cause is always a transient failure.
 
-## Redrive messages
+## Why redriving does not help
 
-Operations are idempotent by design ([ADR-0021](../architecture/decisions/0021-idempotent-operations-and-retry-mechanisms.md)), so replaying messages is safe. The queue is standard (not FIFO), so there are no ordering concerns.
+The consumer marks the summary log as failed on the final transient attempt, **before** the message moves to the DLQ. By the time a message is dead-lettered, the summary log is already in a failed state. Redriving would re-run the command against an already-failed summary log, which achieves nothing.
 
-Use the AWS CLI via CDP Terminal:
+Instead, the DLQ serves as an **investigation tool** — it tells you which summary logs were affected and preserves the message for root cause analysis.
 
-```bash
-# 1. Get the DLQ ARN
-aws sqs get-queue-url --queue-name epr_backend_commands-deadletter --query QueueUrl --output text
-aws sqs get-queue-attributes --queue-url <dlq-url> --attribute-names QueueArn --query Attributes.QueueArn --output text
+## Record affected summary logs
 
-# 2. Get the main queue ARN
-aws sqs get-queue-url --queue-name epr_backend_commands --query QueueUrl --output text
-aws sqs get-queue-attributes --queue-url <main-queue-url> --attribute-names QueueArn --query Attributes.QueueArn --output text
+Extract the `summaryLogId` from each DLQ message (see [Inspect DLQ messages](#inspect-dlq-messages)). Record these for follow-up:
 
-# 3. Start the redrive (substitute the ARNs from steps 1 and 2)
-aws sqs start-message-move-task \
-  --source-arn <dlq-arn> \
-  --destination-arn <main-queue-arn>
-
-# 4. Check redrive progress
-aws sqs list-message-move-tasks \
-  --source-arn <dlq-arn>
-```
-
-After starting the redrive:
-
-1. Monitor the **main queue depth** on the dashboard — it should increase as messages move back
-2. Monitor the **DLQ depth** — it should decrease to 0
-3. Watch application logs for successful processing of the redriven messages
-4. If messages return to the DLQ after redrive, the root cause has not been resolved
+- Identify the affected users from the `user` field in the message body
+- Confirm the summary logs are in a failed state
+- Communicate to affected users that they need to retry their operation
 
 ## Purge the DLQ
 
-Only purge if messages are genuinely unprocessable and you have confirmed they cannot be redriven:
+Once investigation is complete and affected summary logs have been recorded, purge the DLQ:
 
 ```bash
-# Get the queue URL (if not already known from earlier steps)
+# Get the queue URL
 aws sqs get-queue-url --queue-name epr_backend_commands-deadletter
 
 # Purge all messages
 aws sqs purge-queue --queue-url <dlq-url>
 ```
 
-**Warning**: this permanently deletes all messages in the queue. The affected summary logs will remain in a failed state. Ensure you have recorded the affected `summaryLogId` values before purging.
+**Warning**: this permanently deletes all messages in the queue. Ensure you have recorded all affected `summaryLogId` values before purging.
 
 ## Escalation
 
 Escalate if:
 
-- The DLQ keeps growing after a redrive (root cause unresolved)
+- The DLQ keeps growing (root cause unresolved)
 - The consumer is not processing messages from the main queue
 - You cannot identify the root cause from application logs
 - The number of affected summary logs is large enough to impact users
 
 Raise with the team via the usual channels and include:
 
-- Number of DLQ messages
+- Number of DLQ messages and affected `summaryLogId` values
 - Time range of failures
 - Sample error messages from the logs
 - Any infrastructure incidents that coincide with the failures
