@@ -97,18 +97,20 @@ Operations are idempotent by design ([ADR-0021](../architecture/decisions/0021-i
 Use the AWS CLI via CDP Terminal:
 
 ```bash
-# Get the queue ARNs
-aws sqs get-queue-url --queue-name epr_backend_commands-deadletter
-aws sqs get-queue-attributes --queue-url <dlq-url> --attribute-names QueueArn
-aws sqs get-queue-url --queue-name epr_backend_commands
-aws sqs get-queue-attributes --queue-url <main-queue-url> --attribute-names QueueArn
+# 1. Get the DLQ ARN
+aws sqs get-queue-url --queue-name epr_backend_commands-deadletter --query QueueUrl --output text
+aws sqs get-queue-attributes --queue-url <dlq-url> --attribute-names QueueArn --query Attributes.QueueArn --output text
 
-# Start the redrive (substitute the ARNs from above)
+# 2. Get the main queue ARN
+aws sqs get-queue-url --queue-name epr_backend_commands --query QueueUrl --output text
+aws sqs get-queue-attributes --queue-url <main-queue-url> --attribute-names QueueArn --query Attributes.QueueArn --output text
+
+# 3. Start the redrive (substitute the ARNs from steps 1 and 2)
 aws sqs start-message-move-task \
   --source-arn <dlq-arn> \
   --destination-arn <main-queue-arn>
 
-# Check redrive progress
+# 4. Check redrive progress
 aws sqs list-message-move-tasks \
   --source-arn <dlq-arn>
 ```
