@@ -37,7 +37,7 @@ Source files:
 
 ## Assess severity
 
-1. Open the **EPR Backend SQS** Grafana dashboard
+1. Open the [EPR Backend SQS dashboard](https://metrics.dev.cdp-int.defra.cloud/d/eejsl8w618wlce/epr-backend-service)
 2. Check the DLQ depth — how many messages are dead-lettered?
 3. Check the main queue depth and throughput — is the consumer still processing?
 4. Check the oldest message age on the DLQ — how long have messages been sitting there?
