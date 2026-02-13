@@ -148,7 +148,7 @@ src/
 
 | Module | Team |
 |--------|------|
-| `prns` | PRNs feature team |
+| `packaging-recycling-notes` | PRNs feature team |
 | `summary-logs` | Support/BAU |
 | `waste-balances` | Support/BAU |
 | `organisations` | Support/BAU |
