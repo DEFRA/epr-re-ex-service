@@ -91,7 +91,7 @@ Restructure the codebase into feature modules within the same deployable unit. E
 
 ## Decision
 
-We propose restructuring the epr-backend codebase into a modular monolith. We trialled this approach with the PRNs feature — all new PRN code was built inside `src/modules/prns/` — and found it worked well in practice: the PRNs team could work independently with minimal merge conflicts against the existing codebase.
+We propose restructuring the epr-backend codebase into a modular monolith. We trialled this approach with the PRNs feature — all new PRN code was built inside `src/packaging-recycling-notes/` — and found it worked well in practice: the PRNs team could work independently with minimal merge conflicts against the existing codebase.
 
 The proposed target structure would be:
 
@@ -139,7 +139,7 @@ src/
 
 ### Suggested migration strategy
 
-1. **PRNs (done)**: All new PRN code was built directly in `src/modules/prns/` as a trial of this approach
+1. **PRNs (done)**: All new PRN code was built directly in `src/packaging-recycling-notes/` as a trial of this approach
 2. **Existing features migrate incrementally**: Move existing features into modules opportunistically—when making significant changes to a feature, migrate it first
 3. **No big-bang migration**: There would be no need to migrate everything at once. A hybrid structure (some code in modules, some in legacy locations) is acceptable during transition
 4. **Shared code last**: Extract shared utilities to `src/shared/` as they are identified during module migrations
