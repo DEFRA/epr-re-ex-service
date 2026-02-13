@@ -98,7 +98,7 @@ The proposed target structure would be:
 ```
 src/
 ├── modules/
-│   ├── prns/
+│   ├── packaging-recycling-notes/
 │   │   ├── domain/
 │   │   ├── repositories/
 │   │   ├── routes/
