@@ -91,7 +91,9 @@ Restructure the codebase into feature modules within the same deployable unit. E
 
 ## Decision
 
-We will restructure the epr-backend codebase into a modular monolith. The target structure will be:
+We propose restructuring the epr-backend codebase into a modular monolith. We trialled this approach with the PRNs feature — all new PRN code was built inside `src/modules/prns/` — and found it worked well in practice: the PRNs team could work independently with minimal merge conflicts against the existing codebase.
+
+The proposed target structure would be:
 
 ```
 src/
@@ -127,22 +129,22 @@ src/
 └── index.js
 ```
 
-### Module conventions
+### Proposed module conventions
 
-1. **Self-contained**: Each module contains all code for its feature (domain, repositories, routes)
-2. **Ports and adapters**: Modules continue to use the existing ports and adapters pattern for data access
-3. **No cross-module imports initially**: Modules should not directly import from other modules' internals. If a module needs data from another module, it uses the repository port (this maintains the existing pattern)
-4. **Shared code**: Genuinely shared utilities (auth, validation helpers, date formatting) live in `src/shared/`
-5. **Public interface (future)**: When modules mature, each will export a public interface via `index.js`. At that point, cross-module access must go through this interface
+1. **Self-contained**: Each module would contain all code for its feature (domain, repositories, routes)
+2. **Ports and adapters**: Modules would continue to use the existing ports and adapters pattern for data access
+3. **No cross-module imports initially**: Modules should not directly import from other modules' internals. If a module needs data from another module, it would use the repository port (this maintains the existing pattern)
+4. **Shared code**: Genuinely shared utilities (auth, validation helpers, date formatting) would live in `src/shared/`
+5. **Public interface (future)**: When modules mature, each could export a public interface via `index.js`. At that point, cross-module access would go through this interface
 
-### Migration strategy
+### Suggested migration strategy
 
-1. **PRNs starts fresh**: All new PRN code goes directly into `src/modules/prns/`
+1. **PRNs (done)**: All new PRN code was built directly in `src/modules/prns/` as a trial of this approach
 2. **Existing features migrate incrementally**: Move existing features into modules opportunistically—when making significant changes to a feature, migrate it first
-3. **No big-bang migration**: We don't need to migrate everything at once. The hybrid structure (some code in modules, some in legacy locations) is acceptable during transition
-4. **Shared code last**: Extract shared utilities to `src/shared/` as we identify them during module migrations
+3. **No big-bang migration**: There would be no need to migrate everything at once. A hybrid structure (some code in modules, some in legacy locations) is acceptable during transition
+4. **Shared code last**: Extract shared utilities to `src/shared/` as they are identified during module migrations
 
-### Team ownership
+### Suggested team ownership
 
 | Module | Team |
 |--------|------|
