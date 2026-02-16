@@ -236,6 +236,7 @@ services:
       REDIS_HOST: redis
       SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
+      WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
     networks:
       - cdp-tenant
 
@@ -282,6 +283,7 @@ services:
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
+      WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
     secrets:
       - govuk_notify_api_key
     networks:
