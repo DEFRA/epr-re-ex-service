@@ -26,7 +26,7 @@ services:
       LOCALSTACK_HOST: 127.0.0.1
     volumes:
       - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/01-start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+      - ./compose/localstack:/etc/localstack/init/ready.d
     healthcheck:
       test: ['CMD', 'test', '-f', '/tmp/READY']
       interval: 5s
@@ -35,14 +35,29 @@ services:
     networks:
       - cdp-tenant
 
+  mongodb:
+    image: mongo:7.0.28
+    networks:
+      - cdp-tenant
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb-data:/data
+      - ./mongodb-backups:/backups
+
   redis:
     image: redis:7.2.11-alpine3.21
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'PING']
+      interval: 5s
+      start_period: 2s
+      retries: 5
+    networks:
+      - cdp-tenant
     ports:
       - '6379:6379'
     volumes:
       - data-redis:/data
-    networks:
-      - cdp-tenant
 
   cdp-uploader:
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
@@ -50,14 +65,11 @@ services:
       - '7337:7337'
     extra_hosts:
       - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
     depends_on:
       localstack:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./compose/aws.env
     environment:
@@ -80,11 +92,9 @@ services:
     image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
     ports:
       - '3200:3200'
-    links:
-      - 'redis:redis'
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       APP_BASE_URL: http://localhost:3200
       NODE_ENV: development
@@ -103,11 +113,9 @@ services:
     image: defradigital/epr-re-ex-entra-stub:${ENTRA_STUB_VERSION:-latest}
     ports:
       - '3010:3010'
-    links:
-      - 'redis:redis'
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:3002}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
@@ -121,17 +129,28 @@ services:
     networks:
       - cdp-tenant
 
-  ################################################################################
-
-  mongodb:
-    image: mongo:7.0.28
+  # Copies cognito seed files into a volume so cognito-stub has its own copies
+  cognito-stub-init:
+    image: alpine:3.23.3
+    volumes:
+      - ./compose/cognito-local/clients.json:/seed/clients.json:ro
+      - ./compose/cognito-local/local_4D8shcYm.json:/seed/local_4D8shcYm.json:ro
+      - cognito-db:/target
+    command: sh -c "cp /seed/clients.json /seed/local_4D8shcYm.json /target/"
     networks:
       - cdp-tenant
+
+  cognito-stub:
+    image: jagregory/cognito-local:5.1.0
     ports:
-      - '27017:27017'
+      - '9229:9229'
     volumes:
-      - mongodb-data:/data
-      - ./mongodb-backups:/backups
+      - ./compose/cognito-local/clients.json:/app/.cognito/db/clients.json
+      - ./compose/cognito-local/local_4D8shcYm.json:/app/.cognito/db/local_4D8shcYm.json
+    networks:
+      - cdp-tenant
+
+  ################################################################################
 
   epr-admin-frontend:
     profiles: ['all', 'epr-admin-frontend']
@@ -144,9 +163,6 @@ services:
       - '3002:3002'
     extra_hosts:
       - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
     develop:
       watch:
         - path: ./lib/epr-re-ex-admin-frontend/src/
@@ -168,7 +184,7 @@ services:
       localstack:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./compose/aws.env
     environment:
@@ -251,10 +267,9 @@ services:
       - '3001:3001'
     extra_hosts:
       - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'mongodb:mongodb'
     depends_on:
+      cognito-stub:
+        condition: service_started
       localstack:
         condition: service_healthy
       mongodb:
@@ -278,7 +293,8 @@ services:
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
-      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-stub-client-id}
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-5357lgchj0h0fuomqyas5r87u}
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL:-http://localhost:9229/local_4D8shcYm/.well-known/jwks.json}
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
@@ -293,6 +309,7 @@ services:
 ################################################################################
 
 volumes:
+  cognito-db:
   data-redis:
   mongodb-data:
   mongodb-backups:
