@@ -1,5 +1,4 @@
 #!/bin/bash
-rm -f /tmp/READY
 
 echo "[INIT SCRIPT] Starting LocalStack setup" >&2
 
