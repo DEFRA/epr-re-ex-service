@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Keep in sync with https://github.com/DEFRA/epr-backend/blob/main/.vite/fixtures/cdp-uploader/localstack/01-start-localstack.sh
+
 echo "[INIT SCRIPT] Starting LocalStack setup" >&2
 
 export AWS_REGION=eu-west-2
