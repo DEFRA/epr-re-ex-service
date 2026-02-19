@@ -294,7 +294,6 @@ services:
       FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
       FEATURE_FLAG_PACKAGING_RECYCLING_NOTES_EXTERNAL_API: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES_EXTERNAL_API:-false}
       FEATURE_FLAG_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES:-false}
-      SQS_ENDPOINT: http://localstack:4566
       FEATURE_FLAG_SQS_COMMANDS: ${FEATURE_FLAG_SQS_COMMANDS:-true}
       FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
@@ -305,6 +304,7 @@ services:
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
+      SQS_ENDPOINT: http://localstack:4566
     secrets:
       - govuk_notify_api_key
     networks:
