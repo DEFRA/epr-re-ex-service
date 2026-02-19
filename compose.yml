@@ -193,7 +193,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
-      ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-6f504113-6b64-43f2-ade9-242e05780007}
       EPR_BACKEND_URL: http://localhost:3001
