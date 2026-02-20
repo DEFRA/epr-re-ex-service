@@ -1,4 +1,4 @@
-# 27. Waste Organisation Resolution for PRN Creation
+# 28. Waste Organisation Resolution for PRN Creation
 
 Date: 2026-02-20
 
