@@ -29,15 +29,15 @@ const referenceNumber = insertedId.toString()
 
 This `referenceNumber` is emailed to the operator alongside the `orgId` via GovNotify. When the operator later submits registration and accreditation forms, they must include **both** `orgId` and `referenceNumber`. The form-submissions system stores both on registration/accreditation documents and indexes `referenceNumber` for lookups.
 
-However, the `referenceNumber` was never deliberately designed as an identifier. It is simply the string representation of MongoDB's auto-generated `_id`. The `orgId`, by contrast, is generated from a dedicated counter and was designed to be the domain identifier. Registration and accreditation documents already carry `orgId` as a foreign key, making `referenceNumber` redundant as a lookup key. Operators are burdened with two identifiers (a 6-digit number and a 24-character hex string) when one would suffice.
+The `orgId` is generated from a dedicated counter and was designed to be the domain identifier. Registration and accreditation documents already carry `orgId` as a foreign key, making `referenceNumber` redundant as a lookup key. However, the `referenceNumber` serves an additional purpose beyond identification (see below).
 
-### The referenceNumber as an accidental credential
+### The referenceNumber as a credential
 
 The form-submission endpoints (`POST /v1/apply/registration`, `POST /v1/apply/accreditation`) are unauthenticated (`auth: false`). They are called by Defra Forms on behalf of the operator, with no bearer token or session.
 
-Because `orgId` is sequential and guessable, requiring only `orgId` would allow anyone to submit registrations and accreditations against any organisation. The `referenceNumber` — a 24-character hex string known only to the person who received the confirmation email — acts as a shared secret that proves the submitter is associated with that organisation.
+Because `orgId` is sequential and guessable, requiring only `orgId` would allow anyone to submit registrations and accreditations against any organisation. The system requires **both** `orgId` and `referenceNumber` on submission, and the payload validation rejects requests missing either value. The `referenceNumber` — a 24-character hex string known only to the person who received the confirmation email — acts as a shared secret that proves the submitter is associated with that organisation.
 
-This means the `referenceNumber` is accidentally serving as a credential, not just an identifier. Any migration that removes it must address this authentication gap. Options include:
+The `referenceNumber` therefore serves a dual role: it is both an identifier and a credential. While a MongoDB ObjectId is not what you would design as a credential from scratch, the choice to use it provides an unguessable value without requiring a separate secret generation mechanism. Any migration that removes it must address this authentication role. Options include:
 
 - **Adding proper authentication** to the apply endpoints (the right long-term answer, but requires changes to Defra Forms integration)
 - **Replacing it with a purpose-built token** generated and emailed for form submission verification
@@ -49,7 +49,7 @@ This ADR does not prescribe which approach to take for the credential replacemen
 
 1. **Two identifiers for the same concept.** Developers must know that `id` is the technical key and `orgId` is the human-readable one. The naming is confusing: `orgId` sounds like the primary identifier but isn't, while `organisationId` in route parameters refers to the MongoDB ObjectId.
 
-2. **An accidental identifier became user-facing.** The `referenceNumber` is a MongoDB ObjectId that was never designed to be shown to users. It leaked into emails, forms, and the form-submission data model simply because it was available after `insertOne()`. The deliberately designed identifier (`orgId`) was already present and could have served the same purpose.
+2. **A database identifier serves as a credential.** The `referenceNumber` (MongoDB ObjectId) is emailed to operators and required on subsequent form submissions as proof of association with the organisation. While this works, it couples the credential mechanism to the database technology and means the ObjectId cannot be treated as a purely internal concern.
 
 3. **Leaking infrastructure into the domain.** The MongoDB ObjectId is an implementation detail of the persistence layer, yet it appears in API contracts, URLs, session data, and user-facing emails. The port/adapter boundary is violated; consumers are coupled to a database technology choice.
 
@@ -143,7 +143,7 @@ This respects the existing port/adapter architecture (see ADR 0015) by keeping t
 
 ### Form submissions
 
-- The `referenceNumber` currently serves as both an identifier and an accidental credential on the unauthenticated apply endpoints. It **must not** be removed from the form-submission flow until an alternative authentication mechanism is in place (see Context)
+- The `referenceNumber` currently serves as both an identifier and a credential on the unauthenticated apply endpoints. It **must not** be removed from the form-submission flow until an alternative authentication mechanism is in place (see Context)
 - Once credential replacement is addressed: the `POST /v1/apply/organisation` handler stops emailing the MongoDB ObjectId as `referenceNumber`, operators receive only `orgId`, and registration/accreditation forms are simplified to collect only `orgId`
 - The `referenceNumber` field and its index on the registration and accreditation collections can be removed after the credential concern is resolved
 - Existing form-submission data retains `referenceNumber` for historical reference but it is no longer used for lookups
