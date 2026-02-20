@@ -11,7 +11,6 @@
     "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
-    "git:pre-commit-hook": "npm run format:check",
     "postinstall": "npm run setup:husky",
     "seed:stub": "node scripts/seed-defra-id-stub.mjs",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module"
