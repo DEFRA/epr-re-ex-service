@@ -12,23 +12,38 @@ EPR organisations currently have three distinct identifiers:
 
 | Identifier | Type | Example | Purpose |
 |---|---|---|---|
-| `_id` / `id` | MongoDB ObjectId (24-char hex) | `6507f1f77bcf86cd79943901` | Internal database key |
+| `_id` / `id` / `referenceNumber` | MongoDB ObjectId (24-char hex) | `6507f1f77bcf86cd79943901` | Internal database key, also emailed to operators |
 | `orgId` | Positive integer (>= 500,000) | `500023` | EPR regulatory reference number |
 | `linkedDefraOrganisation.orgId` | UUID | `550e8400-e29b-41d4-...` | Cross-government Defra identity link |
 
 The first two both identify the same organisation within EPR. The MongoDB ObjectId (`id`) is used pervasively: in API routes (`/v1/organisations/{organisationId}`), cross-collection references (`organisationId` fields in waste-records, summary-logs, waste-balances, PRNs), session storage, and frontend URLs. The numeric `orgId` is displayed to users on the account linking screen but otherwise unused outside the organisation document itself.
 
-This creates several problems:
+### How the ObjectId became user-facing
+
+When an organisation form is submitted, the `POST /v1/apply/organisation` handler inserts a document into MongoDB, then captures the auto-generated ObjectId as a "reference number":
+
+```javascript
+const { insertedId } = await collection.insertOne(organisationFactory({ orgId, ... }))
+const referenceNumber = insertedId.toString()
+```
+
+This `referenceNumber` is emailed to the operator alongside the `orgId` via GovNotify. When the operator later submits registration and accreditation forms, they must include **both** `orgId` and `referenceNumber`. The form-submissions system stores both on registration/accreditation documents and indexes `referenceNumber` for lookups.
+
+However, the `referenceNumber` was never deliberately designed as an identifier. It is simply the string representation of MongoDB's auto-generated `_id`. The `orgId`, by contrast, is generated from a dedicated counter and was designed to be the domain identifier. Registration and accreditation documents already carry `orgId` as a foreign key, making `referenceNumber` redundant as a lookup key. Operators are burdened with two identifiers (a 6-digit number and a 24-character hex string) when one would suffice.
+
+### Problems
 
 1. **Two identifiers for the same concept.** Developers must know that `id` is the technical key and `orgId` is the human-readable one. The naming is confusing: `orgId` sounds like the primary identifier but isn't, while `organisationId` in route parameters refers to the MongoDB ObjectId.
 
-2. **Leaking infrastructure into the domain.** The MongoDB ObjectId is an implementation detail of the persistence layer, yet it appears in API contracts, URLs, and session data. The port/adapter boundary is violated; consumers are coupled to a database technology choice.
+2. **An accidental identifier became user-facing.** The `referenceNumber` is a MongoDB ObjectId that was never designed to be shown to users. It leaked into emails, forms, and the form-submission data model simply because it was available after `insertOne()`. The deliberately designed identifier (`orgId`) was already present and could have served the same purpose.
 
-3. **Unnecessary complexity in aggregation pipelines.** Cross-collection joins require `$toObjectId` conversions because other collections store the organisation reference as a string (the hex representation of the ObjectId), while the organisations collection uses a native ObjectId for `_id`. This is purely mechanical complexity that adds no value.
+3. **Leaking infrastructure into the domain.** The MongoDB ObjectId is an implementation detail of the persistence layer, yet it appears in API contracts, URLs, session data, and user-facing emails. The port/adapter boundary is violated; consumers are coupled to a database technology choice.
 
-4. **Opaque URLs.** `/organisations/6507f1f77bcf86cd79943901` conveys nothing to a user or developer reading logs. `/organisations/500023` is immediately recognisable as an EPR organisation number.
+4. **Unnecessary complexity in aggregation pipelines.** Cross-collection joins require `$toObjectId` conversions because other collections store the organisation reference as a string (the hex representation of the ObjectId), while the organisations collection uses a native ObjectId for `_id`. This is purely mechanical complexity that adds no value.
 
-5. **Configuration already uses both.** Environment configuration in `cdp-app-config` reflects the split identity. `TEST_ORGANISATIONS` already uses numeric `orgId` values (e.g. `[500521,500002]`), while `FORM_SUBMISSION_OVERRIDES` must explicitly map between ObjectId hex and numeric `orgId` for each organisation. `SYSTEM_REFERENCES_REQUIRING_ORG_ID_MATCH` uses ObjectId hex strings. The dual-identifier problem extends beyond code into operational configuration.
+5. **Opaque URLs.** `/organisations/6507f1f77bcf86cd79943901` conveys nothing to a user or developer reading logs. `/organisations/500023` is immediately recognisable as an EPR organisation number.
+
+6. **Configuration already uses both.** Environment configuration in `cdp-app-config` reflects the split identity. `TEST_ORGANISATIONS` already uses numeric `orgId` values (e.g. `[500521,500002]`), while `FORM_SUBMISSION_OVERRIDES` must explicitly map between ObjectId hex and numeric `orgId` for each organisation. `SYSTEM_REFERENCES_REQUIRING_ORG_ID_MATCH` uses ObjectId hex strings. The dual-identifier problem extends beyond code into operational configuration.
 
 The `orgId` field already has a unique index on the organisations collection and is present on every organisation document. It is generated internally (sequentially from 500,000) and is stable, immutable, and meaningful to the domain.
 
@@ -100,12 +115,30 @@ This respects the existing port/adapter architecture (see ADR 0015) by keeping t
 
 ## Consequences
 
+### API and frontend
+
 - API routes change from `/v1/organisations/{objectIdHex}` to `/v1/organisations/{orgId}` (numeric)
 - Frontend URLs become human-readable (e.g. `/organisations/500023`)
 - The `idSchema` in the organisations repository changes from ObjectId validation to numeric validation
+
+### Data layer
+
 - Aggregation pipelines in tonnage-monitoring and waste-balance-availability simplify by removing `$toObjectId` conversions
 - Other collections (waste-records, summary-logs, waste-balances, PRNs) gain a numeric `orgId` field during Phase 1 and lose the old `organisationId` (ObjectId hex) field after Phase 3
 - During the transition period, both fields exist in other collections and code must be consistent about which it uses
-- Registration and accreditation identifiers within the organisation document are unaffected by this change; they retain their existing ObjectId format
+
+### Form submissions
+
+- The `POST /v1/apply/organisation` handler stops emailing the MongoDB ObjectId as `referenceNumber`. Operators receive only `orgId`
+- Registration and accreditation form submissions use `orgId` as the sole organisation reference. The `referenceNumber` field and its index on the registration and accreditation collections can be removed
+- Defra Forms that currently collect both `orgId` and `referenceNumber` from operators are simplified to collect only `orgId`
+- Existing form-submission data retains `referenceNumber` for historical reference but it is no longer used for lookups
+
+### Unaffected
+
+- Registration and accreditation identifiers within the organisation document retain their existing ObjectId format
 - The `linkedDefraOrganisation.orgId` (UUID) is unaffected; it identifies an organisation in a different system (Defra central government) and serves a different purpose
+
+### Configuration
+
 - Environment configuration in `cdp-app-config` simplifies: `FORM_SUBMISSION_OVERRIDES` can drop ObjectId-to-orgId mappings, and `SYSTEM_REFERENCES_REQUIRING_ORG_ID_MATCH` switches to numeric values
