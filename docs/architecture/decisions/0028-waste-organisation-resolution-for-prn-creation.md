@@ -21,7 +21,7 @@ This means:
 
 The `issuedToOrganisation` snapshot is used downstream for display (e.g. on PRN detail pages, in reports) and the `registrationType` field determines whether the legal name or trading name is shown. Incorrect data here propagates through the system.
 
-Beyond PRN creation, the backend will also need access to the waste organisations API for data migration — backfilling PRNs created before fields like `registrationType` were captured. This means the backend integration with the waste organisations API is inevitable regardless of the approach chosen for PRN creation.
+Beyond PRN creation, the backend is likely to need access to the waste organisations API for data migration — e.g. backfilling PRNs created before fields like `registrationType` were captured. This makes the backend integration with the waste organisations API useful beyond the PRN creation path.
 
 ## Options
 
@@ -170,7 +170,7 @@ sequenceDiagram
 
 Option 2: Backend resolves organisation from the waste organisations API.
 
-The backend needs access to the waste organisations API regardless (for data migration), so the "additional dependency" cost of Option 2 is already paid. Option 1 is therefore ruled out — it accepts untrusted data while the integration is being built anyway.
+The backend is likely to need access to the waste organisations API for other purposes such as data migration, so the "additional dependency" cost of Option 2 is not specific to PRN creation. Option 1 leaves untrusted data in the system for no meaningful saving.
 
 Option 3 solves a problem we don't have. The frontend's existing waste organisations integration works well and doesn't need replacing. The single-integration-point benefit doesn't justify the caching complexity and additional endpoints.
 
