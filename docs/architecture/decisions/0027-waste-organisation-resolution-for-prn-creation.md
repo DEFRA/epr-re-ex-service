@@ -21,6 +21,8 @@ This means:
 
 The `issuedToOrganisation` snapshot is used downstream for display (e.g. on PRN detail pages, in reports) and the `registrationType` field determines whether the legal name or trading name is shown. Incorrect data here propagates through the system.
 
+Beyond PRN creation, the backend will also need access to the waste organisations API for data migration — backfilling PRNs created before fields like `registrationType` were captured. This means the backend integration with the waste organisations API is inevitable regardless of the approach chosen for PRN creation.
+
 ## Options
 
 ### Option 1: Status quo - frontend is trusted
@@ -166,8 +168,21 @@ sequenceDiagram
 
 ## Decision
 
-[To be decided]
+Option 2: Backend resolves organisation from the waste organisations API.
+
+The backend needs access to the waste organisations API regardless (for data migration), so the "additional dependency" cost of Option 2 is already paid. Option 1 is therefore ruled out — it accepts untrusted data while the integration is being built anyway.
+
+Option 3 solves a problem we don't have. The frontend's existing waste organisations integration works well and doesn't need replacing. The single-integration-point benefit doesn't justify the caching complexity and additional endpoints.
+
+Both frontend and backend call the waste organisations API, but for different reasons. The frontend uses it for presentation (populating a dropdown, choosing the right display name). The backend uses it to verify and snapshot authoritative data at write time. This is not duplicated logic — it is the same data consumed independently for different purposes.
+
+The backend's waste organisations adapter should be a general-purpose client that returns organisation data without frontend-specific transformation. What gets snapshotted onto a PRN is a domain concern belonging to the PRN creation handler, not the adapter. This keeps the adapter reusable for other purposes such as migration.
 
 ## Consequences
 
-[To be completed after decision]
+- The backend gains a new dependency on the waste organisations API, with credentials managed through environment configuration
+- PRN creation makes an additional API call, run in parallel with existing lookups to minimise latency impact
+- If the waste organisations API is unavailable, PRN creation fails — though this is largely academic since the frontend cannot populate its dropdown either
+- The POST payload contract changes: `issuedToOrganisation` requires only `{ id }` rather than the full organisation object
+- The same adapter can be reused for data migration and any future features that need waste organisation data
+- Frontend changes are minimal: it can continue sending extra fields (the backend ignores them) or be updated to send only the ID
