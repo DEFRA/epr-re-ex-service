@@ -63,8 +63,6 @@ services:
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
     ports:
       - '7337:7337'
-    extra_hosts:
-      - 'localhost:host-gateway'
     depends_on:
       localstack:
         condition: service_healthy
@@ -85,6 +83,13 @@ services:
       VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
       VIRTUAL_PATH: /
       VIRTUAL_PORT: 7337
+    extra_hosts:
+      - 'localhost:host-gateway'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:7337/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
     networks:
       - cdp-tenant
 
@@ -268,6 +273,8 @@ services:
     extra_hosts:
       - 'localhost:host-gateway'
     depends_on:
+      cdp-uploader:
+        condition: service_healthy
       cognito-stub:
         condition: service_started
       localstack:
@@ -283,21 +290,21 @@ services:
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
-      FEATURE_FLAG_DEFRA_ID_AUTH: ${FEATURE_FLAG_DEFRA_ID_AUTH:-true}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
       FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
+      FEATURE_FLAG_PACKAGING_RECYCLING_NOTES_EXTERNAL_API: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES_EXTERNAL_API:-false}
       FEATURE_FLAG_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PACKAGING_RECYCLING_NOTES:-false}
-      SQS_ENDPOINT: http://localstack:4566
       FEATURE_FLAG_SQS_COMMANDS: ${FEATURE_FLAG_SQS_COMMANDS:-true}
       FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
       PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-5357lgchj0h0fuomqyas5r87u}
-      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL:-http://localhost:9229/local_4D8shcYm/.well-known/jwks.json}
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL:-http://cognito-stub:9229/local_4D8shcYm/.well-known/jwks.json}
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
+      SQS_ENDPOINT: http://localstack:4566
     secrets:
       - govuk_notify_api_key
     networks:
