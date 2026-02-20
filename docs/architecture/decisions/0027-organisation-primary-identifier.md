@@ -31,6 +31,20 @@ This `referenceNumber` is emailed to the operator alongside the `orgId` via GovN
 
 However, the `referenceNumber` was never deliberately designed as an identifier. It is simply the string representation of MongoDB's auto-generated `_id`. The `orgId`, by contrast, is generated from a dedicated counter and was designed to be the domain identifier. Registration and accreditation documents already carry `orgId` as a foreign key, making `referenceNumber` redundant as a lookup key. Operators are burdened with two identifiers (a 6-digit number and a 24-character hex string) when one would suffice.
 
+### The referenceNumber as an accidental credential
+
+The form-submission endpoints (`POST /v1/apply/registration`, `POST /v1/apply/accreditation`) are unauthenticated (`auth: false`). They are called by Defra Forms on behalf of the operator, with no bearer token or session.
+
+Because `orgId` is sequential and guessable, requiring only `orgId` would allow anyone to submit registrations and accreditations against any organisation. The `referenceNumber` — a 24-character hex string known only to the person who received the confirmation email — acts as a shared secret that proves the submitter is associated with that organisation.
+
+This means the `referenceNumber` is accidentally serving as a credential, not just an identifier. Any migration that removes it must address this authentication gap. Options include:
+
+- **Adding proper authentication** to the apply endpoints (the right long-term answer, but requires changes to Defra Forms integration)
+- **Replacing it with a purpose-built token** generated and emailed for form submission verification
+- **Making `orgId` itself unguessable** by using random values rather than sequential numbers (but this changes the nature of the identifier and affects usability)
+
+This ADR does not prescribe which approach to take for the credential replacement, but the migration **must not** remove the `referenceNumber` from the form-submission flow until an alternative authentication mechanism is in place.
+
 ### Problems
 
 1. **Two identifiers for the same concept.** Developers must know that `id` is the technical key and `orgId` is the human-readable one. The naming is confusing: `orgId` sounds like the primary identifier but isn't, while `organisationId` in route parameters refers to the MongoDB ObjectId.
@@ -129,9 +143,9 @@ This respects the existing port/adapter architecture (see ADR 0015) by keeping t
 
 ### Form submissions
 
-- The `POST /v1/apply/organisation` handler stops emailing the MongoDB ObjectId as `referenceNumber`. Operators receive only `orgId`
-- Registration and accreditation form submissions use `orgId` as the sole organisation reference. The `referenceNumber` field and its index on the registration and accreditation collections can be removed
-- Defra Forms that currently collect both `orgId` and `referenceNumber` from operators are simplified to collect only `orgId`
+- The `referenceNumber` currently serves as both an identifier and an accidental credential on the unauthenticated apply endpoints. It **must not** be removed from the form-submission flow until an alternative authentication mechanism is in place (see Context)
+- Once credential replacement is addressed: the `POST /v1/apply/organisation` handler stops emailing the MongoDB ObjectId as `referenceNumber`, operators receive only `orgId`, and registration/accreditation forms are simplified to collect only `orgId`
+- The `referenceNumber` field and its index on the registration and accreditation collections can be removed after the credential concern is resolved
 - Existing form-submission data retains `referenceNumber` for historical reference but it is no longer used for lookups
 
 ### Unaffected
