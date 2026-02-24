@@ -55,6 +55,7 @@ Use the CDP browser terminal to exec into a running container and run a one-off 
 **Cons:**
 
 - Requires manual operator intervention: an engineer must be available, logged in to CDP, and execute the script at the right time in the right environment
+- Access to the CDP terminal for production environments requires elevated permissions that not all team members hold
 - CDP terminal sessions are ephemeral and can be terminated at any point; a disconnection mid-run could leave the correction partially applied
 - The CDP terminal is intended for interactive debugging, not for running long-running or production-critical data operations
 - Multiple environments (dev, staging, production) each require a separate manual step, increasing the risk of human error or an environment being missed
