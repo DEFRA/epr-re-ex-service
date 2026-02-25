@@ -160,11 +160,10 @@ sequenceDiagram
 
 **Cons:**
 
-- Significant additional backend development (new endpoints, caching strategy, cache invalidation)
+- Significant additional backend development (new proxy endpoints replacing the frontend's existing integration)
 - The backend becomes a proxy for an API the frontend already integrates with successfully
-- Introduces caching complexity (stale data, invalidation timing, memory)
 - The frontend's existing waste organisations integration works well and would need to be replaced
-- Over-engineered for the current problem, which is specifically about trust at write time
+- Goes beyond the current problem statement, which is specifically about trust at write time
 
 ## Decision
 
@@ -172,7 +171,7 @@ Option 2: Backend resolves organisation from the waste organisations API.
 
 The backend is likely to need access to the waste organisations API for other purposes such as data migration, so the "additional dependency" cost of Option 2 is not specific to PRN creation. Option 1 leaves untrusted data in the system for no meaningful saving.
 
-Option 3 solves a problem we don't have. The frontend's existing waste organisations integration works well and doesn't need replacing. The single-integration-point benefit doesn't justify the caching complexity and additional endpoints.
+Option 3 solves a problem we don't have. The frontend's existing waste organisations integration works well and doesn't need replacing. The single-integration-point benefit doesn't justify the additional proxy endpoints and the effort of replacing a working integration.
 
 Both frontend and backend call the waste organisations API, but for different reasons. The frontend uses it for presentation (populating a dropdown, choosing the right display name). The backend uses it to verify and snapshot authoritative data at write time. This is not duplicated logic — it is the same data consumed independently for different purposes.
 
@@ -186,3 +185,4 @@ The backend's waste organisations adapter should be a general-purpose client tha
 - The POST payload contract changes: `issuedToOrganisation` requires only `{ id }` rather than the full organisation object
 - The same adapter can be reused for data migration and any future features that need waste organisation data
 - Frontend changes are minimal: it can continue sending extra fields (the backend ignores them) or be updated to send only the ID
+- Option 2's waste organisations adapter provides a natural foundation for evolving towards Option 3 in the future, should a concrete driver emerge (e.g. new API clients, performance requirements)
