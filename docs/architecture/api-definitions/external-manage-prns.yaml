@@ -90,6 +90,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity - Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
         '500':
           description: Internal server error
           content:
@@ -147,6 +153,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity - Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
         '500':
           description: Internal server error
           content:
@@ -204,6 +216,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity - Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
         '500':
           description: Internal server error
           content:
@@ -278,6 +296,44 @@ components:
           type: string
           description: Human-readable error message
           example: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) not found
+
+    ValidationError:
+      type: object
+      required:
+        - statusCode
+        - error
+        - message
+        - validationErrors
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 422
+        error:
+          type: string
+          description: HTTP error phrase
+          example: Unprocessable Entity
+        message:
+          type: string
+          description: Human-readable validation error message
+          example: '"statuses" must be one of [awaiting_acceptance, cancelled]'
+        validationErrors:
+          type: array
+          description: Detailed list of validation errors
+          items:
+            type: object
+            required:
+              - path
+              - message
+            properties:
+              path:
+                type: string
+                description: Dot-separated path to the invalid field
+                example: statuses
+              message:
+                type: string
+                description: Human-readable description of the validation failure
+                example: '"statuses" must be one of [awaiting_acceptance, cancelled]'
 
     Accreditation:
       type: object
