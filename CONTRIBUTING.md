@@ -28,6 +28,19 @@
 
 1. [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 2. [NVM](https://github.com/creationix/nvm)
+3. [Gitleaks](https://github.com/gitleaks/gitleaks) — required for pre-commit secret scanning, must be on your PATH
+
+   The simplest install on macOS/Linux is via [mise](https://mise.jdx.dev/):
+
+   ```bash
+   mise trust && mise install
+   ```
+
+   Alternatively, install directly:
+   - macOS: `brew install gitleaks`
+   - Linux/Windows: see the [gitleaks releases page](https://github.com/gitleaks/gitleaks/releases)
+
+4. [Mise](https://mise.jdx.dev/) — reads `mise.toml` to install pinned tool versions ([install](https://mise.jdx.dev/getting-started.html#installing-mise-cli), then [activate](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell)
 
 ## Getting Started
 
