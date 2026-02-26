@@ -26,4 +26,3 @@
 * [24. Create PRN API strategy](0024-create-prn-api-strategy.md)
 * [25. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
 * [26. Expose Initial User Status to Frontend](0026-expose-initial-user-status-to-frontend.md)
-* [27. waste-balance-precision-decimal-rounding](0027-waste-balance-precision-decimal-rounding.md)
