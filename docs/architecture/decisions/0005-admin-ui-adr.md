@@ -84,7 +84,7 @@ Having an Admin UI in CDP's private space adds an additional layer of security t
 
 From the organisational point of view, it establishes a clear separation between the publicly and privately accessible functions while helping the product team to separate concerns and define parallel streams of works, which will help us divide our tasks.
 
-The full scope of the project is still being defined as part of the [High Level Design](../discovery/pepr-hld.md), but we believe there are no risks associated with creating an Admin UI as a starting point for managing the needs of Service Maintainers and the Regulator, and as a gateway to the protected endpoints in `epr-backend`.
+The full scope of the project is still being defined as part of the [High Level Design](../defined/pepr-hld.md), but we believe there are no risks associated with creating an Admin UI as a starting point for managing the needs of Service Maintainers and the Regulator, and as a gateway to the protected endpoints in `epr-backend`.
 
 In the future a more sophisticated mechanism that enables user management capabilities will need to be devised. This implies that user administration will be performed manually by the team in the initial phases.
 
