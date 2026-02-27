@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "admin",
+      "path": "lib/epr-re-ex-admin-frontend"
+    },
+    {
+      "name": "admin-journey-tests",
+      "path": "lib/epr-re-ex-admin-frontend-tests"
+    },
+    {
+      "name": "admin-performance-tests",
+      "path": "lib/epr-re-ex-admin-fe-perf-tests"
+    }
+  ],
+  "settings": {}
+}
