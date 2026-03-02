@@ -32,6 +32,8 @@ Access to the functional parts of the service are protected as follows
   - The service internally maps the user to one or more _user groups_
 - **Role based access control (RBAC)** permits access to a specific user groups on a per page basis
 
+For a practical guide to how authentication is implemented in code (including key libraries, file locations, and local development setup) see the [Authentication section in the admin frontend's CONTRIBUTING.md](https://github.com/DEFRA/epr-re-ex-admin-frontend/blob/main/CONTRIBUTING.md#authentication).
+
 ## User groups
 
 The user groups are
