@@ -14,6 +14,7 @@ echo "[INIT SCRIPT] Creating buckets and queues" >&2
 aws --endpoint-url=http://localhost:4566 s3 mb s3://cdp-uploader-quarantine &
 aws --endpoint-url=http://localhost:4566 s3 mb s3://re-ex-summary-logs &
 aws --endpoint-url=http://localhost:4566 s3 mb s3://re-ex-public-register &
+aws --endpoint-url=http://localhost:4566 s3 mb s3://re-ex-form-uploads &
 
 # queues
 aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name cdp-clamav-results &
@@ -30,3 +31,17 @@ wait
 echo "[INIT SCRIPT] Configuring bucket notifications" >&2
 
 aws --endpoint-url=http://localhost:4566 s3api put-bucket-notification-configuration --bucket cdp-uploader-quarantine --notification-configuration '{"QueueConfigurations": [{"QueueArn": "arn:aws:sqs:eu-west-2:000000000000:mock-clamav","Events": ["s3:ObjectCreated:*"]}]}'
+
+echo "[INIT SCRIPT] Seeding test files in re-ex-form-uploads bucket for Forms API testing" >&2
+
+# Upload test files for Forms Submission API mock
+for i in $(seq -f "%03g" 1 20); do
+  echo "Mock file content for test-file-$i
+Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+This is test data for file copy functionality from Forms Submission API." | \
+    aws --endpoint-url=http://localhost:4566 s3 cp - s3://re-ex-form-uploads/defra-forms-stub/test-file-$i.txt &
+done
+
+wait
+
+echo "[INIT SCRIPT] Test files uploaded to re-ex-form-uploads" >&2
