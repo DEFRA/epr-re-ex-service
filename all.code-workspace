@@ -1,29 +1,43 @@
 {
   "folders": [
     {
-      "name": "epr-backend",
-      "path": "lib/epr-backend"
-    },
-    {
-      "name": "epr-backend-journey-tests",
-      "path": "lib/epr-backend-journey-tests"
-    },
-    {
-      "name": "epr-frontend",
-      "path": "lib/epr-frontend"
-    },
-    {
-      "name": "epr-frontend-journey-tests",
-      "path": "lib/epr-frontend-journey-tests"
-    },
-    {
-      "name": "epr-re-ex-admin-frontend",
+      "name": "admin",
       "path": "lib/epr-re-ex-admin-frontend"
     },
     {
-      "name": "epr-re-ex-admin-frontend-tests",
+      "name": "admin-journey-tests",
       "path": "lib/epr-re-ex-admin-frontend-tests"
+    },
+    {
+      "name": "admin-performance-tests",
+      "path": "lib/epr-re-ex-admin-fe-perf-tests"
+    },
+    {
+      "name": "backend",
+      "path": "lib/epr-backend"
+    },
+    {
+      "name": "backend-journey-tests",
+      "path": "lib/epr-backend-journey-tests"
+    },
+    {
+      "name": "backend-performance-tests",
+      "path": "lib/epr-backend-performance-tests"
+    },
+    {
+      "name": "frontend",
+      "path": "lib/epr-frontend"
+    },
+    {
+      "name": "frontend-journey-tests",
+      "path": "lib/epr-frontend-journey-tests"
+    },
+    {
+      "name": "frontend-performance-tests",
+      "path": "lib/epr-frontend-performance-tests"
     }
   ],
-  "settings": {}
+  "settings": {
+    "liveServer.settings.multiRootWorkspaceName": "admin-performance-tests"
+  }
 }
