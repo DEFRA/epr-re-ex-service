@@ -161,6 +161,7 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 ### Spreadsheet import pipeline
 
 > [!NOTE]
+> [!NOTE]
 > The file upload, S3 storage, SQS queuing and status polling infrastructure already exists for summary log
 > processing. It is significantly more sophisticated than ORS import requires on its own (ORS spreadsheets are
 > small, single-file uploads with simple tabular data). We reuse the existing pipeline rather than building
@@ -170,6 +171,11 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 > The spreadsheet import is intended for initial data seeding only. Once regulators have populated the system
 > with existing ORS data, the import functionality will be removed and ongoing maintenance will be handled
 > through the CRUD API and admin UI.
+>
+> ORS import uses the existing command queue (`epr_backend_commands`) rather than a dedicated queue. The
+> import is just another command type (`process-ors-import`) handled by the existing queue consumer. This
+> keeps infrastructure simple and makes cleanup straightforward when the import is retired — remove the
+> command handler, no queue infrastructure to tear down.
 
 ```mermaid
 flowchart TD
@@ -183,8 +189,8 @@ regulator[Regulator]
 uploadPage[Admin UI: Upload Page]
 uploadEndpoint([POST /v1/ors-imports])
 s3[(S3)]
-sqs{{SQS Queue}}
-consumer[[ORS Queue Consumer]]
+sqs{{Command Queue}}
+consumer[[Queue Consumer]]
 parser[[Spreadsheet Parser]]
 sitesDb[(overseas-sites)]
 importsDb[(ors-imports)]
@@ -222,7 +228,7 @@ sequenceDiagram
   participant Admin UI
   participant API Service
   participant S3
-  participant SQS
+  participant SQS as Command Queue
   participant Queue Consumer
   participant MongoDB
 
@@ -230,7 +236,7 @@ sequenceDiagram
   Admin UI->>API Service: POST /v1/ors-imports
   API Service->>S3: stores file
   API Service->>MongoDB: creates OrsImport (status: pending)
-  API Service->>SQS: enqueues {command: process, importId}
+  API Service->>SQS: enqueues {command: process-ors-import, importId}
   API Service->>Admin UI: 202 Accepted with importId
 
   SQS->>Queue Consumer: delivers message
