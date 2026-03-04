@@ -156,13 +156,13 @@ services:
       - cdp-tenant
 
 
-  forms-api-wiremock:
+  wire-mock:
     profiles: [ 'all', 'epr-backend' ]
     image: wiremock/wiremock:3.3.1
     ports:
       - '3100:8080'
     volumes:
-      - ./compose/wiremock:/home/wiremock
+      - ./compose/wire-mock:/home/wiremock
     command:
       - --global-response-templating
       - --verbose
@@ -297,7 +297,7 @@ services:
         condition: service_healthy
       cognito-stub:
         condition: service_started
-      forms-api-wiremock:
+      wire-mock:
         condition: service_healthy
       localstack:
         condition: service_healthy
@@ -319,10 +319,10 @@ services:
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
       FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
       FEATURE_FLAG_COPY_FORM_FILES_TO_S3: ${FEATURE_FLAG_COPY_FORM_FILES_TO_S3:-true}
-      FORMS_SUBMISSION_EXTERNAL_API_URL: ${FORMS_SUBMISSION_EXTERNAL_API_URL:-http://forms-api-wiremock:8080}
+      FORMS_SUBMISSION_EXTERNAL_API_URL: ${FORMS_SUBMISSION_EXTERNAL_API_URL:-http://wire-mock:8080/forms-submission-api}
       FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID:-test-client-id}
       FORMS_SUBMISSION_EXTERNAL_API_CLIENT_SECRET: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_SECRET:-test-client-secret}
-      FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL: ${FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL:-http://forms-api-wiremock:8080/oauth2/token}
+      FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL: ${FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL:-http://wire-mock:8080/forms-submission-api/oauth2/token}
       FORM_FILE_UPLOADS_S3_BUCKET: ${FORM_FILE_UPLOADS_S3_BUCKET:-re-ex-form-uploads}
       COPY_FILES_UPLOADED_FROM_DATE: ${COPY_FILES_UPLOADED_FROM_DATE:-2025-12-01T00:00:00.000Z}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
