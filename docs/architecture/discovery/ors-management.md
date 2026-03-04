@@ -300,7 +300,8 @@ The existing organisation update endpoint is extended to support merging `overse
 The payload specifies a registration (by reference number) and a map of ORS ID to site reference. Uses
 optimistic locking on the organisation version to prevent concurrent write conflicts.
 
-This endpoint is used both by the spreadsheet import pipeline (bulk) and the admin UI (individual edits).
+The admin UI calls this endpoint for individual edits. The spreadsheet import pipeline updates registration
+mappings directly via the repository since it runs within the backend process.
 
 ### Import endpoints
 
