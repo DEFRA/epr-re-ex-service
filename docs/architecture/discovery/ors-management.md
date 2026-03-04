@@ -160,6 +160,13 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 
 ### Spreadsheet import pipeline
 
+> [!NOTE]
+> The file upload, S3 storage, SQS queuing and status polling infrastructure already exists for summary log
+> processing. It is significantly more sophisticated than ORS import requires on its own (ORS spreadsheets are
+> small, single-file uploads with simple tabular data). We reuse the existing pipeline rather than building
+> something simpler, which means ORS import gets progress tracking, per-file error reporting and async
+> processing essentially for free.
+
 ```mermaid
 flowchart TD
 
