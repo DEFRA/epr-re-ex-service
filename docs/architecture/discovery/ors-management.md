@@ -226,8 +226,9 @@ subgraph legend [Legend]
 end
 ```
 
-This follows the same upload pattern used by summary log processing. The backend, CDP Uploader, and queue
-consumer all run as part of the same service — they are shown separately here for clarity.
+This follows the same upload pattern used by summary log processing. CDP Uploader is a separate CDP platform
+service that handles file storage and virus scanning. The backend service handles the upload initiation,
+callback processing, and queue consumption.
 
 **Processing sequence:**
 
