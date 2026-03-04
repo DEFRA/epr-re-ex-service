@@ -139,6 +139,13 @@ ORS_IMPORT_FILE }o--o| REGISTRATION : "updates overseasSites map"
   are still processed and their results recorded independently.
 - **Optimistic locking** via the organisation `version` field prevents concurrent imports from silently overwriting
   each other's registration mappings.
+- **Site deduplication during import** — overseas sites are often copied between spreadsheets, so the same site
+  appears in multiple uploads. During import, before creating a new site record, the parser checks for an
+  existing site matching all fields (name, address, country, coordinates, valid-from). If a match is found,
+  the existing record is reused and only the registration mapping is created. This is a deliberately simple
+  approach for the first iteration — exact match only, no fuzzy matching. If the business later requires more
+  sophisticated deduplication (e.g. matching on a subset of fields, merging near-duplicates), that can be
+  built as separate tooling once the requirements are better understood.
 
 ## Technical approach
 
