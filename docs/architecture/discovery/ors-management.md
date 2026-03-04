@@ -58,7 +58,12 @@ organisations, registrations and accreditations relate to one another.
 2. Follows the modular monolith pattern (ADR pending) with all code under `src/overseas-sites/`
 3. Asynchronous import processing via SQS to avoid blocking the HTTP request
 4. Optimistic locking on registration updates to prevent lost writes
-5. 100% test coverage maintained
+5. Audit logging for all mutating operations, following the existing auditing pattern used for organisation
+   updates. This covers CRUD operations on site records, registration mapping changes (add/remove), and
+   import events (who uploaded which file, what was created, what failed)
+6. Metrics for import processing: sites created, duplicates found, failures. Useful for monitoring the
+   seeding phase and identifying data quality issues in uploaded spreadsheets
+7. 100% test coverage maintained
 
 ## Data model
 
