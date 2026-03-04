@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "backend",
+      "path": "lib/epr-backend"
+    },
+    {
+      "name": "backend-journey-tests",
+      "path": "lib/epr-backend-journey-tests"
+    },
+    {
+      "name": "backend-performance-tests",
+      "path": "lib/epr-backend-performance-tests"
+    }
+  ],
+  "settings": {}
+}

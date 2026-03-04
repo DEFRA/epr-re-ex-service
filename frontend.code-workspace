@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "frontend",
+      "path": "lib/epr-frontend"
+    },
+    {
+      "name": "frontend-journey-tests",
+      "path": "lib/epr-frontend-journey-tests"
+    },
+    {
+      "name": "frontend-performance-tests",
+      "path": "lib/epr-frontend-performance-tests"
+    }
+  ],
+  "settings": {}
+}
