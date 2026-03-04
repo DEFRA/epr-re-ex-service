@@ -288,7 +288,10 @@ Updates an existing overseas site. Full replacement of mutable fields.
 
 #### Endpoint: `DELETE` `/v1/overseas-sites/{id}`
 
-Removes an overseas site record.
+> [!WARNING]
+> Delete semantics are not yet decided. Options to consider include hard delete, soft delete (e.g. a
+> `deletedAt` timestamp), and the impact on registrations that reference the site via their `overseasSites`
+> map. This will be defined when the team picks up the delete work.
 
 ### Registration ORS mapping
 
