@@ -151,9 +151,11 @@ src/overseas-sites/
 ├── routes/              # CRUD HTTP endpoints
 ├── parsers/             # Spreadsheet parser
 ├── application/         # Import processing orchestration
-├── commands/            # Command handler for shared queue consumer
 └── index.js             # Module entry point (barrel exports)
 ```
+
+The `import-overseas-sites` command handler is registered with the shared queue consumer in
+`src/server/queue-consumer/`, not within this module. The handler delegates to the application layer above.
 
 External consumers import from the barrel at `src/overseas-sites/index.js`, never from internal paths.
 
