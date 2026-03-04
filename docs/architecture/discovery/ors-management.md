@@ -171,7 +171,7 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 > through the CRUD API and admin UI.
 >
 > ORS import uses the existing command queue (`epr_backend_commands`) rather than a dedicated queue. The
-> import is just another command type (`process-ors-import`) handled by the existing queue consumer. This
+> import is just another command type (`import-overseas-sites`) handled by the existing queue consumer. This
 > keeps infrastructure simple and makes cleanup straightforward when the import is retired — remove the
 > command handler, no queue infrastructure to tear down.
 
@@ -251,7 +251,7 @@ sequenceDiagram
   CDP Uploader->>S3: stores clean file
   CDP Uploader->>Backend: POST callback (fileId, s3Key, fileStatus)
   Backend->>MongoDB: updates OrsImport with file details
-  Backend->>SQS: enqueues {command: process-ors-import, importId}
+  Backend->>SQS: enqueues {command: import-overseas-sites, importId}
 
   SQS->>Backend: delivers message to queue consumer
   Backend->>MongoDB: updates OrsImport (status: processing)
