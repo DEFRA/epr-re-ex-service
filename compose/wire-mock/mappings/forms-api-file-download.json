@@ -1,0 +1,23 @@
+{
+  "name": "Forms Submission API - Get File Link",
+  "request": {
+    "method": "POST",
+    "urlPath": "/forms-submission-api/file/link",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "url": "http://localstack:4566/re-ex-form-uploads/defra-forms-stub/test-file-001.txt",
+      "expiresAt": "{{now offset='1 days' format='yyyy-MM-dd HH:mm:ss'}}"
+    },
+    "transformers": ["response-template"]
+  }
+}
