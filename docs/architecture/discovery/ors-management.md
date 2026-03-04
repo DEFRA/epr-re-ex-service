@@ -1,4 +1,4 @@
-# 2025 Overseas Reprocessing Sites (ORS) Management
+# Overseas Reprocessing Sites (ORS) Management
 
 Exporters must declare the overseas sites to which they send packaging waste for reprocessing. The EA maintains
 this data in spreadsheets today. ORS Management brings this data into the pEPR platform as structured records,
@@ -9,7 +9,7 @@ organisations, registrations and accreditations relate to one another.
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
-* [2025 Overseas Reprocessing Sites (ORS) Management](#2025-overseas-reprocessing-sites-ors-management)
+* [Overseas Reprocessing Sites (ORS) Management](#overseas-reprocessing-sites-ors-management)
   * [Project scope](#project-scope)
     * [Functional requirements](#functional-requirements)
     * [Non-functional requirements](#non-functional-requirements)
