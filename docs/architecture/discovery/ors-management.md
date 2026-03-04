@@ -4,8 +4,8 @@ Exporters must declare the overseas sites to which they send packaging waste for
 this data in spreadsheets today. ORS Management brings this data into the pEPR platform as structured records,
 provides bulk import via spreadsheet upload, and exposes a CRUD API for ongoing maintenance by regulators.
 
-Please see the [Registration & Accreditation HLD](2025-reg-acc-hld.md) for the broader context of how organisations,
-registrations and accreditations relate to one another.
+Please see the [Registration & Accreditation HLD](../defined/2025-reg-acc-hld.md) for the broader context of how
+organisations, registrations and accreditations relate to one another.
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
@@ -52,8 +52,7 @@ registrations and accreditations relate to one another.
 ### Non-functional requirements
 
 1. Gated behind a feature flag (`orsEnabled`) for incremental rollout
-2. Follows the modular monolith pattern ([ADR-0027](../decisions/0027-modular-monolith.md)) with all code
-   under `src/overseas-sites/`
+2. Follows the modular monolith pattern (ADR pending) with all code under `src/overseas-sites/`
 3. Asynchronous import processing via SQS to avoid blocking the HTTP request
 4. Optimistic locking on registration updates to prevent lost writes
 5. 100% test coverage maintained
@@ -102,8 +101,8 @@ OVERSEAS_SITE {
 }
 
 ORS_IMPORT {
-  string _id PK "client-provided UUID"
-  string status "pending, processing, completed, failed"
+  string _id PK
+  string status "preprocessing, processing, completed, failed"
   date createdAt
   date updatedAt
 }
@@ -152,7 +151,7 @@ src/overseas-sites/
 ├── routes/              # CRUD HTTP endpoints
 ├── parsers/             # Spreadsheet parser
 ├── application/         # Import processing orchestration
-├── queue-consumer/      # SQS queue consumer (Hapi plugin)
+├── commands/            # Command handler for shared queue consumer
 └── index.js             # Module entry point (barrel exports)
 ```
 
@@ -160,7 +159,6 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 
 ### Spreadsheet import pipeline
 
-> [!NOTE]
 > [!NOTE]
 > The file upload, S3 storage, SQS queuing and status polling infrastructure already exists for summary log
 > processing. It is significantly more sophisticated than ORS import requires on its own (ORS spreadsheets are
@@ -308,16 +306,17 @@ This endpoint is used both by the spreadsheet import pipeline (bulk) and the adm
 
 #### Endpoint: `POST` `/v1/ors-imports`
 
-Creates an import record and enqueues the file(s) for processing. Returns `202 Accepted` with the import ID.
-
-**Request:** Import metadata and file references (file ID, file name, S3 URI).
+Initiates a new import. Creates an import record (status: `preprocessing`), registers the upload with CDP
+Uploader (providing a callback URL and S3 path), and returns the upload URL for the frontend to submit the
+file to. Processing is triggered later when CDP Uploader calls back on completion.
 
 **Response:**
 ```json
 {
   "id": "uuid",
-  "status": "pending",
-  "files": [{ "fileId": "...", "fileName": "..." }]
+  "status": "preprocessing",
+  "uploadUrl": "https://cdp-uploader/upload-and-scan/{uploadId}",
+  "statusUrl": "https://cdp-uploader/status/{uploadId}"
 }
 ```
 
