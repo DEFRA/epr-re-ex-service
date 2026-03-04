@@ -183,26 +183,31 @@ flowchart TD
 %% Styles
 classDef user fill:#FF8870,stroke:#5E342B,stroke-width:2px
 classDef service fill:#6B72FF,stroke:#27295E,stroke-width:2px
+classDef cdp fill:#4CAF50,stroke:#2E7D32,stroke-width:2px
 
 %% Entities
 regulator[Regulator]
 uploadPage[Admin UI: Upload Page]
-uploadEndpoint([POST /v1/ors-imports])
+cdpUploader[CDP Uploader]
 s3[(S3)]
+backend[Backend Service]
 sqs{{Command Queue}}
 consumer[[Queue Consumer]]
 parser[[Spreadsheet Parser]]
 sitesDb[(overseas-sites)]
 importsDb[(ors-imports)]
 orgDb[(organisations)]
-statusEndpoint([GET /v1/ors-imports/:id])
 
 %% Flow
-regulator:::user --uploads spreadsheet-->uploadPage
-uploadPage--creates import record-->uploadEndpoint:::service
-uploadEndpoint-.stores file.->s3
-uploadEndpoint-.creates import.->importsDb:::service
-uploadEndpoint-.enqueues.->sqs
+regulator:::user --initiates upload-->uploadPage
+uploadPage--requests upload URL-->backend:::service
+backend-.creates import record.->importsDb:::service
+backend--returns upload URL-->uploadPage
+uploadPage--uploads file-->cdpUploader:::cdp
+cdpUploader-.stores & scans.->s3
+cdpUploader--callback on completion-->backend
+backend-.updates import with file details.->importsDb
+backend-.enqueues.->sqs
 sqs-.delivers.->consumer:::service
 consumer-.fetches file.->s3
 consumer-.calls.->parser:::service
@@ -210,15 +215,19 @@ parser-.validates & extracts.->consumer
 consumer-.creates sites.->sitesDb:::service
 consumer-.updates overseasSites map.->orgDb:::service
 consumer-.records result.->importsDb
-uploadPage--polls for status-->statusEndpoint:::service
-statusEndpoint-.reads.->importsDb
+uploadPage--polls for status-->backend
+backend-.reads.->importsDb
 
 %% Legend
 subgraph legend [Legend]
   User:::user
   apiService[API Service]:::service
+  platform[CDP Platform]:::cdp
 end
 ```
+
+This follows the same upload pattern used by summary log processing. The backend, CDP Uploader, and queue
+consumer all run as part of the same service — they are shown separately here for clarity.
 
 **Processing sequence:**
 
@@ -226,30 +235,36 @@ end
 sequenceDiagram
   participant Regulator
   participant Admin UI
-  participant API Service
+  participant Backend
+  participant CDP Uploader
   participant S3
   participant SQS as Command Queue
-  participant Queue Consumer
   participant MongoDB
 
-  Regulator->>Admin UI: uploads .xlsx file
-  Admin UI->>API Service: POST /v1/ors-imports
-  API Service->>S3: stores file
-  API Service->>MongoDB: creates OrsImport (status: pending)
-  API Service->>SQS: enqueues {command: process-ors-import, importId}
-  API Service->>Admin UI: 202 Accepted with importId
+  Regulator->>Admin UI: initiates spreadsheet upload
+  Admin UI->>Backend: POST /v1/ors-imports (requests upload URL)
+  Backend->>MongoDB: creates OrsImport (status: preprocessing)
+  Backend->>CDP Uploader: initiate upload (callback URL, S3 path)
+  Backend->>Admin UI: returns uploadUrl, statusUrl
 
-  SQS->>Queue Consumer: delivers message
-  Queue Consumer->>MongoDB: updates OrsImport (status: processing)
-  Queue Consumer->>S3: fetches file
-  Queue Consumer->>Queue Consumer: parses spreadsheet
-  Queue Consumer->>MongoDB: creates OverseasSite records
-  Queue Consumer->>MongoDB: merges overseasSites map onto Registration
-  Queue Consumer->>MongoDB: updates OrsImport (status: completed)
+  Regulator->>CDP Uploader: uploads .xlsx file
+  CDP Uploader->>CDP Uploader: virus scan
+  CDP Uploader->>S3: stores clean file
+  CDP Uploader->>Backend: POST callback (fileId, s3Key, fileStatus)
+  Backend->>MongoDB: updates OrsImport with file details
+  Backend->>SQS: enqueues {command: process-ors-import, importId}
 
-  Admin UI->>API Service: GET /v1/ors-imports/{id}
-  API Service->>MongoDB: reads OrsImport
-  API Service->>Admin UI: import status with per-file results
+  SQS->>Backend: delivers message to queue consumer
+  Backend->>MongoDB: updates OrsImport (status: processing)
+  Backend->>S3: fetches file
+  Backend->>Backend: parses spreadsheet
+  Backend->>MongoDB: creates OverseasSite records
+  Backend->>MongoDB: merges overseasSites map onto Registration
+  Backend->>MongoDB: updates OrsImport (status: completed)
+
+  Admin UI->>Backend: GET /v1/ors-imports/{id} (polls)
+  Backend->>MongoDB: reads OrsImport
+  Backend->>Admin UI: import status with per-file results
 ```
 
 ### CRUD API
