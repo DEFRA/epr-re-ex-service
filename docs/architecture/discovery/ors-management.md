@@ -166,6 +166,10 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 > small, single-file uploads with simple tabular data). We reuse the existing pipeline rather than building
 > something simpler, which means ORS import gets progress tracking, per-file error reporting and async
 > processing essentially for free.
+>
+> The spreadsheet import is intended for initial data seeding only. Once regulators have populated the system
+> with existing ORS data, the import functionality will be removed and ongoing maintenance will be handled
+> through the CRUD API and admin UI.
 
 ```mermaid
 flowchart TD
