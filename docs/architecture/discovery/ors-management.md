@@ -31,6 +31,9 @@ organisations, registrations and accreditations relate to one another.
       * [Endpoint: `POST` `/v1/overseas-sites/imports`](#endpoint-post-v1ors-imports)
       * [Endpoint: `GET` `/v1/overseas-sites/imports/{id}`](#endpoint-get-v1ors-importsid)
   * [Admin UI](#admin-ui)
+    * [Overseas sites list and edit](#overseas-sites-list-and-edit)
+    * [Registration ORS section](#registration-ors-section)
+    * [Spreadsheet upload page](#spreadsheet-upload-page)
 <!-- TOC -->
 <!-- prettier-ignore-end -->
 
@@ -348,10 +351,34 @@ Returns the current status of an import, including per-file results once process
 
 ## Admin UI
 
-Two new pages in the `epr-re-ex-admin-frontend`:
+New pages in the `epr-re-ex-admin-frontend`, all behind the ORS feature flag:
 
-1. **Spreadsheet upload page** — allows regulators to upload `.xlsx` files, shows progress via polling,
-   and displays per-file results (sites created, mappings updated, errors).
+### Overseas sites list and edit
 
-2. **Registration ORS section** — displayed on the registration detail page for exporter registrations.
-   Shows the overseas sites linked to the registration with their ORS IDs, names, countries and addresses.
+Standalone pages for managing overseas site records, independent of any registration. Follows the same
+pattern as the existing organisation list/edit pages.
+
+- **List page** (`/overseas-sites`) — searchable table of all overseas sites showing name, country, and
+  address. Search by site name. Each row links to the detail page.
+- **Detail/edit page** (`/overseas-sites/{id}`) — form-based view of a single site record. Regulators can
+  edit name, address, country, coordinates and valid-from date. Changes affect all registrations that
+  reference the site.
+- **Create page** (`/overseas-sites/create`) — form for creating a new overseas site record.
+
+### Registration ORS section
+
+New section on the existing registration detail page (`/organisations/{orgId}/registrations/{regId}`) for
+exporter registrations. Shows a table of the registration's ORS mappings: three-digit ORS ID, site name,
+country and approval date.
+
+Actions:
+- **Add** — enter a three-digit ORS ID, then search for an existing site or create a new one
+- **Remove** — unlink an ORS mapping from the registration (does not delete the site record)
+- **Edit** — click through to the overseas site detail page to update the shared record. Show a confirmation
+  warning that edits affect all registrations referencing this site.
+
+### Spreadsheet upload page
+
+Allows regulators to upload `.xlsx` files for initial data seeding. Shows progress via polling and displays
+per-file results (sites created, mappings updated, errors). This page will be removed once seeding is
+complete — see [Spreadsheet import pipeline](#spreadsheet-import-pipeline).
