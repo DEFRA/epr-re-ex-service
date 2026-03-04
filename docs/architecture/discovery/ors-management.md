@@ -122,8 +122,8 @@ ORS_IMPORT_FILE {
 ORGANISATION ||--o{ REGISTRATION : has
 REGISTRATION ||--o{ OVERSEAS_SITE : "references via ORS ID map"
 ORS_IMPORT ||--|{ ORS_IMPORT_FILE : contains
-ORS_IMPORT_FILE ..o{ OVERSEAS_SITE : creates
-ORS_IMPORT_FILE ..o| REGISTRATION : "updates overseasSites map"
+ORS_IMPORT_FILE }o--o{ OVERSEAS_SITE : creates
+ORS_IMPORT_FILE }o--o| REGISTRATION : "updates overseasSites map"
 ```
 
 ### Key design decisions
