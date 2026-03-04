@@ -28,8 +28,8 @@ organisations, registrations and accreditations relate to one another.
     * [Registration ORS mapping](#registration-ors-mapping)
       * [Endpoint: `PUT` `/v1/organisations/{id}`](#endpoint-put-v1organisationsid)
     * [Import endpoints](#import-endpoints)
-      * [Endpoint: `POST` `/v1/ors-imports`](#endpoint-post-v1ors-imports)
-      * [Endpoint: `GET` `/v1/ors-imports/{id}`](#endpoint-get-v1ors-importsid)
+      * [Endpoint: `POST` `/v1/overseas-sites/imports`](#endpoint-post-v1ors-imports)
+      * [Endpoint: `GET` `/v1/overseas-sites/imports/{id}`](#endpoint-get-v1ors-importsid)
   * [Admin UI](#admin-ui)
 <!-- TOC -->
 <!-- prettier-ignore-end -->
@@ -241,7 +241,7 @@ sequenceDiagram
   participant MongoDB
 
   Regulator->>Admin UI: initiates spreadsheet upload
-  Admin UI->>Backend: POST /v1/ors-imports (requests upload URL)
+  Admin UI->>Backend: POST /v1/overseas-sites/imports (requests upload URL)
   Backend->>MongoDB: creates OrsImport (status: preprocessing)
   Backend->>CDP Uploader: initiate upload (callback URL, S3 path)
   Backend->>Admin UI: returns uploadUrl, statusUrl
@@ -261,7 +261,7 @@ sequenceDiagram
   Backend->>MongoDB: merges overseasSites map onto Registration
   Backend->>MongoDB: updates OrsImport (status: completed)
 
-  Admin UI->>Backend: GET /v1/ors-imports/{id} (polls)
+  Admin UI->>Backend: GET /v1/overseas-sites/imports/{id} (polls)
   Backend->>MongoDB: reads OrsImport
   Backend->>Admin UI: import status with per-file results
 ```
@@ -305,7 +305,7 @@ mappings directly via the repository since it runs within the backend process.
 
 ### Import endpoints
 
-#### Endpoint: `POST` `/v1/ors-imports`
+#### Endpoint: `POST` `/v1/overseas-sites/imports`
 
 Initiates a new import. Creates an import record (status: `preprocessing`), registers the upload with CDP
 Uploader (providing a callback URL and S3 path), and returns the upload URL for the frontend to submit the
@@ -321,7 +321,7 @@ file to. Processing is triggered later when CDP Uploader calls back on completio
 }
 ```
 
-#### Endpoint: `GET` `/v1/ors-imports/{id}`
+#### Endpoint: `GET` `/v1/overseas-sites/imports/{id}`
 
 Returns the current status of an import, including per-file results once processing is complete.
 
