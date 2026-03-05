@@ -187,10 +187,19 @@ External consumers import from the barrel at `src/overseas-sites/index.js`, neve
 > with existing ORS data, the import functionality will be removed and ongoing maintenance will be handled
 > through the CRUD API and admin UI.
 >
+> Unlike summary logs, ORS spreadsheets do not need to be retained after import. The data is extracted and
+> stored as structured records; the original file has no ongoing value. However, the CDP platform mandates
+> that files [must never land on tenant S3 buckets or tenant services directly before virus scanning][cdp-upload],
+> so we cannot bypass CDP Uploader even for disposable files. The upload pipeline therefore stays the same,
+> but imported files can be deleted from S3 immediately after processing. This means no long-term storage
+> costs for import files and simpler cleanup when the feature is retired.
+>
 > ORS import uses the existing command queue (`epr_backend_commands`) rather than a dedicated queue. The
 > import is just another command type (`import-overseas-sites`) handled by the existing queue consumer. This
 > keeps infrastructure simple and makes cleanup straightforward when the import is retired — remove the
 > command handler, no queue infrastructure to tear down.
+
+[cdp-upload]: https://github.com/DEFRA/cdp-documentation/blob/main/how-to/file-upload.md#file-upload
 
 ```mermaid
 flowchart TD
