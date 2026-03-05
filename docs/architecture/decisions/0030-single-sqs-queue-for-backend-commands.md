@@ -8,7 +8,7 @@ Proposed
 
 ## Context
 
-The backend processes asynchronous commands via an SQS queue (`epr_backend_commands`). Commands currently include `VALIDATE` and `SUBMIT` for summary log operations, with a `RECALCULATE_BALANCE` command being added as part of PAE-1143.
+The backend processes asynchronous commands via an SQS queue (`epr_backend_commands`). Commands currently include `VALIDATE` and `SUBMIT` for summary log operations.
 
 Two upcoming features -- overseas reprocessing sites and waste-balance recalculation -- also intend to use queue-based processing, which will further increase the number of command types flowing through the queue.
 
