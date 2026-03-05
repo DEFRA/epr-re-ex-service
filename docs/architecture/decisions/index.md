@@ -27,3 +27,4 @@
 * [25. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
 * [26. Expose Initial User Status to Frontend](0026-expose-initial-user-status-to-frontend.md)
 * [27. Modular monolith structure](0027-modular-monolith-structure.md)
+* [29. Single SQS Queue for Backend Commands](0029-single-sqs-queue-for-backend-commands.md)
