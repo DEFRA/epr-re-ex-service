@@ -125,4 +125,4 @@ This provides automatic recovery from transient failures (network issues, databa
 
 ## References
 
-See the [Low Level Design](../discovery/summary-log-submission-lld.md) for application to summary log submission.
+See the [Low Level Design](../defined/summary-log-submission-lld.md) for application to summary log submission.

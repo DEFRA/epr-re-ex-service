@@ -11,6 +11,7 @@
     * [ADR tools](#adr-tools)
   * [Documentation](#documentation)
     * [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
+    * [Authentication](#authentication)
     * [Testing](#testing)
     * [Technical guides](#technical-guides)
     * [Wider engineering documentation](#wider-engineering-documentation)
@@ -28,6 +29,19 @@
 
 1. [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 2. [NVM](https://github.com/creationix/nvm)
+3. [Gitleaks](https://github.com/gitleaks/gitleaks) — required for pre-commit secret scanning, must be on your PATH
+
+   The simplest install on macOS/Linux is via [mise](https://mise.jdx.dev/):
+
+   ```bash
+   mise trust && mise install
+   ```
+
+   Alternatively, install directly:
+   - macOS: `brew install gitleaks`
+   - Linux/Windows: see the [gitleaks releases page](https://github.com/gitleaks/gitleaks/releases)
+
+4. [Mise](https://mise.jdx.dev/) — reads `mise.toml` to install pinned tool versions ([install](https://mise.jdx.dev/getting-started.html#installing-mise-cli), then [activate](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell)
 
 ## Getting Started
 
@@ -163,6 +177,12 @@ This project uses ADRs and `adr-tools`, to create new ADRs:
 ### Testing
 
 You can find more information about [the project's approach to testing here](./docs/testing/index.md).
+
+### Authentication
+
+For how authentication and authorisation work in the admin frontend — including the OIDC flow, key libraries, and local development setup — see the [Authentication section in the admin frontend's CONTRIBUTING.md](https://github.com/DEFRA/epr-re-ex-admin-frontend/blob/main/CONTRIBUTING.md#authentication).
+
+The architectural decisions behind this are documented in [ADR-0009](./docs/architecture/decisions/0009-admin-ui-approach-for-authenticating-with-azure-ad.md) and [ADR-0016](./docs/architecture/decisions/0016-admin-ui-authorisation-mvp.md), with detailed flow diagrams in the [Admin UI auth LLD](./docs/architecture/defined/pepr-lld-auth-admin-ui.md).
 
 ### Technical guides
 
