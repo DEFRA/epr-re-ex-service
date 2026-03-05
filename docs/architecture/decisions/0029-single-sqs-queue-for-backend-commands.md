@@ -30,7 +30,7 @@ A single redrive policy governs all command types, sending failed messages to a 
 
 ### Throughput Profile
 
-Summary log operations are low-throughput: operators submit summary logs periodically, and each log triggers a validate and (if valid) a submit command. The RECALCULATE_BALANCE command will be triggered on submission and is similarly infrequent. There is no expectation of high-volume bursts for any command type in the foreseeable future.
+Summary log operations are low-throughput: operators submit summary logs periodically, and each log triggers a validate and (if valid) a submit command. The RECALCULATE_BALANCE command will be triggered on update of an accreditation status and is similarly infrequent. 
 
 ## Decision
 
