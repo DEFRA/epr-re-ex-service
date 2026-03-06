@@ -122,6 +122,16 @@ Available profiles:
 >
 > `docker compose --profile all down`
 
+#### Running services for Journey tests (Locally)
+
+You can run journey tests locally by using the compose journey test by using this command:
+
+```bash
+docker compose -f compose.yml -f compose.journey.test.yml --profile all up -d
+```
+
+Then you can execute the journey tests from the respective journey test repository.
+
 #### Running images
 
 Our default is to build images locally, we can also run pulled images by taking advantage of the [Compose Build Specification](https://docs.docker.com/reference/compose-file/build/#using-build-and-image) and setting the [`pull_policy`](https://docs.docker.com/reference/compose-file/services/#pull_policy)
