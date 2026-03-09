@@ -149,15 +149,16 @@ services:
     image: jagregory/cognito-local:5.1.0
     ports:
       - '9229:9229'
+    depends_on:
+      cognito-stub-init:
+        condition: service_completed_successfully
     volumes:
-      - ./compose/cognito-local/clients.json:/app/.cognito/db/clients.json
-      - ./compose/cognito-local/local_4D8shcYm.json:/app/.cognito/db/local_4D8shcYm.json
+      - cognito-db:/app/.cognito/db
     networks:
       - cdp-tenant
 
-
   wire-mock:
-    profiles: [ 'all', 'epr-backend' ]
+    profiles: ['all', 'epr-backend']
     image: wiremock/wiremock:3.3.1
     ports:
       - '3100:8080'
@@ -167,7 +168,7 @@ services:
       - --global-response-templating
       - --verbose
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/__admin/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/__admin/health']
       interval: 5s
       start_period: 5s
       retries: 5
