@@ -217,6 +217,7 @@ services:
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-6f504113-6b64-43f2-ade9-242e05780007}
       EPR_BACKEND_URL: http://localhost:3001
+      FEATURE_FLAG_ORS_ENABLED: ${FEATURE_FLAG_ORS_ENABLED:-true}
       NODE_ENV: development
       OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       PORT: 3002
