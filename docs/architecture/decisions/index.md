@@ -27,3 +27,4 @@
 * [25. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
 * [26. Expose Initial User Status to Frontend](0026-expose-initial-user-status-to-frontend.md)
 * [27. Modular monolith structure](0027-modular-monolith-structure.md)
+* [28. DLQ as Investigation Tool, Not Recovery Mechanism](0028-dlq-role-and-message-lifecycle.md)
