@@ -39,8 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: detect-changes
     steps:
-      - uses: actions/checkout@v6
-      - id: pr-prep
+      - name: Prepare PR
         uses: ./.github/actions/pr-preparation
 
       - name: Checkout code for ADR check
