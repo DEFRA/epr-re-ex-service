@@ -19,6 +19,7 @@ runs:
           } else {
             core.exportVariable('ticketKey', ticketKey.toUpperCase());
           }
+
     - name: Add ticket link to PR description
       uses: actions/github-script@v8
       if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
@@ -30,7 +31,7 @@ runs:
           const { ticketKey } = process.env;
           const ticketLink = `[${ticketKey}](https://eaflood.atlassian.net/browse/${ticketKey})`;
 
-          if (!previousBody.includes(ticketLink)) {
+          if (!previousBody?.includes(ticketLink)) {
             github.rest.pulls.update({
               owner: repository.owner.login,
               repo: repository.name,
