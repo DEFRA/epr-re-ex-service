@@ -40,7 +40,7 @@ jobs:
     needs: detect-changes
     steps:
       - name: Prepare PR
-        uses: ./.github/actions/pr-preparation
+        uses: .github/actions/pr-preparation
 
       - name: Checkout code for ADR check
         uses: actions/checkout@v6
