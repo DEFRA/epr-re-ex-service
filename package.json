@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "pEPR Re/Ex project",
   "engines": {
-    "node": ">=24.11.0"
+    "node": ">=24.14.0 <25"
   },
   "scripts": {
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
@@ -11,17 +11,18 @@
     "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
-    "git:pre-commit-hook": "npm run format:check",
     "postinstall": "npm run setup:husky",
+    "seed:stub": "node scripts/seed-defra-id-stub.mjs",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module"
   },
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "overrides": {},
   "devDependencies": {
-    "@dotenvx/dotenvx": "1.52.0",
+    "@dotenvx/dotenvx": "1.54.1",
     "husky": "9.1.7",
-    "lint-staged": "16.2.7",
-    "prettier": "3.8.0"
+    "lint-staged": "16.3.2",
+    "mongodb": "7.1.0",
+    "prettier": "3.8.1"
   }
 }

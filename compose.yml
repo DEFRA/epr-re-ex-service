@@ -26,38 +26,48 @@ services:
       LOCALSTACK_HOST: 127.0.0.1
     volumes:
       - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/01-start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+      - ./compose/localstack:/etc/localstack/init/ready.d
     healthcheck:
-      test: ['CMD', 'curl', 'localhost:4566']
+      test: ['CMD', 'test', '-f', '/tmp/READY']
       interval: 5s
       start_period: 5s
-      retries: 3
+      retries: 10
     networks:
       - cdp-tenant
 
+  mongodb:
+    image: mongo:7.0.28
+    networks:
+      - cdp-tenant
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb-data:/data
+      - ./mongodb-backups:/backups
+
   redis:
     image: redis:7.2.11-alpine3.21
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'PING']
+      interval: 5s
+      start_period: 2s
+      retries: 5
+    networks:
+      - cdp-tenant
     ports:
       - '6379:6379'
     volumes:
       - data-redis:/data
-    networks:
-      - cdp-tenant
 
   cdp-uploader:
     image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
     ports:
       - '7337:7337'
-    extra_hosts:
-      - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
     depends_on:
       localstack:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./compose/aws.env
     environment:
@@ -73,6 +83,13 @@ services:
       VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
       VIRTUAL_PATH: /
       VIRTUAL_PORT: 7337
+    extra_hosts:
+      - 'localhost:host-gateway'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:7337/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
     networks:
       - cdp-tenant
 
@@ -80,13 +97,11 @@ services:
     image: defradigital/cdp-defra-id-stub:${DEFRA_ID_STUB_VERSION:-latest}
     ports:
       - '3200:3200'
-    links:
-      - 'redis:redis'
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
-      APP_BASE_URL: http://localhost:3200
+      APP_BASE_URL: http://defra-id-stub:3200
       NODE_ENV: development
       OIDC_BASE_PATH: /cdp-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
@@ -103,11 +118,9 @@ services:
     image: defradigital/epr-re-ex-entra-stub:${ENTRA_STUB_VERSION:-latest}
     ports:
       - '3010:3010'
-    links:
-      - 'redis:redis'
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:3002}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
@@ -121,17 +134,48 @@ services:
     networks:
       - cdp-tenant
 
-  ################################################################################
-
-  mongodb:
-    image: mongo:7.0.28
+  # Copies cognito seed files into a volume so cognito-stub has its own copies
+  cognito-stub-init:
+    image: alpine:3.23.3
+    volumes:
+      - ./compose/cognito-local/clients.json:/seed/clients.json:ro
+      - ./compose/cognito-local/local_4D8shcYm.json:/seed/local_4D8shcYm.json:ro
+      - cognito-db:/target
+    command: sh -c "cp /seed/clients.json /seed/local_4D8shcYm.json /target/"
     networks:
       - cdp-tenant
+
+  cognito-stub:
+    image: jagregory/cognito-local:5.1.0
     ports:
-      - '27017:27017'
+      - '9229:9229'
+    depends_on:
+      cognito-stub-init:
+        condition: service_completed_successfully
     volumes:
-      - mongodb-data:/data
-      - ./mongodb-backups:/backups
+      - cognito-db:/app/.cognito/db
+    networks:
+      - cdp-tenant
+
+  wire-mock:
+    profiles: ['all', 'epr-backend']
+    image: wiremock/wiremock:3.3.1
+    ports:
+      - '3100:8080'
+    volumes:
+      - ./compose/wire-mock:/home/wiremock
+    command:
+      - --global-response-templating
+      - --verbose
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/__admin/health']
+      interval: 5s
+      start_period: 5s
+      retries: 5
+    networks:
+      - cdp-tenant
+
+  ################################################################################
 
   epr-admin-frontend:
     profiles: ['all', 'epr-admin-frontend']
@@ -144,9 +188,6 @@ services:
       - '3002:3002'
     extra_hosts:
       - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
     develop:
       watch:
         - path: ./lib/epr-re-ex-admin-frontend/src/
@@ -168,18 +209,19 @@ services:
       localstack:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./compose/aws.env
     environment:
-      ENTRA_CLIENT_SECRET: $ENTRA_CLIENT_SECRET
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-6f504113-6b64-43f2-ade9-242e05780007}
-      EPR_BACKEND_URL: http://localhost:3001
+      EPR_BACKEND_URL: http://epr-backend:3001
       NODE_ENV: development
       OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
       PORT: 3002
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
@@ -226,14 +268,16 @@ services:
     environment:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
-      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
-      EPR_BACKEND_URL: http://localhost:3001
-      FEATURE_FLAG_PRNS: ${FEATURE_FLAG_PRNS:-false}
+      EPR_BACKEND_URL: http://epr-backend:3001
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
+      SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
+      FEATURE_FLAG_REPORTS: ${FEATURE_FLAG_REPORTS:-false}
+      WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
     networks:
       - cdp-tenant
 
@@ -249,10 +293,13 @@ services:
       - '3001:3001'
     extra_hosts:
       - 'localhost:host-gateway'
-    links:
-      - 'localstack:localstack'
-      - 'mongodb:mongodb'
     depends_on:
+      cdp-uploader:
+        condition: service_healthy
+      cognito-stub:
+        condition: service_started
+      wire-mock:
+        condition: service_healthy
       localstack:
         condition: service_healthy
       mongodb:
@@ -263,20 +310,30 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       AUDIT_ENABLED: false
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
-      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://localhost:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-https://login.microsoftonline.com/6f504113-6b64-43f2-ade9-242e05780007/v2.0/.well-known/openid-configuration}
-      FEATURE_FLAG_DEFRA_ID_AUTH: ${FEATURE_FLAG_DEFRA_ID_AUTH:-true}
-      FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
-      FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
-      FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
       FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT: ${FEATURE_FLAG_CALCULATE_WASTE_BALANCE_ON_IMPORT:-false}
-      FEATURE_FLAG_CREATE_PACKAGING_RECYCLING_NOTES: ${FEATURE_FLAG_PRNS:-false}
+      FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
+      FEATURE_FLAG_FORMS_DATA_MIGRATION: ${FEATURE_FLAG_FORMS_DATA_MIGRATION:-false}
+      FEATURE_FLAG_REPORTS: ${FEATURE_FLAG_REPORTS:-false}
+      WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
+      FEATURE_FLAG_SUMMARY_LOGS: ${FEATURE_FLAG_SUMMARY_LOGS:-true}
+      FEATURE_FLAG_COPY_FORM_FILES_TO_S3: ${FEATURE_FLAG_COPY_FORM_FILES_TO_S3:-true}
+      FORMS_SUBMISSION_EXTERNAL_API_URL: ${FORMS_SUBMISSION_EXTERNAL_API_URL:-http://wire-mock:8080/forms-submission-api}
+      FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID:-test-client-id}
+      FORMS_SUBMISSION_EXTERNAL_API_CLIENT_SECRET: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_SECRET:-test-client-secret}
+      FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL: ${FORMS_SUBMISSION_EXTERNAL_API_COGNITO_TOKEN_URL:-http://wire-mock:8080/forms-submission-api/oauth2/token}
+      FORM_FILE_UPLOADS_S3_BUCKET: ${FORM_FILE_UPLOADS_S3_BUCKET:-re-ex-form-uploads}
+      COPY_FILES_UPLOADED_FROM_DATE: ${COPY_FILES_UPLOADED_FROM_DATE:-2025-12-01T00:00:00.000Z}
       GOVUK_NOTIFY_API_KEY: /run/secrets/govuk_notify_api_key
       MONGO_URI: mongodb://mongodb:27017/
       NODE_ENV: development
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-5357lgchj0h0fuomqyas5r87u}
+      PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL:-http://cognito-stub:9229/local_4D8shcYm/.well-known/jwks.json}
       PORT: 3001
       S3_ENDPOINT: http://localstack:4566
-      SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk", "customer@test.gov.uk"]}
+      SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk"]}
+      SQS_ENDPOINT: http://localstack:4566
     secrets:
       - govuk_notify_api_key
     networks:
@@ -288,6 +345,7 @@ services:
 ################################################################################
 
 volumes:
+  cognito-db:
   data-redis:
   mongodb-data:
   mongodb-backups:

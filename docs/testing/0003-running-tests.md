@@ -8,8 +8,6 @@ In the repository folder, run the following command:
 docker compose up -d
 ```
 
-Wait for 5 to 10 seconds after all containers are started to allow for containers such as ZAP to start.
-
 Then run
 
 ```

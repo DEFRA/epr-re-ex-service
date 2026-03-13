@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-Defra forms will be [submitted to this backend service for persistent storage against an OrgId](docs/architecture/discovery/2025-reg-acc-hld.md). This will need to be optimised for write operations if possible.
+Defra forms will be [submitted to this backend service for persistent storage against an OrgId](docs/architecture/defined/2025-reg-acc-hld.md). This will need to be optimised for write operations if possible.
 
 In addition, the forms represented above will vary by operator activity (e.g. Reprocessor or Exporter), where the remaining data provided to the API service will depend on the activity type.
 

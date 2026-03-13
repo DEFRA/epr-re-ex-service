@@ -97,62 +97,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /v1/packaging-recycling-notes/{id}:
-    get:
-      tags:
-        - Packaging Recycling Notes
-      summary: Get packaging recycling note by ID
-      description: Retrieves a specific Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) using its unique identifier
-      operationId: getPackagingRecyclingNoteById
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) (24-character hexadecimal ObjectId)
-          schema:
-            type: string
-          example: 507f1f77bcf86cd799439011
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PackagingRecyclingNote'
-        '400':
-          description: Bad request - Invalid ID format
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Packaging recycling note not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /v1/packaging-recycling-notes/{id}/accept:
+  /v1/packaging-recycling-notes/{prnNumber}/accept:
     post:
       tags:
         - Packaging Recycling Notes
       summary: Accept a packaging recycling note
-      description: Accepts a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its ID
+      description: Accepts a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its PRN number
       operationId: acceptPackagingRecyclingNote
       parameters:
-        - name: id
+        - name: prnNumber
           in: path
           required: true
-          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to accept (24-character hexadecimal ObjectId)
+          description: The PRN or PERN number identifying the Packaging Recycling Note to accept
           schema:
             type: string
-          example: 507f1f77bcf86cd799439011
+            maxLength: 20
+          example: ER992415095748M
       requestBody:
         description: Optional acceptance details
         required: false
@@ -170,7 +130,7 @@ paths:
         '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) accepted successfully
         '400':
-          description: Bad request - Invalid ID format or invalid request body
+          description: Bad request - Invalid PRN number format or invalid request body
           content:
             application/json:
               schema:
@@ -194,21 +154,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /v1/packaging-recycling-notes/{id}/reject:
+  /v1/packaging-recycling-notes/{prnNumber}/reject:
     post:
       tags:
         - Packaging Recycling Notes
       summary: Reject a packaging recycling note
-      description: Rejects a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its ID
+      description: Rejects a Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) by its PRN number
       operationId: rejectPackagingRecyclingNote
       parameters:
-        - name: id
+        - name: prnNumber
           in: path
           required: true
-          description: Unique identifier for the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) to reject (24-character hexadecimal ObjectId)
+          description: The PRN or PERN number identifying the Packaging Recycling Note to reject
           schema:
             type: string
-          example: 507f1f77bcf86cd799439011
+            maxLength: 20
+          example: ER992415095748M
       requestBody:
         description: Rejection details
         required: false
@@ -226,7 +187,7 @@ paths:
         '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) rejected successfully
         '400':
-          description: Bad request - Invalid ID format or missing required fields
+          description: Bad request - Invalid PRN number format or missing required fields
           content:
             application/json:
               schema:
@@ -418,7 +379,6 @@ components:
             - accepted
             - awaiting_cancellation
             - cancelled
-            - rejected
           description: Current status of the Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN)
           example: awaiting_acceptance
         authorisedBy:

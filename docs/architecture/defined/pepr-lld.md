@@ -112,6 +112,7 @@ TBD
 ### Waste Record & Waste Balance
 
 #### Disambiguation
+
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
 
@@ -151,14 +152,15 @@ WasteBalance-->SummaryLogSuccess[Page: Success]
 ```
 
 #### Summary Log LLDs
+
 For detailed Summary Log LLDs, see the following:
 
 1. [Summary Log validation](./summary-log-validation-lld.md)
 1. [Summary Log row validation classification](./summary-log-row-validation-classification.md)
 1. [Summary Log submission](./summary-log-submission-lld.md)
 
-
 #### Entity Relationships
+
 > [!NOTE]
 > `accreditationId` is optional on waste records to support organisations that have a registration but no accreditation.
 
@@ -508,7 +510,7 @@ An example of an object in the Waste Balance collection
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      amount: 25.00,
+      amount: 25.0,
       openingAmount: 48.99,
       closingAmount: 48.99,
       openingAvailableAmount: 48.99,
@@ -516,7 +518,7 @@ An example of an object in the Waste Balance collection
       entities: [
         {
           id: 'd1234567890a12345a05',
-          type: 'prn:created',
+          type: 'prn:created'
         }
       ]
     },
@@ -530,14 +532,14 @@ An example of an object in the Waste Balance collection
         name: 'Charlie'
       },
       amount: 1.01,
-      openingAmount: 50.00,
+      openingAmount: 50.0,
       closingAmount: 48.99,
-      openingAvailableAmount: 50.00,
+      openingAvailableAmount: 50.0,
       closingAvailableAmount: 48.99,
       entities: [
         {
           id: 'd1234567890a12345a04',
-          type: 'waste_record:sent_on',
+          type: 'waste_record:sent_on'
         }
       ]
     },
@@ -550,19 +552,19 @@ An example of an object in the Waste Balance collection
         _id: 'd1234567890a12345a04',
         name: 'Bob'
       },
-      amount: 40.00,
-      openingAmount: 10.00,
-      closingAmount: 50.00,
-      openingAvailableAmount: 10.00,
-      closingAvailableAmount: 50.00,
+      amount: 40.0,
+      openingAmount: 10.0,
+      closingAmount: 50.0,
+      openingAvailableAmount: 10.0,
+      closingAvailableAmount: 50.0,
       entities: [
         {
           id: 'd1234567890a12345a03',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         },
         {
           id: 'd1234567890a12345a02',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         }
       ]
     },
@@ -575,15 +577,15 @@ An example of an object in the Waste Balance collection
         _id: 'c1234567890a12345a01',
         name: 'Alice'
       },
-      amount: 10.00,
+      amount: 10.0,
       openingAmount: 0,
-      closingAmount: 10.00,
+      closingAmount: 10.0,
       openingAvailableAmount: 0,
-      closingAvailableAmount: 10.00,
+      closingAvailableAmount: 10.0,
       entities: [
         {
           id: 'd1234567890a12345a01',
-          type: 'waste_record:received',
+          type: 'waste_record:received'
         }
       ]
     }
@@ -597,9 +599,9 @@ An example of an object in the Waste Balance collection
 erDiagram
   PRN {
     ObjectId _id PK
-    ObjectId organisationId FK
+    ORGANISATION-NAME-AND-ID organisation
     ObjectId registrationId FK
-    ObjectId accreditationId FK
+    ACCREDITATION-SNAPSHOT accreditation
     int schemaVersion
     ISO8601 createdAt
     USER-SUMMARY createdBy
@@ -608,89 +610,104 @@ erDiagram
     bool isExport
     bool isDecemberWaste
     string prnNumber
-    int accreditationYear "4 digit year: YYYY"
     int tonnage
-    string notes
-    PRN-ISSUED-TO-ORGANISATION issuedTo
-    ISO8601 authorisedAt
-    USER-SUMMARY-WITH-POSITION authorisedBy
-    PRN-STATUS-VERSION[] status
+    string notes "optional"
+    ORGANISATION-NAME-AND-ID issuedToOrganisation
+    PRN-STATUS status
   }
 
-  PRN-ISSUED-TO-ORGANISATION {
+  ACCREDITATION-SNAPSHOT {
+    string id FK
+    string accreditationNumber
+    int accreditationYear "4 digit year: YYYY"
+    string material
+    string submittedToRegulator
+    string glassRecyclingProcess
+    SITE-ADDRESS siteAddress "optional"
+  }
+
+  SITE-ADDRESS {
+    string line1
+    string line2 "optional"
+    string town "optional"
+    string county "optional"
+    string postcode
+    string country "optional"
+  }
+
+  ORGANISATION-NAME-AND-ID {
     ObjectId _id FK
     string name
     string tradingName
   }
 
+  PRN-STATUS {
+    enum currentStatus "draft, discarded, awaiting_authorisation, deleted, awaiting_acceptance, accepted, awaiting_cancellation, cancelled"
+    ISO8601 currentStatusAt
+    PRN-STATUS-TRANSITION created "optional, transition from draft > awaiting_authorisation"
+    PRN-STATUS-TRANSITION deleted "optional, transition from awaiting_authorisation > deleted"
+    PRN-STATUS-TRANSITION issued "optional, transition from awaiting_authorisation > awaiting_acceptance"
+    PRN-STATUS-TRANSITION accepted "optional, transition from awaiting_acceptance > accepted"
+    PRN-STATUS-TRANSITION rejected "optional, transition from awaiting_acceptance > awaiting_cancellation"
+    PRN-STATUS-TRANSITION cancelled "optional, transition from awaiting_acceptance|awaiting_cancellation|accepted > cancelled"
+    PRN-STATUS-VERSION history
+  }
+
+  PRN-STATUS-TRANSITION {
+    ISO8601 at
+    USER-SUMMARY by
+  }
+
   PRN-STATUS-VERSION {
-    enum status "awaiting_authorisation, awaiting_acceptance, accepted, rejected, awaiting_cancellation, cancelled"
-    ISO8601 createdAt
-    USER-SUMMARY createdBy "nullable"
+    enum status "draft, discarded, awaiting_authorisation, deleted, awaiting_acceptance, accepted, awaiting_cancellation, cancelled"
+    ISO8601 at
+    USER-SUMMARY by
   }
 
   USER-SUMMARY {
     ObjectId _id PK
     string name
+    string position "optional"
   }
 
-  USER-SUMMARY-WITH-POSITION {
-    ObjectId _id PK
-    ObjectId organisationId FK
-    string name
-    string position
-  }
-
-  PRN ||--|| PRN-ISSUED-TO-ORGANISATION : contains
-  PRN ||--|{ PRN-STATUS-VERSION : contains
+  PRN ||--|{ ORGANISATION-NAME-AND-ID : contains
+  PRN ||--|| PRN-STATUS : contains
+  PRN ||--|{ USER-SUMMARY : contains
+  PRN-STATUS ||--|{ PRN-STATUS-VERSION : contains
   PRN-STATUS-VERSION ||--|| USER-SUMMARY : contains
-  PRN ||--|| USER-SUMMARY-WITH-POSITION : contains
+  PRN-STATUS ||--|{ PRN-STATUS-TRANSITION : contains
+  PRN-STATUS-TRANSITION ||--|| USER-SUMMARY : contains
+  PRN ||--|| ACCREDITATION-SNAPSHOT : contains
+  ACCREDITATION-SNAPSHOT ||--|| SITE-ADDRESS : contains
 ```
 
-### PRN creation schema & sequence diagram
+### PRN creation & issuing
 
-The journey goes through three stages, creation, decoration and submission, which sets the PRN status to `AWAITING_AUTHORISATION`. This is acheived through three endpoints
+The journey goes through two stages
 
-#### POST /packaging-recycling-notes
+- creating a PRN (sets PRN status to `AWAITING_AUTHORISATION`)
+- issuing a PRN (sets PRN status to `AWAITING_ACCEPTANCE`)
+
+This is supported through two API endpoints
+
+#### POST /v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes
+
+Creates a PRN in `draft` status
 
 **payload values**
-  - organisationId, uuid, required
-  - accreditationId, uuid, required
+
+- tonnage, floating point number to two decimal places, required
+- issuedToOrganisation, object, required
+  - id: string, uuid, required
+  - name: string, required
+  - tradingName: string, optional
+- notes, string, max length 200, optional
 
 **example**
-```javascript
-{
-  organisationId: 'b0b08519-bbc8-4222-a5c8-44d7ade5b995'
-  accreditationId: '753c5bf9-1bbc-40e8-9b88-475f6e5efba9'
-}
-```
-
-**returns**
-ID of created PRN.
 
 ```javascript
 {
-  prnId: '167bd693-3e8a-4291-b2c0-4d1740744180'
-}
-```
-
-#### PATCH /packaging-recycling-notes/{id}
-
-**payload values**
-  - tonnage, floating point number to two decimal places, optional
-  - issuedToOrganisation, object, optional
-    - id: string, uuid, required
-    - name: string, required
-    - tradingName: string, optional
-  - notes, string, max length 200, optional
-
-**returns**
-204 OK
-
-**example**
-```javascript
-{
-  tonnage: '100.00',
+  tonnage: 100.00,
   issuedToOrganisation: {
     id: 'ebdfb7d9-3d55-4788-ad33-dbd7c885ef20',
     name: 'Sauce Makers Limited',
@@ -700,23 +717,38 @@ ID of created PRN.
 }
 ```
 
-#### POST /packaging-recycling-notes/{id}/status
+**returns**
+201 CREATED
+
+Response body is an object that is a partial representation of the PRN, including the (object) ID of the created PRN.
+
+```javascript
+{
+  id: '167bd693-3e8a-4291-b2c0-4d1740744180',
+  // ... other datapoints
+}
+```
+
+#### POST /v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{id}/status
+
 Update the status of a PRN.
 
 **payload values**
 
-  - status: enum, required
+- status: enum, required
 
 **status values**
-  - DRAFT
-  - AWAITING_AUTHORISATION
-  - AWAITING_ACCEPTANCE
-  - AWAITING_CANCELLATION
-  - ACCEPTED
-  - CANCELLED
-  - DELETED
+
+- DRAFT
+- AWAITING_AUTHORISATION
+- AWAITING_ACCEPTANCE
+- AWAITING_CANCELLATION
+- ACCEPTED
+- CANCELLED
+- DELETED
 
 **example**
+
 ```javascript
 {
   status: 'AWAITING_AUTHORISATION'
@@ -726,69 +758,58 @@ Update the status of a PRN.
 **returns**
 204 OK
 
+#### Sequence Diagram
+
 ```mermaid
 sequenceDiagram
   actor user
   participant epr-frontend
   participant epr-backend
-  participant mongo-db@{ "type": "database" }
+  participant mongodb@{ "type": "database" }
   participant waste-organisations
 
-  user ->> epr-frontend: Start PRN journey
-  epr-frontend ->> epr-backend: POST /prn (create draft)
-  epr-backend ->> mongo-db: find epr-organisation (id)
-  mongo-db -->> epr-backend: (organisation)
-  epr-backend ->> mongo-db: insert PRN (prn)
-  mongo-db -->> epr-backend: (prnId)
-  epr-backend -->> epr-frontend: 201 Created (prnId)
-
-  note over epr-frontend: redirect to <br/>/tonnage
-  user ->> epr-frontend: Enter tonnage
-  epr-frontend ->> epr-backend: PATCH /prn/{id} (tonnage)
-  epr-backend ->> mongo-db: update PRN (tonnage)
-  epr-backend -->> epr-frontend: 204 OK
-
-  note over epr-frontend: redirect to <br/>/recipient
+  user ->> epr-frontend: View Enter PRN details page
   epr-frontend ->> waste-organisations: GET (organisations)
   waste-organisations -->> epr-frontend: 200 (organisations)
-  user ->> epr-frontend: Enter recipient
-  epr-frontend ->> epr-backend: PATCH /prn/{id} (recipient)
-  epr-backend ->> waste-organisations: GET (organisation by id)
-  waste-organisations -->> epr-backend: 200 (organisation)
-  epr-backend ->> mongo-db: update PRN (recipient)
-  epr-backend -->> epr-frontend: 204 OK
+  epr-frontend ->> user: <html><form/></html>
+  user ->> epr-frontend: Submit Enter PRN details page
+  epr-frontend ->> epr-backend: POST /prn (create draft)
+  epr-backend ->> mongodb: find epr-organisation (id)
+  mongodb -->> epr-backend: (organisation)
+  epr-backend ->> mongodb: insert PRN (prn)
+  mongodb -->> epr-backend: (prnId)
+  epr-backend -->> epr-frontend: 201 Created (prnId)
+  note over epr-frontend: redirect to <br/>check answers page
 
-  note over epr-frontend: redirect to <br/>/notes
-  user ->> epr-frontend: Enter notes
-  epr-frontend ->> epr-backend: PATCH /prn/{id} (notes)
-  epr-backend ->> mongo-db: update PRN (notes)
-  epr-backend -->> epr-frontend: 204 OK
-
-  note over epr-frontend: redirect to <br/>/recipient
   user ->> epr-frontend: View check answers
   epr-frontend ->> epr-backend: GET /prn/{id}
-  epr-backend ->> mongo-db: find PRN (id)
-  mongo-db -->> epr-backend: (prn)
+  epr-backend ->> mongodb: find PRN (id)
+  mongodb -->> epr-backend: (prn)
   epr-backend -->> epr-frontend: 200 OK (full draft prn)
 
-  user ->> epr-frontend: Submit PRN
+  user ->> epr-frontend: Create PRN (Submit CYA page)
   epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongo-db: update waste balance
-  epr-backend ->> mongo-db: update PRN (status)
-  epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
+  epr-backend ->> mongodb: update available waste balance
+  epr-backend ->> mongodb: update PRN (status)
+  epr-backend -->> epr-frontend: 200 OK (AWAITING_AUTHORISATION)
 
   note over epr-frontend: redirect to <br/>/prn/{id}
-  epr-frontend ->> epr-backend: GET /prn/{id}
-  epr-backend ->> mongo-db: find PRN (id)
-  mongo-db -->> epr-backend: (prn)
-  epr-backend -->> epr-frontend: 200 OK (prn)
+
+  opt Re/Ex issue PRN
+    user ->> epr-frontend: Issue PRN
+    epr-frontend ->> epr-backend: POST /prn/{id}/status
+    epr-backend ->> mongodb: update total waste balance
+    epr-backend ->> mongodb: update PRN (status)
+    epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
+  end
+
 
   opt Re/Ex delete PRN
-  user ->> epr-frontend: delete PRN
-  epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongo-db: update PRN (status)
-  epr-backend -->> epr-frontend: 200 OK (CANCELLED)
-  note over epr-frontend: redirect to <br/> ??
+    user ->> epr-frontend: delete PRN
+    epr-frontend ->> epr-backend: POST /prn/{id}/status
+    epr-backend ->> mongodb: update available waste balance
+    epr-backend ->> mongodb: update PRN (status)
+    epr-backend -->> epr-frontend: 200 OK (DELETED)
   end
 
 ```
