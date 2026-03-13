@@ -39,12 +39,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: detect-changes
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
       - name: Prepare PR
         uses: ./.github/actions/pr-preparation
-
-      - name: Checkout code for ADR check
-        uses: actions/checkout@v6
-        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
 
       - name: Check for ADR numbering conflicts
         if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
