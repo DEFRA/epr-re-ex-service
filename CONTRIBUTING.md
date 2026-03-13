@@ -127,7 +127,7 @@ Available profiles:
 You can run journey tests locally by using the compose journey test by using this command:
 
 ```bash
-docker compose -f compose.yml -f compose.journey.test.yml --profile all up -d
+docker compose -f compose.yml --profile all --profile journey-test up -d
 ```
 
 Then you can execute the journey tests from the respective journey test repository.

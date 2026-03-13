@@ -1,0 +1,159 @@
+{
+  "name": "Waste Organisations API",
+  "request": {
+    "method": "GET",
+    "urlPath": "/waste-organisations/organisations",
+    "headers": {
+      "Authorization": {
+        "matches": "Basic .*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "organisations": [
+        {
+          "id": "c14854d9-e20a-41b3-87d5-a1fd4bbe2153",
+          "name": "GEEKWORKS LONDON LIMITED",
+          "tradingName": "CS_GENERATED_3982709_England",
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": "CS_GENERATED_3982709",
+          "address": {
+            "addressLine1": "TEST BUILDING",
+            "addressLine2": "1 STREET NAME",
+            "town": "Tester Town",
+            "county": "Tester County",
+            "postcode": "T1 1TT",
+            "country": "United Kingdom"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "COMPLIANCE_SCHEME",
+              "registrationYear": 2026
+            }
+          ]
+        },
+        {
+          "id": "c153e553-2cfc-466c-aebc-581ac8d97194",
+          "name": "13 MARLBOROUGH BUILDINGS (BATH) MANAGEMENT COMPANY LTD",
+          "tradingName": null,
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": "03728652",
+          "address": {
+            "addressLine1": "11 Woody Green",
+            "addressLine2": "Cambridge",
+            "town": "United Kingdom",
+            "county": null,
+            "postcode": "TT1 1TT",
+            "country": "EN"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "LARGE_PRODUCER",
+              "registrationYear": 2026
+            }
+          ]
+        },
+        {
+          "id": "8075b75e-ea60-44b3-822f-2c822671ee03",
+          "name": "COGNISTA CONSULTING LTD",
+          "tradingName": "CS_GENERATED_3792475_England",
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": "CS_GENERATED_3792475",
+          "address": {
+            "addressLine1": "TEST BUILDING",
+            "addressLine2": "1 STREET NAME",
+            "town": "Tester Town",
+            "county": "Tester County",
+            "postcode": "T1 1TT",
+            "country": "United Kingdom"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "COMPLIANCE_SCHEME",
+              "registrationYear": 2026
+            }
+          ]
+        },
+        {
+          "id": "b3df4140-912d-44d2-a0b6-08f1d5e2db33",
+          "name": "CADILA GLOBAL LIMITED",
+          "tradingName": "CS_GENERATED_6504391_England",
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": "CS_GENERATED_6504391",
+          "address": {
+            "addressLine1": "16",
+            "addressLine2": "Yew Tree Walk",
+            "town": "Hounslow",
+            "county": null,
+            "postcode": "TW4 5HT",
+            "country": "England"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "COMPLIANCE_SCHEME",
+              "registrationYear": 2026
+            }
+          ]
+        },
+        {
+          "id": "affb3e5e-8bea-44a4-a855-cf4ac16a031e",
+          "name": "UK RIVER TABLES LTD",
+          "tradingName": "UK RIVER TABLES LTD - 1",
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": "11798294",
+          "address": {
+            "addressLine1": "Registered address line 1",
+            "addressLine2": "Registered address line 2",
+            "town": null,
+            "county": null,
+            "postcode": "Essex",
+            "country": "CB113DG"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "LARGE_PRODUCER",
+              "registrationYear": 2026
+            }
+          ]
+        },
+        {
+          "id": "d5fff1c9-2717-4d49-982b-5f87a8db5e4a",
+          "name": "Ball Corporation",
+          "tradingName": "test10",
+          "businessCountry": "GB-ENG",
+          "companiesHouseNumber": null,
+          "address": {
+            "addressLine1": "Test street1",
+            "addressLine2": null,
+            "town": null,
+            "county": null,
+            "postcode": "Essex",
+            "country": "CB113AA"
+          },
+          "registrations": [
+            {
+              "status": "REGISTERED",
+              "type": "LARGE_PRODUCER",
+              "registrationYear": 2025
+            },
+            {
+              "status": "REGISTERED",
+              "type": "LARGE_PRODUCER",
+              "registrationYear": 2026
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
