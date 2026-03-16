@@ -27,7 +27,8 @@ services:
     volumes:
       - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
       - ./compose/localstack:/etc/localstack/init/ready.d
-      - ./lib/epr-backend-journey-tests/docker/scripts/localstack:/etc/localstack/init/ready.d
+      - ./lib/epr-backend-journey-tests/docker/scripts/localstack/summarylogs:/etc/localstack/init/ready.d/summarylogs
+      - ./lib/epr-backend-journey-tests/docker/scripts/localstack/10-setup-buckets.sh:/etc/localstack/init/ready.d/10-setup-buckets.sh
     healthcheck:
       test: ['CMD', 'test', '-f', '/tmp/READY']
       interval: 5s
