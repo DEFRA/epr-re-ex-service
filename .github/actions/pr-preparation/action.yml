@@ -8,7 +8,6 @@ runs:
       uses: actions/github-script@v8
       if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
           const branchName = context.payload.pull_request.head.ref;
           const regex = /^(PAE-\d+)[-_]{1}.+$/i;
@@ -24,7 +23,6 @@ runs:
       uses: actions/github-script@v8
       if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
           const { pull_request, repository } = context.payload;
           const { body: previousBody } = pull_request;

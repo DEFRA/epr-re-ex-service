@@ -21,7 +21,7 @@
   "devDependencies": {
     "@dotenvx/dotenvx": "1.54.1",
     "husky": "9.1.7",
-    "lint-staged": "16.3.2",
+    "lint-staged": "16.3.3",
     "mongodb": "7.1.0",
     "prettier": "3.8.1"
   }
