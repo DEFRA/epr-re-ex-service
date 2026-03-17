@@ -21,12 +21,33 @@ Create two collections:
 - `periodic-reports` — one document per `(organisationId, registrationId, year)`; nested `reports` map keyed by cadence then period number; each slot holds `startDate`, `endDate`, `currentReportId`, `previousReportIds`.
 - `reports` — standalone submission documents containing all field data and full status audit trail.
 
+## Design Decisions
+
+### `reports` field: map over array
+
+The `reports` field on `periodic-reports` uses a nested map `{ cadence: { period: slot } }` rather than an array of period objects.
+
+**Considered alternative — array**
+
+```json
+"periods": [
+  { "cadence": "monthly", "period": 4, "startDate": "2026-04-01", "endDate": "2026-04-30", "currentReportId": "...", "previousReportIds": [] },
+  { "cadence": "monthly", "period": 5, "startDate": "2026-05-01", "endDate": "2026-05-31", "currentReportId": null,  "previousReportIds": [] }
+]
+```
+
+**Why map was chosen**
+
+- **Data integrity**: Object keys are unique by definition in BSON. The map shape makes it structurally impossible to insert two slots for the same `cadence + period`. MongoDB cannot enforce a compound unique constraint on element combinations within a single document's array, so the array shape would require application-level guards with no database-level backstop.
+- **Atomic writes**: `$set` on `reports.monthly.4.currentReportId` targets exactly one slot with no risk of updating the wrong array index.
+- **Aggregation**: Cross-period aggregation (e.g. annual tonnage totals) does not require a single pipeline. The pattern is: fetch `periodic-reports` to collect all `currentReportId` values, then run a standard `$match` + `$group` aggregation on the `reports` collection using those IDs. Two indexed round trips; the `reports` collection carries all numeric fields.
+
 ## Data Flow
 
 ```
 Summary Log (submitted) ──┐
                           ├──> Waste Records ──┐
-PRN/PERN (issued) ────────┤                    ├──> Periodic Report
+PRN/PERN (issued) ────────┤                    ├──> Reports
                           │                    │    (aggregated)
 Organisation Data ────────┴────────────────────┘
 ```
@@ -103,6 +124,7 @@ erDiagram
 
     PERIODIC_REPORTS {
       ObjectId               _id             PK
+      schemaVersion          number
       number                 version         "incremented on every write"
       ObjectId               organisationId  "UK (composite)"
       ObjectId               registrationId  "UK (composite)"
@@ -204,7 +226,7 @@ erDiagram
     }
 ```
 
-## Examole
+## Example
 
 **periodic-reports document**
 
