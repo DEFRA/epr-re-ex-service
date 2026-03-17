@@ -117,7 +117,7 @@ erDiagram
         ObjectId            _id                   PK
         number              version               "incremented on every write"
         number              schemaVersion
-        enum                status                "in_progress|ready_to_submit|submitted|superseded"
+        enum                status                "in_progress|ready_to_submit|submitted"
         STATUS_HISTORY[]    statusHistory
         string              material
         string              wasteProcessingType
