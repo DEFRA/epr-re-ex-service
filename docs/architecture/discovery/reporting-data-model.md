@@ -18,7 +18,7 @@ Current system has operational collections (`summary-logs`, `waste-records`, `wa
 
 Create two collections:
 
-- `periodic-reports` — lean period identity anchor; composite unique key; holds pointers to current and previous report submissions.
+- `periodic-reports` — one document per `(organisationId, registrationId, year)`; nested `reports` map keyed by cadence then period number; each slot holds `startDate`, `endDate`, `currentReportId`, `previousReportIds`.
 - `reports` — standalone submission documents containing all field data and full status audit trail.
 
 ## Data Flow
@@ -55,8 +55,10 @@ erDiagram
     PERIODIC_REPORTS }o--o{ SUMMARY_LOG : references
     PERIODIC_REPORTS }o--o{ PRN_PERN : aggregates
     PRN_PERN }o--|| WASTE_BALANCE : debits
-    PERIODIC_REPORTS ||--o| REPORTS : "currentReportId"
-    PERIODIC_REPORTS ||--o{ REPORTS : "previousReportIds"
+    PERIODIC_REPORTS ||--o{ REPORT_PER_PERIOD : "reports.monthly (1–12, optional)"
+    PERIODIC_REPORTS ||--o{ REPORT_PER_PERIOD : "reports.quarterly (1–4, optional)"
+    REPORT_PER_PERIOD ||--o| REPORTS : "currentReportId"
+    REPORT_PER_PERIOD ||--o{ REPORTS : "previousReportIds"
     REPORTS ||--o| RECYCLING_ACTIVITY : "recyclingActivity"
     REPORTS ||--o| EXPORT_ACTIVITY : "exportActivity"
     REPORTS ||--o| WASTE_SENT : "wasteSent"
@@ -100,17 +102,19 @@ erDiagram
     }
 
     PERIODIC_REPORTS {
-        ObjectId   _id               PK
-        ObjectId   organisationId    "UK (composite)"
-        ObjectId   registrationId    "UK (composite)"
-        ObjectId   accreditationId   "UK (composite)"
-        number     year              "UK (composite)"
-        enum       period            "UK (composite) — 1-12 | 1-4 | 1"
-        enum       cadence           "UK (composite) — monthly|quarterly|annual"
-        date       startDate
-        date       endDate
-        ObjectId   currentReportId   "FK to reports; null until first submission"
-        ObjectId[] previousReportIds "FK[] to reports; empty on first; newest first"
+      ObjectId               _id             PK
+      number                 version         "incremented on every write"
+      ObjectId               organisationId  "UK (composite)"
+      ObjectId               registrationId  "UK (composite)"
+      number                 year            "UK (composite)"
+      object                 reports "{ monthly: { 1–12?: REPORT_PER_PERIOD }, quarterly: { 1–4?: REPORT_PER_PERIOD } }"
+    }
+
+    REPORT_PER_PERIOD {
+      date     startDate
+      date     endDate
+      ObjectId currentReportId   FK "nullable"
+      ObjectId[] previousReportIds
     }
 
     REPORTS {
@@ -200,10 +204,133 @@ erDiagram
     }
 ```
 
-## Resubmission Flow
+## Examole
 
-1. Insert new `REPORTS` document (status `in_progress`; first `STATUS_HISTORY` entry)
-2. Set old `REPORTS` status → `superseded` (append entry to `statusHistory`)
-3. Update `PERIODIC_REPORTS` atomically:
-   - `previousReportIds = [currentReportId, ...previousReportIds]`
-   - `currentReportId = new report _id`
+**periodic-reports document**
+
+```json
+{
+  "_id": "ObjectId(\"682a1c4e2f8b3d0012345678\")",
+  "version": 3,
+  "organisationId": "ObjectId(\"507f1f77bcf86cd799439011\")",
+  "registrationId": "ObjectId(\"507f1f77bcf86cd799439022\")",
+  "year": 2026,
+  "reports": {
+    "monthly": {
+      "4": {
+        "startDate": "2026-04-01",
+        "endDate": "2026-04-30",
+        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340004\")",
+        "previousReportIds": []
+      },
+      "5": {
+        "startDate": "2026-05-01",
+        "endDate": "2026-05-31",
+        "currentReportId": null,
+        "previousReportIds": []
+      },
+      "6": {
+        "startDate": "2026-06-01",
+        "endDate": "2026-06-30",
+        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340006\")",
+        "previousReportIds": ["ObjectId(\"682a1c4e2f8b3d0012340005\")"]
+      }
+    },
+    "quarterly": {
+      "1": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-03-31",
+        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340010\")",
+        "previousReportIds": []
+      }
+    }
+  }
+}
+```
+
+**reports document** (referenced by `currentReportId` above)
+
+```json
+{
+  "_id": "ObjectId(\"682a1c4e2f8b3d0012340006\")",
+  "version": 2,
+  "schemaVersion": 1,
+  "status": "submitted",
+  "material": "plastic",
+  "wasteProcessingType": "mechanical",
+  "siteAddress": "1 Recycling Way, Leeds, LS1 1AA",
+  "recyclingActivity": {
+    "suppliers": [
+      {
+        "supplierName": "Acme Waste Ltd",
+        "facilityType": "MRF",
+        "address": {
+          "line1": "10 Depot Rd",
+          "city": "Manchester",
+          "postcode": "M1 1AA"
+        },
+        "phone": "0161 000 0000",
+        "email": "contact@acmewaste.co.uk",
+        "tonnageReceived": 120.5
+      }
+    ],
+    "totalTonnageReceived": 120.5,
+    "tonnageRecycled": 110.0,
+    "tonnageNotRecycled": 10.5
+  },
+  "wasteSent": {
+    "tonnageSentToReprocessor": 50.0,
+    "tonnageSentToExporter": 30.0,
+    "tonnageSentToAnotherSite": 30.0,
+    "finalDestinations": [
+      {
+        "recipientName": "GreenCycle GmbH",
+        "facilityType": "reprocessor",
+        "address": { "line1": "Recyclingstr. 4", "city": "Hamburg" },
+        "phone": "+49 40 000000",
+        "email": "ops@greencycle.de",
+        "tonnageSentOn": 50.0
+      }
+    ]
+  },
+  "exportActivity": null,
+  "prnData": {
+    "tonnageIssued": 110.0,
+    "totalRevenue": 5500.0,
+    "averagePricePerTonne": 50.0
+  },
+  "supportingInformation": "No issues to report.",
+  "sourceData": {
+    "summaryLogId": "ObjectId(\"507f1f77bcf86cd799439099\")"
+  },
+  "statusHistory": [
+    {
+      "status": "in_progress",
+      "changedBy": {
+        "id": "ObjectId(\"507f1f77bcf86cd799430001\")",
+        "name": "Jane Smith",
+        "position": "Compliance Officer"
+      },
+      "changedAt": "2026-06-15T09:00:00Z"
+    },
+    {
+      "status": "ready_to_submit",
+      "changedBy": {
+        "id": "ObjectId(\"507f1f77bcf86cd799430001\")",
+        "name": "Jane Smith",
+        "position": "Compliance Officer"
+      },
+      "changedAt": "2026-06-28T14:30:00Z"
+    },
+    {
+      "status": "submitted",
+      "changedBy": {
+        "id": "ObjectId(\"507f1f77bcf86cd799430002\")",
+        "name": "Bob Jones",
+        "position": "Senior Manager"
+      },
+      "changedAt": "2026-06-30T11:00:00Z"
+    }
+  ]
+}
+```
