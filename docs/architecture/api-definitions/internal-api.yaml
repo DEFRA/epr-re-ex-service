@@ -507,24 +507,24 @@
       "get": {
         "operationId": "getV1Reports",
         "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag",
+        "description": "Behind isReportsEnabled feature flag. Returns merged list of persisted and due reports. See ADR-0028.",
         "parameters": [
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true }
         ],
         "responses": {
           "200": {
-            "description": "Reporting periods for a registration",
+            "description": "List of reports (persisted and due) for a registration. Only includes periods that have ended and have waste records.",
             "schema": {
               "type": "object",
               "properties": {
                 "cadence": { "type": "string", "enum": ["monthly", "quarterly"] },
-                "periods": {
+                "reports": {
                   "type": "array",
-                  "items": { "$ref": "#/definitions/ReportingPeriod" }
+                  "items": { "$ref": "#/definitions/ReportListItem" }
                 }
               },
-              "required": ["cadence", "periods"]
+              "required": ["cadence", "reports"]
             }
           }
         }
@@ -532,9 +532,9 @@
     },
     "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{period}": {
       "get": {
-        "operationId": "getV1ReportDetail",
+        "operationId": "getV1ReportByPeriod",
         "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag",
+        "description": "Behind isReportsEnabled feature flag. Returns persisted report object from database.",
         "parameters": [
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
@@ -543,7 +543,71 @@
         ],
         "responses": {
           "200": {
-            "description": "Detailed report for a specific period",
+            "description": "Persisted report metadata and status",
+            "schema": { "$ref": "#/definitions/ReportObject" }
+          },
+          "404": {
+            "description": "No persisted report exists for this period"
+          }
+        }
+      },
+      "post": {
+        "operationId": "postV1CreateReport",
+        "tags": ["reports"],
+        "description": "Behind isReportsEnabled feature flag. Creates a report for the given period, generates aggregated data and persists it with status in_progress.",
+        "parameters": [
+          { "type": "string", "name": "organisationId", "in": "path", "required": true },
+          { "type": "string", "name": "registrationId", "in": "path", "required": true },
+          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
+        ],
+        "responses": {
+          "201": {
+            "description": "Report created with in_progress status",
+            "schema": { "$ref": "#/definitions/ReportObject" }
+          },
+          "404": {
+            "description": "Registration not found"
+          },
+          "409": {
+            "description": "Report already exists for this period"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteV1Report",
+        "tags": ["reports"],
+        "description": "Behind isReportsEnabled feature flag. Soft-deletes a report. Sets status to deleted, archives currentReportId to previousReportIds. Period reverts to due on the list endpoint.",
+        "parameters": [
+          { "type": "string", "name": "organisationId", "in": "path", "required": true },
+          { "type": "string", "name": "registrationId", "in": "path", "required": true },
+          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
+        ],
+        "responses": {
+          "204": {
+            "description": "Report deleted"
+          },
+          "404": {
+            "description": "No report exists for this period"
+          }
+        }
+      }
+    },
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{period}/details": {
+      "get": {
+        "operationId": "getV1ReportDetails",
+        "tags": ["reports"],
+        "description": "Behind isReportsEnabled feature flag. Returns aggregated report data computed from waste records and PRNs.",
+        "parameters": [
+          { "type": "string", "name": "organisationId", "in": "path", "required": true },
+          { "type": "string", "name": "registrationId", "in": "path", "required": true },
+          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated report detail with tonnage, supplier, destination and PRN data",
             "schema": { "$ref": "#/definitions/ReportDetail" }
           }
         }
@@ -1273,18 +1337,54 @@
       },
       "required": ["generatedAt", "rows"]
     },
-    "ReportingPeriod": {
+    "ReportStatus": {
+      "type": "string",
+      "enum": ["in_progress", "ready_to_submit", "submitted", "superseded", "deleted"],
+      "description": "Persisted report statuses. 'due' is computed (not stored) and only appears in the list endpoint."
+    },
+    "ReportListStatus": {
+      "type": "string",
+      "enum": ["due", "in_progress", "ready_to_submit", "submitted", "superseded"],
+      "description": "Statuses visible on the report list. 'due' = no persisted report exists for an ended period with waste records."
+    },
+    "ReportListItem": {
       "type": "object",
+      "description": "A report entry in the list endpoint — either due (computed) or persisted.",
       "properties": {
         "year": { "type": "number" },
         "period": { "type": "number" },
-        "startDate": { "type": "string" },
-        "endDate": { "type": "string" }
-      }
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "$ref": "#/definitions/ReportListStatus" },
+        "id": { "type": "string", "format": "uuid", "description": "Report ID. Null when status is 'due'.", "x-nullable": true }
+      },
+      "required": ["year", "period", "startDate", "endDate", "status", "id"]
+    },
+    "ReportObject": {
+      "type": "object",
+      "description": "A persisted report from the database.",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "version": { "type": "number" },
+        "status": { "$ref": "#/definitions/ReportStatus" },
+        "material": { "type": "string" },
+        "wasteProcessingType": { "type": "string" },
+        "siteAddress": { "type": "string" },
+        "recyclingActivity": { "$ref": "#/definitions/RecyclingActivity" },
+        "exportActivity": { "$ref": "#/definitions/ExportActivity" },
+        "wasteSent": { "$ref": "#/definitions/WasteSent" },
+        "prnData": { "$ref": "#/definitions/PrnReportData" },
+        "supportingInformation": { "type": "string" },
+        "statusHistory": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/StatusHistoryEntry" }
+        }
+      },
+      "required": ["id", "version", "status", "statusHistory"]
     },
     "ReportDetail": {
       "type": "object",
-      "description": "Aggregated report detail with material and site information",
+      "description": "Aggregated report data computed from waste records and PRNs for a specific period.",
       "properties": {
         "details": {
           "type": "object",
@@ -1292,8 +1392,101 @@
             "material": { "type": "string" },
             "site": { "type": "object" }
           }
+        },
+        "recyclingActivity": { "$ref": "#/definitions/RecyclingActivity" },
+        "exportActivity": { "$ref": "#/definitions/ExportActivity" },
+        "wasteSent": { "$ref": "#/definitions/WasteSent" },
+        "prnData": { "$ref": "#/definitions/PrnReportData" }
+      }
+    },
+    "RecyclingActivity": {
+      "type": "object",
+      "properties": {
+        "suppliers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "supplierName": { "type": "string" },
+              "facilityType": { "type": "string" },
+              "address": { "type": "object" },
+              "phone": { "type": "string" },
+              "email": { "type": "string" },
+              "tonnageReceived": { "type": "number" }
+            }
+          }
+        },
+        "totalTonnageReceived": { "type": "number" },
+        "tonnageRecycled": { "type": "number" },
+        "tonnageNotRecycled": { "type": "number" }
+      }
+    },
+    "ExportActivity": {
+      "type": "object",
+      "properties": {
+        "overseasSites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "siteName": { "type": "string" },
+              "orsId": { "type": "number" },
+              "tonnageExported": { "type": "number" }
+            }
+          }
+        },
+        "totalTonnageReceivedForExporting": { "type": "number" },
+        "tonnageReceivedNotExported": { "type": "number" },
+        "tonnageRefusedAtRecipientDestination": { "type": "number" },
+        "tonnageStoppedDuringExport": { "type": "number" },
+        "tonnageRepatriated": { "type": "number" }
+      }
+    },
+    "WasteSent": {
+      "type": "object",
+      "properties": {
+        "tonnageSentToReprocessor": { "type": "number" },
+        "tonnageSentToExporter": { "type": "number" },
+        "tonnageSentToAnotherSite": { "type": "number" },
+        "finalDestinations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recipientName": { "type": "string" },
+              "facilityType": { "type": "string" },
+              "address": { "type": "object" },
+              "phone": { "type": "string" },
+              "email": { "type": "string" },
+              "tonnageSentOn": { "type": "number" }
+            }
+          }
         }
       }
+    },
+    "PrnReportData": {
+      "type": "object",
+      "properties": {
+        "tonnageIssued": { "type": "number" },
+        "totalRevenue": { "type": "number" },
+        "averagePricePerTonne": { "type": "number" }
+      }
+    },
+    "StatusHistoryEntry": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/definitions/ReportStatus" },
+        "changedBy": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "position": { "type": "string" }
+          }
+        },
+        "changedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["status", "changedBy", "changedAt"]
     },
     "PrnStatus": {
       "type": "string",
