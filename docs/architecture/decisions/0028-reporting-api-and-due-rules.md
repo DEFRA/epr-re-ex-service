@@ -34,28 +34,28 @@ The reports resource is scoped to a registration and addressed by year and perio
 Base: /v1/organisations/{organisationId}/registrations/{registrationId}/reports
 ```
 
-| Method | Path                               | Description                                                                                                                                                                                                                                      |
-| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/reports`                         | List all reports — both persisted (from DB) and due (computed). Each item includes `year`, `period`, `startDate`, `endDate`, `status`, and `id` (null when due).                                                                                 |
-| GET    | `/reports/{year}/{period}`         | Get a specific report object from the database. Returns the report metadata and status. 404 if no persisted report exists for this period.                                                                                                       |
-| GET    | `/reports/{year}/{period}/details` | Get the aggregated report data for a period. Computes tonnage, supplier, destination, and PRN data from waste records and PRNs. Used to preview data before creating a report, or to view the stored snapshot after creation.                    |
-| POST   | `/reports/{year}/{period}`         | Create a report for the given period. Generates the aggregated data (same as `/details`) and persists it in the database with status `in_progress`. Returns 201 with the created report. Returns 409 if a report already exists for this period. |
-| DELETE | `/reports/{year}/{period}`         | Delete (soft-delete) a report. Sets status to `deleted`, archives `currentReportId` to `previousReportIds`, and clears the slot. The period reverts to "due" status on the list endpoint.                                                        |
+| Method | Path                                         | Description                                                                                                                                                                                                                                      |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/reports`                                   | List all reports — both persisted (from DB) and due (computed). Each item includes `year`, `period`, `startDate`, `endDate`, `status`, and `id` (null when due).                                                                                 |
+| GET    | `/reports/{year}/{cadence}/{period}`         | Get a specific report object from the database. Returns the report metadata and status. 404 if no persisted report exists for this period.                                                                                                       |
+| GET    | `/reports/{year}/{cadence}/{period}/details` | Get the aggregated report data for a period. Computes tonnage, supplier, destination, and PRN data from waste records and PRNs. Used to preview data before creating a report, or to view the stored snapshot after creation.                    |
+| POST   | `/reports/{year}/{cadence}/{period}`         | Create a report for the given period. Generates the aggregated data (same as `/details`) and persists it in the database with status `in_progress`. Returns 201 with the created report. Returns 409 if a report already exists for this period. |
+| DELETE | `/reports/{year}/{cadence}/{period}`         | Delete (soft-delete) a report. Sets status to `deleted`, archives `currentReportId` to `previousReportIds`, and clears the slot. The period reverts to "due" status on the list endpoint.                                                        |
 
 ### Changes from Current Implementation
 
 The current API has two endpoints:
 
 - `GET /reports` — returns `{ cadence, periods }` computed from waste records
-- `GET /reports/{year}/{period}` — returns aggregated report detail (computed)
+- `GET /reports/{year}/{cadence}/{period}` — returns aggregated report detail (computed)
 
 These are replaced by the five endpoints above. Key changes:
 
 1. **`GET /reports`** now returns a merged list of due and persisted reports with status, not just computed periods
-2. **`GET /reports/{year}/{period}`** now returns the persisted report object, not computed data
-3. **`GET /reports/{year}/{period}/details`** takes over the role of the old detail endpoint (aggregated data)
-4. **`POST /reports/{year}/{period}`** is new — creates a report and snapshots the aggregated data
-5. **`DELETE /reports/{year}/{period}`** is new — soft-deletes a report
+2. **`GET /reports/{year}/{cadence}/{period}`** now returns the persisted report object, not computed data
+3. **`GET /reports/{year}/{cadence}/{period}/details`** takes over the role of the old detail endpoint (aggregated data)
+4. **`POST /reports/{year}/{cadence}/{period}`** is new — creates a report and snapshots the aggregated data
+5. **`DELETE /reports/{year}/{cadence}/{period}`** is new — soft-deletes a report
 
 ### List Endpoint Behaviour
 

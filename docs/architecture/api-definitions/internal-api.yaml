@@ -530,7 +530,7 @@
         }
       }
     },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{period}": {
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{cadence}/{period}": {
       "get": {
         "operationId": "getV1ReportByPeriod",
         "tags": ["reports"],
@@ -539,6 +539,7 @@
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
           { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
           { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
         ],
         "responses": {
@@ -559,6 +560,7 @@
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
           { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
           { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
         ],
         "responses": {
@@ -582,6 +584,7 @@
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
           { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
           { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
         ],
         "responses": {
@@ -594,7 +597,7 @@
         }
       }
     },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{period}/details": {
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{cadence}/{period}/details": {
       "get": {
         "operationId": "getV1ReportDetails",
         "tags": ["reports"],
@@ -603,6 +606,7 @@
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
           { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
           { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
         ],
         "responses": {
