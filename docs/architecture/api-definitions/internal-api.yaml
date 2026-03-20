@@ -507,7 +507,7 @@
       "get": {
         "operationId": "getV1Reports",
         "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag",
+        "description": "Behind isReportsEnabled feature flag. Returns reporting periods with optional nested report objects.",
         "parameters": [
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true }
@@ -519,32 +519,74 @@
               "type": "object",
               "properties": {
                 "cadence": { "type": "string", "enum": ["monthly", "quarterly"] },
-                "periods": {
+                "reportingPeriods": {
                   "type": "array",
                   "items": { "$ref": "#/definitions/ReportingPeriod" }
                 }
               },
-              "required": ["cadence", "periods"]
+              "required": ["cadence", "reportingPeriods"]
             }
           }
         }
       }
     },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{period}": {
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{cadence}/{period}": {
       "get": {
-        "operationId": "getV1ReportDetail",
+        "operationId": "getV1Report",
         "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag",
+        "description": "Behind isReportsEnabled feature flag. Returns a stored report if one exists, otherwise generates aggregated report data on the fly.",
         "parameters": [
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true },
           { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
           { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
         ],
         "responses": {
           "200": {
-            "description": "Detailed report for a specific period",
+            "description": "Report for a specific period (stored or generated)",
             "schema": { "$ref": "#/definitions/ReportDetail" }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postV1Report",
+        "tags": ["reports"],
+        "description": "Behind isReportsEnabled feature flag. Creates a report for the given period.",
+        "parameters": [
+          { "type": "string", "name": "organisationId", "in": "path", "required": true },
+          { "type": "string", "name": "registrationId", "in": "path", "required": true },
+          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
+          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
+        ],
+        "responses": {
+          "201": {
+            "description": "Report created",
+            "schema": { "$ref": "#/definitions/ReportDetail" }
+          },
+          "409": {
+            "description": "Report already exists for this period"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteV1Report",
+        "tags": ["reports"],
+        "description": "Behind isReportsEnabled feature flag. Soft-deletes a report for the given period.",
+        "parameters": [
+          { "type": "string", "name": "organisationId", "in": "path", "required": true },
+          { "type": "string", "name": "registrationId", "in": "path", "required": true },
+          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
+          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
+          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
+        ],
+        "responses": {
+          "204": {
+            "description": "Report deleted"
+          },
+          "404": {
+            "description": "No report exists for this period"
           }
         }
       }
@@ -1278,9 +1320,20 @@
       "properties": {
         "year": { "type": "number" },
         "period": { "type": "number" },
-        "startDate": { "type": "string" },
-        "endDate": { "type": "string" }
-      }
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "report": {
+          "type": "object",
+          "description": "Present only when a persisted report exists for this period",
+          "properties": {
+            "status": { "type": "string", "enum": ["in_progress", "ready_to_submit", "submitted", "deleted"] },
+            "id": { "type": "string" }
+          },
+          "required": ["status", "id"]
+        }
+      },
+      "required": ["year", "period", "startDate", "endDate", "dueDate"]
     },
     "ReportDetail": {
       "type": "object",
