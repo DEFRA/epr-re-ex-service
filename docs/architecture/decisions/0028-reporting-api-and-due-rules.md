@@ -51,7 +51,7 @@ The current API has two endpoints:
 These are replaced by the four endpoints above. Key changes:
 
 1. **`GET /reports`** now returns `reportingPeriods` with optional nested `report` objects (including `dueDate`), not just computed periods
-2. **`GET /reports/{year}/{cadence}/{period}`** now serves dual purpose — returns a stored report if one exists, or generates the aggregated data on the fly. This replaces both the old period endpoint and the `/details` endpoint
+2. **`GET /reports/{year}/{cadence}/{period}`** now returns a stored report if one exists, or generates the aggregated data on the fly
 3. **`POST /reports/{year}/{cadence}/{period}`** is new — creates a report and snapshots the aggregated data
 4. **`DELETE /reports/{year}/{cadence}/{period}`** is new — soft-deletes a report
 
@@ -102,5 +102,5 @@ Note: the `cadence` reflects the operator's current reporting cadence (as accred
 
 - The "due" concept is implicit — a reporting period without a `report` object is due. There is no `due` status in the database. This avoids needing background jobs to create "due" records and keeps the source of truth in the waste records.
 - Deleting a report removes the `report` object from the period, reverting it to due automatically (assuming waste records still exist and the period has ended).
-- The single `GET /reports/{year}/{cadence}/{period}` endpoint serves both preview and retrieval — if no report exists it generates the aggregated data on the fly; if a report exists it returns the stored snapshot. This simplifies the API surface by removing the separate `/details` endpoint.
+- The single `GET /reports/{year}/{cadence}/{period}` endpoint serves both preview and retrieval — if no report exists it generates the aggregated data on the fly; if a report exists it returns the stored snapshot.
 - Period filtering (only showing ended periods) means users cannot create reports for the current in-progress period.
