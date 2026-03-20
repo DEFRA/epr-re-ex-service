@@ -31,7 +31,7 @@ Reports for periods that have not yet ended are not shown to the user.
 The reports resource is scoped to a registration and addressed by year and period:
 
 ```
-Base: /v1/organisations/{organisationId}/registrations/{registrationId}/reports
+Base: /v1/organisations/{organisationId}/registrations/{registrationId}
 ```
 
 | Method | Path                                         | Description                                                                                                                                                                                                                                      |
