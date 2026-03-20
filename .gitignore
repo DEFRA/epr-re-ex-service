@@ -18,3 +18,6 @@ mongodb-backups/
 backups-mongo/
 data-mongo/
 data-redis/
+.beads
+.claude
+prompts
