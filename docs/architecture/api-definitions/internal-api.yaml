@@ -503,11 +503,11 @@
         }
       }
     },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports": {
+    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/calendar": {
       "get": {
-        "operationId": "getV1Reports",
+        "operationId": "getV1ReportsCalendar",
         "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag. Returns reporting periods with optional nested report objects.",
+        "description": "Behind isReportsEnabled feature flag. Returns reporting periods with report object (or null if no report exists).",
         "parameters": [
           { "type": "string", "name": "organisationId", "in": "path", "required": true },
           { "type": "string", "name": "registrationId", "in": "path", "required": true }
@@ -1324,8 +1324,8 @@
         "endDate": { "type": "string", "format": "date" },
         "dueDate": { "type": "string", "format": "date" },
         "report": {
-          "type": "object",
-          "description": "Present only when a persisted report exists for this period",
+          "type": ["object", "null"],
+          "description": "Persisted report for this period, or null if no report exists (period is due)",
           "properties": {
             "status": { "type": "string", "enum": ["in_progress", "ready_to_submit", "submitted", "deleted"] },
             "id": { "type": "string" }
@@ -1333,7 +1333,7 @@
           "required": ["status", "id"]
         }
       },
-      "required": ["year", "period", "startDate", "endDate", "dueDate"]
+      "required": ["year", "period", "startDate", "endDate", "dueDate", "report"]
     },
     "ReportDetail": {
       "type": "object",
