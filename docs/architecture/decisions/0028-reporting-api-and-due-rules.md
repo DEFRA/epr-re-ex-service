@@ -36,7 +36,7 @@ Base: /v1/organisations/{organisationId}/registrations/{registrationId}
 
 | Method | Path                                 | Description                                                                                                                                                                                                                                |
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/reports`                           | List reporting periods with optional nested report. Each item includes `year`, `period`, `startDate`, `endDate`, `dueDate`, and an optional `report` object (`{ status, id }`).                                                            |
+| GET    | `/reports/calendar`                  | List reporting periods. Each item includes `year`, `period`, `startDate`, `endDate`, `dueDate`, and a `report` object (`{ status, id }` or `null` if no report exists).                                                                    |
 | GET    | `/reports/{year}/{cadence}/{period}` | Get a report for a specific period. If a persisted report exists, returns the stored data. If no report exists, generates the aggregated data (tonnage, supplier, destination, PRN data) on the fly. Returns the same shape in both cases. |
 | POST   | `/reports/{year}/{cadence}/{period}` | Create a report for the given period. Generates the aggregated data and persists it in the database with status `in_progress`. Returns 201 with the created report. Returns 409 if a report already exists for this period.                |
 | DELETE | `/reports/{year}/{cadence}/{period}` | Delete (soft-delete) a report. Sets status to `deleted`, archives `currentReportId` to `previousReportIds`, and clears the slot. The period reverts to "due" status on the list endpoint.                                                  |
@@ -45,26 +45,26 @@ Base: /v1/organisations/{organisationId}/registrations/{registrationId}
 
 The current API has two endpoints:
 
-- `GET /reports` — returns `{ cadence, periods }` computed from waste records
+- `GET /reports/calendar` — returns `{ cadence, periods }` computed from waste records
 - `GET /reports/{year}/{cadence}/{period}` — returns aggregated report detail (computed)
 
 These are replaced by the four endpoints above. Key changes:
 
-1. **`GET /reports`** now returns `reportingPeriods` with optional nested `report` objects (including `dueDate`), not just computed periods
+1. **`GET /reports/calendar`** now returns `reportingPeriods` with optional nested `report` objects (including `dueDate`), not just computed periods
 2. **`GET /reports/{year}/{cadence}/{period}`** now returns a stored report if one exists, or generates the aggregated data on the fly
 3. **`POST /reports/{year}/{cadence}/{period}`** is new — creates a report and snapshots the aggregated data
 4. **`DELETE /reports/{year}/{cadence}/{period}`** is new — soft-deletes a report
 
 ### List Endpoint Behaviour
 
-The `GET /reports` endpoint merges two data sources:
+The `GET /reports/calendar` endpoint merges two data sources:
 
 1. **Computed periods** from `discoverPeriods()` — periods where waste records exist and the period has ended
 2. **Persisted reports** from `reportsRepository.findPeriodicReports()` — periods with stored reports
 
 Merge logic for each period:
 
-- Period has waste records + no persisted report + period has ended = reporting period with no `report` field
+- Period has waste records + no persisted report + period has ended = reporting period with `report: null`
 - Period has a persisted report = reporting period with `report: { status, id }`
 - Period has not ended yet = excluded from response
 
@@ -90,7 +90,8 @@ Response shape:
       "period": 4,
       "startDate": "2026-04-01",
       "endDate": "2026-04-30",
-      "dueDate": "2026-05-28"
+      "dueDate": "2026-05-28",
+      "report": null
     }
   ]
 }
@@ -100,7 +101,7 @@ Note: the `cadence` reflects the operator's current reporting cadence (as accred
 
 ## Consequences
 
-- The "due" concept is implicit — a reporting period without a `report` object is due. There is no `due` status in the database. This avoids needing background jobs to create "due" records and keeps the source of truth in the waste records.
-- Deleting a report removes the `report` object from the period, reverting it to due automatically (assuming waste records still exist and the period has ended).
+- The "due" concept is implicit — a reporting period with `report: null` is due. There is no `due` status in the database. This avoids needing background jobs to create "due" records and keeps the source of truth in the waste records.
+- Deleting a report sets `report` back to `null` for the period, reverting it to due automatically (assuming waste records still exist and the period has ended).
 - The single `GET /reports/{year}/{cadence}/{period}` endpoint serves both preview and retrieval — if no report exists it generates the aggregated data on the fly; if a report exists it returns the stored snapshot.
 - Period filtering (only showing ended periods) means users cannot create reports for the current in-progress period.
