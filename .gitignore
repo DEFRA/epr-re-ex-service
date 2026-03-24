@@ -18,3 +18,8 @@ mongodb-backups/
 backups-mongo/
 data-mongo/
 data-redis/
+
+.beads/
+CLAUDE.local.md
+.claude/settings.local.json
+docs/superpowers/

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npx prettier:*)",
+      "Bash(grep:*)",
+      "Bash(echo:*)",
+      "Bash(cd:*)",
+      "Bash(grep ERROR::*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(find:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(xargs cat:*)",
+      "Bash(cat:*)",
+      "Bash(npx eslint:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(git status:*)",
+      "Bash(claude --version)"
+    ]
+  }
+}
