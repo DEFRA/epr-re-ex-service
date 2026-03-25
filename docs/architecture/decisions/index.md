@@ -24,7 +24,7 @@
 * [22. Translation process for English/Welsh strings](0022-translation-process-for-english-welsh-strings.md)
 * [23. Hybrid seed data strategy for non-prod environments](0023-hybrid-seed-data-strategy-for-non-prod-environments.md)
 * [24. Create PRN API strategy](0024-create-prn-api-strategy.md)
-* [23. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
+* [25. Public Register of Registrations/Accreditations](0025-public-register-generation.md)
 * [26. Expose Initial User Status to Frontend](0026-expose-initial-user-status-to-frontend.md)
 * [27. Modular monolith structure](0027-modular-monolith-structure.md)
 * [28. Reporting API and Due Rules](0028-reporting-api-and-due-rules.md)
