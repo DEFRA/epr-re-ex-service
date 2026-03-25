@@ -1,4 +1,4 @@
-# 23. Public Register of Registrations/Accreditations
+# 25. Public Register of Registrations/Accreditations
 
 Date: 2025-01-20
 

@@ -28,3 +28,4 @@
 * [26. Expose Initial User Status to Frontend](0026-expose-initial-user-status-to-frontend.md)
 * [27. Modular monolith structure](0027-modular-monolith-structure.md)
 * [28. Reporting API and Due Rules](0028-reporting-api-and-due-rules.md)
+* [29. Compute on write for loadsByWasteRecordType](0029-compute-on-write-for-loads-by-waste-record-type.md)
