@@ -2176,14 +2176,7 @@
       'ReportStatus':
         {
           'type': 'string',
-          'enum':
-            [
-              'in_progress',
-              'ready_to_submit',
-              'submitted',
-              'superseded',
-              'deleted'
-            ]
+          'enum': ['in_progress', 'ready_to_submit', 'submitted']
         },
       'ReportStatusHistoryEntry':
         {
