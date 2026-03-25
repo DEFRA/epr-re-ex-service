@@ -17,6 +17,7 @@ Given a username of `me` and a password of `password123`
 3. add to an authorization header `authorization: Basic bWU6cGFzc3dvcmQxMjM=`
 
 **example of generating a base64 string with Node.js**
+
 ```
 Buffer.from('me:password123').toString('base64')
 ```

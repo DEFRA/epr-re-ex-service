@@ -9,33 +9,33 @@ organisations, registrations and accreditations relate to one another.
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
-* [Overseas Reprocessing Sites (ORS) Management](#overseas-reprocessing-sites-ors-management)
-  * [Project scope](#project-scope)
-    * [Functional requirements](#functional-requirements)
-    * [Non-functional requirements](#non-functional-requirements)
-  * [Data model](#data-model)
-    * [Entity relationship diagram](#entity-relationship-diagram)
-    * [Key design decisions](#key-design-decisions)
-  * [Technical approach](#technical-approach)
-    * [Module structure](#module-structure)
-    * [Spreadsheet import pipeline](#spreadsheet-import-pipeline)
-    * [CRUD API](#crud-api)
-      * [Endpoint: `GET` `/v1/overseas-sites`](#endpoint-get-v1overseas-sites)
-      * [Endpoint: `GET` `/v1/overseas-sites/{id}`](#endpoint-get-v1overseas-sitesid)
-      * [Endpoint: `POST` `/v1/overseas-sites`](#endpoint-post-v1overseas-sites)
-      * [Endpoint: `PUT` `/v1/overseas-sites/{id}`](#endpoint-put-v1overseas-sitesid)
-      * [Endpoint: `DELETE` `/v1/overseas-sites/{id}`](#endpoint-delete-v1overseas-sitesid)
-    * [Registration ORS mapping](#registration-ors-mapping)
-      * [Endpoint: `PUT` `/v1/organisations/{id}`](#endpoint-put-v1organisationsid)
-    * [Import endpoints](#import-endpoints)
-      * [Endpoint: `POST` `/v1/overseas-sites/imports`](#endpoint-post-v1ors-imports)
-      * [Endpoint: `GET` `/v1/overseas-sites/imports/{id}`](#endpoint-get-v1ors-importsid)
-  * [Admin UI](#admin-ui)
-    * [Overseas sites list and edit](#overseas-sites-list-and-edit)
-    * [Registration ORS section](#registration-ors-section)
-    * [Spreadsheet upload page](#spreadsheet-upload-page)
-<!-- TOC -->
-<!-- prettier-ignore-end -->
+
+- [Overseas Reprocessing Sites (ORS) Management](#overseas-reprocessing-sites-ors-management)
+  - [Project scope](#project-scope)
+    - [Functional requirements](#functional-requirements)
+    - [Non-functional requirements](#non-functional-requirements)
+  - [Data model](#data-model)
+    - [Entity relationship diagram](#entity-relationship-diagram)
+    - [Key design decisions](#key-design-decisions)
+  - [Technical approach](#technical-approach)
+    - [Module structure](#module-structure)
+    - [Spreadsheet import pipeline](#spreadsheet-import-pipeline)
+    - [CRUD API](#crud-api)
+      - [Endpoint: `GET` `/v1/overseas-sites`](#endpoint-get-v1overseas-sites)
+      - [Endpoint: `GET` `/v1/overseas-sites/{id}`](#endpoint-get-v1overseas-sitesid)
+      - [Endpoint: `POST` `/v1/overseas-sites`](#endpoint-post-v1overseas-sites)
+      - [Endpoint: `PUT` `/v1/overseas-sites/{id}`](#endpoint-put-v1overseas-sitesid)
+      - [Endpoint: `DELETE` `/v1/overseas-sites/{id}`](#endpoint-delete-v1overseas-sitesid)
+    - [Registration ORS mapping](#registration-ors-mapping)
+      - [Endpoint: `PUT` `/v1/organisations/{id}`](#endpoint-put-v1organisationsid)
+    - [Import endpoints](#import-endpoints)
+      - [Endpoint: `POST` `/v1/overseas-sites/imports`](#endpoint-post-v1ors-imports)
+      - [Endpoint: `GET` `/v1/overseas-sites/imports/{id}`](#endpoint-get-v1ors-importsid)
+  - [Admin UI](#admin-ui)
+    _ [Overseas sites list and edit](#overseas-sites-list-and-edit)
+    _ [Registration ORS section](#registration-ors-section) \* [Spreadsheet upload page](#spreadsheet-upload-page)
+    <!-- TOC -->
+    <!-- prettier-ignore-end -->
 
 ## Project scope
 
@@ -338,6 +338,7 @@ Uploader (providing a callback URL and S3 path), and returns the upload URL for 
 file to. Processing is triggered later when CDP Uploader calls back on completion.
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -352,21 +353,24 @@ file to. Processing is triggered later when CDP Uploader calls back on completio
 Returns the current status of an import, including per-file results once processing is complete.
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
   "status": "completed",
-  "files": [{
-    "fileId": "...",
-    "fileName": "...",
-    "result": {
-      "status": "success",
-      "sitesCreated": 42,
-      "mappingsUpdated": 42,
-      "registrationNumber": "REG-001",
-      "errors": []
+  "files": [
+    {
+      "fileId": "...",
+      "fileName": "...",
+      "result": {
+        "status": "success",
+        "sitesCreated": 42,
+        "mappingsUpdated": 42,
+        "registrationNumber": "REG-001",
+        "errors": []
+      }
     }
-  }]
+  ]
 }
 ```
 
@@ -393,6 +397,7 @@ exporter registrations. Shows a table of the registration's ORS mappings: three-
 country and approval date.
 
 Actions:
+
 - **Add** — enter a three-digit ORS ID, then search for an existing site or create a new one
 - **Remove** — unlink an ORS mapping from the registration (does not delete the site record)
 - **Edit** — click through to the overseas site detail page to update the shared record. Show a confirmation

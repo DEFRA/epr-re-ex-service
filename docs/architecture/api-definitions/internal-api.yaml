@@ -1,1544 +1,2596 @@
 {
-  "basePath": "/",
-  "info": {
-    "title": "EPR Re-Ex Backend Internal API",
-    "version": "1"
-  },
-  "swagger": "2.0",
-  "host": "localhost:3001",
-  "schemes": [
-    "http"
-  ],
-  "tags": [
-    { "name": "health", "description": "Health check" },
-    { "name": "apply", "description": "Organisation, registration and accreditation applications" },
-    { "name": "organisations", "description": "Organisation management" },
-    { "name": "summary-logs", "description": "Waste summary log uploads" },
-    { "name": "reports", "description": "Periodic reporting (feature-flagged)" },
-    { "name": "waste-balances", "description": "Waste balance queries" },
-    { "name": "tonnage", "description": "Tonnage monitoring and PRN tonnage" },
-    { "name": "packaging-recycling-notes", "description": "PRN lifecycle management" },
-    { "name": "overseas-sites", "description": "Overseas site management (feature-flagged)" },
-    { "name": "system-logs", "description": "System audit logs" },
-    { "name": "public-register", "description": "Public register generation" },
-    { "name": "dev", "description": "Development-only endpoints (feature-flagged)" }
-  ],
-  "paths": {
-    "/health": {
-      "get": {
-        "operationId": "getHealth",
-        "tags": ["health"],
-        "responses": {
-          "200": {
-            "description": "Successful",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "message": { "type": "string", "enum": ["success"] }
-              },
-              "required": ["message"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/apply/organisation": {
-      "post": {
-        "operationId": "postV1ApplyOrganisation",
-        "tags": ["apply"],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/ApplyPayload" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Organisation created",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "orgId": { "type": "number" },
-                "orgName": { "type": "string" },
-                "referenceNumber": { "type": "string" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/apply/registration": {
-      "post": {
-        "operationId": "postV1ApplyRegistration",
-        "tags": ["apply"],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/RegistrationAndAccreditationPayload" }
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": "Registration created",
-            "schema": { "type": "object" }
-          }
-        }
-      }
-    },
-    "/v1/apply/accreditation": {
-      "post": {
-        "operationId": "postV1ApplyAccreditation",
-        "tags": ["apply"],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/RegistrationAndAccreditationPayload" }
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": "Accreditation created",
-            "schema": { "type": "object" }
-          }
-        }
-      }
-    },
-    "/v1/organisations": {
-      "get": {
-        "operationId": "getV1Organisations",
-        "tags": ["organisations"],
-        "responses": {
-          "200": {
-            "description": "List of organisations",
-            "schema": {
-              "type": "array",
-              "items": { "type": "object" }
-            }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}": {
-      "get": {
-        "operationId": "getV1OrganisationById",
-        "tags": ["organisations"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "organisationId",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Single organisation",
-            "schema": { "type": "object" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{id}": {
-      "put": {
-        "operationId": "putV1OrganisationById",
-        "tags": ["organisations"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "id",
-            "in": "path",
-            "required": true
-          },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "version": { "type": "number" },
-                "updateFragment": { "type": "object" }
-              },
-              "required": ["version", "updateFragment"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Updated organisation",
-            "schema": { "type": "object" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/link": {
-      "post": {
-        "operationId": "postV1OrganisationLink",
-        "tags": ["organisations"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "organisationId",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Organisation linked",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "status": { "type": "string" },
-                "linked": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string" },
-                    "name": { "type": "string" },
-                    "linkedAt": { "type": "string", "format": "date-time" },
-                    "linkedBy": { "type": "string" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/linked-organisations": {
-      "get": {
-        "operationId": "getV1LinkedOrganisations",
-        "tags": ["organisations"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "name",
-            "in": "query",
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of linked organisations",
-            "schema": { "$ref": "#/definitions/LinkedOrganisationsResponse" }
-          }
-        }
-      }
-    },
-    "/v1/me/organisations": {
-      "get": {
-        "operationId": "getV1MeOrganisations",
-        "tags": ["organisations"],
-        "responses": {
-          "200": {
-            "description": "Current user's organisations",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "organisations": {
-                  "type": "object",
-                  "properties": {
-                    "current": { "type": "object" },
-                    "linked": { "type": "object" },
-                    "unlinked": { "type": "object" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/form-submissions/{documentId}": {
-      "get": {
-        "operationId": "getV1FormSubmissionById",
-        "tags": ["organisations"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "documentId",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Form submission details",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "organisation": { "type": "object" },
-                "registrations": { "type": "array", "items": { "type": "object" } },
-                "accreditations": { "type": "array", "items": { "type": "object" } }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/system-logs": {
-      "get": {
-        "operationId": "getV1SystemLogs",
-        "tags": ["system-logs"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "organisationId",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "number",
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "minimum": 1
-          },
-          {
-            "type": "string",
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "24-character hex string for pagination"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated system logs",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "systemLogs": { "type": "array", "items": { "type": "object" } },
-                "hasMore": { "type": "boolean" },
-                "nextCursor": { "type": "string" }
-              },
-              "required": ["systemLogs", "hasMore"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs": {
-      "post": {
-        "operationId": "postV1SummaryLogs",
-        "tags": ["summary-logs"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/SummaryLogsCreatePayload" }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Summary log created",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "summaryLogId": { "type": "string" },
-                "uploadId": { "type": "string" },
-                "uploadUrl": { "type": "string" },
-                "statusUrl": { "type": "string" }
-              },
-              "required": ["summaryLogId", "uploadId", "uploadUrl", "statusUrl"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}": {
-      "get": {
-        "operationId": "getV1SummaryLogById",
-        "tags": ["summary-logs"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "summaryLogId", "in": "path", "required": true },
-          { "type": "string", "name": "uploadId", "in": "query", "required": false }
-        ],
-        "responses": {
-          "200": {
-            "description": "Summary log details",
-            "schema": { "$ref": "#/definitions/SummaryLogResponse" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit": {
-      "post": {
-        "operationId": "postV1SummaryLogSubmit",
-        "tags": ["summary-logs"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "summaryLogId", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "Summary log submitted",
-            "schema": { "$ref": "#/definitions/SummaryLogResponse" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/upload-completed": {
-      "post": {
-        "operationId": "postV1SummaryLogUploadCompleted",
-        "tags": ["summary-logs"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "summaryLogId", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/UploadCompletedPayload" }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Upload completion acknowledged"
-          }
-        }
-      }
-    },
-    "/v1/organisations/registrations/summary-logs/reports/uploads": {
-      "get": {
-        "operationId": "getV1SummaryLogUploadsReport",
-        "tags": ["summary-logs"],
-        "responses": {
-          "200": {
-            "description": "Summary log uploads report",
-            "schema": { "$ref": "#/definitions/SummaryLogUploadsReportResponse" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/waste-balances": {
-      "get": {
-        "operationId": "getV1WasteBalances",
-        "tags": ["waste-balances"],
-        "parameters": [
-          {
-            "type": "string",
-            "name": "organisationId",
-            "in": "path",
-            "required": true,
-            "description": "24-character hex string"
-          },
-          {
-            "type": "string",
-            "name": "accreditationIds",
-            "in": "query",
-            "required": true,
-            "description": "Comma-separated 24-character hex IDs"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Waste balances keyed by accreditation ID",
-            "schema": { "$ref": "#/definitions/WasteBalanceResponse" }
-          }
-        }
-      }
-    },
-    "/v1/waste-balance-availability": {
-      "get": {
-        "operationId": "getV1WasteBalanceAvailability",
-        "tags": ["waste-balances"],
-        "responses": {
-          "200": {
-            "description": "Available waste balances by material",
-            "schema": { "$ref": "#/definitions/WasteBalanceAvailabilityResponse" }
-          }
-        }
-      }
-    },
-    "/v1/tonnage-monitoring": {
-      "get": {
-        "operationId": "getV1TonnageMonitoring",
-        "tags": ["tonnage"],
-        "responses": {
-          "200": {
-            "description": "Tonnage monitoring data by material and month",
-            "schema": { "$ref": "#/definitions/TonnageMonitoringResponse" }
-          }
-        }
-      }
-    },
-    "/v1/prn-tonnage": {
-      "get": {
-        "operationId": "getV1PrnTonnage",
-        "tags": ["tonnage"],
-        "responses": {
-          "200": {
-            "description": "PRN tonnage report",
-            "schema": { "$ref": "#/definitions/PrnTonnageResponse" }
-          }
-        }
-      }
-    },
-    "/v1/public-register/generate": {
-      "post": {
-        "operationId": "postV1PublicRegisterGenerate",
-        "tags": ["public-register"],
-        "responses": {
-          "201": {
-            "description": "Public register generated",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "status": { "type": "string", "enum": ["generated"] },
-                "downloadUrl": { "type": "string" },
-                "generatedAt": { "type": "string", "format": "date-time" },
-                "expiresAt": { "type": "string", "format": "date-time" }
-              },
-              "required": ["status", "downloadUrl", "generatedAt", "expiresAt"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/calendar": {
-      "get": {
-        "operationId": "getV1ReportsCalendar",
-        "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag. Returns reporting periods with report object (or null if no report exists).",
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "Reporting periods for a registration",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "cadence": { "type": "string", "enum": ["monthly", "quarterly"] },
-                "reportingPeriods": {
-                  "type": "array",
-                  "items": { "$ref": "#/definitions/ReportingPeriod" }
-                }
-              },
-              "required": ["cadence", "reportingPeriods"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{cadence}/{period}": {
-      "get": {
-        "operationId": "getV1Report",
-        "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag. Returns a stored report if one exists, otherwise generates aggregated report data on the fly.",
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
-          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
-          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
-        ],
-        "responses": {
-          "200": {
-            "description": "Report for a specific period (stored or generated)",
-            "schema": { "$ref": "#/definitions/ReportDetail" }
-          }
-        }
+  'basePath': '/',
+  'info': { 'title': 'EPR Re-Ex Backend Internal API', 'version': '1' },
+  'swagger': '2.0',
+  'host': 'localhost:3001',
+  'schemes': ['http'],
+  'tags':
+    [
+      { 'name': 'health', 'description': 'Health check' },
+      {
+        'name': 'apply',
+        'description': 'Organisation, registration and accreditation applications'
       },
-      "post": {
-        "operationId": "postV1Report",
-        "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag. Creates a report for the given period.",
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
-          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
-          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
-        ],
-        "responses": {
-          "201": {
-            "description": "Report created",
-            "schema": { "$ref": "#/definitions/ReportDetail" }
-          },
-          "409": {
-            "description": "Report already exists for this period"
-          }
-        }
+      { 'name': 'organisations', 'description': 'Organisation management' },
+      { 'name': 'summary-logs', 'description': 'Waste summary log uploads' },
+      {
+        'name': 'reports',
+        'description': 'Periodic reporting (feature-flagged)'
       },
-      "delete": {
-        "operationId": "deleteV1Report",
-        "tags": ["reports"],
-        "description": "Behind isReportsEnabled feature flag. Soft-deletes a report for the given period.",
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "integer", "name": "year", "in": "path", "required": true, "minimum": 2024, "maximum": 2100 },
-          { "type": "string", "name": "cadence", "in": "path", "required": true, "enum": ["monthly", "quarterly"] },
-          { "type": "integer", "name": "period", "in": "path", "required": true, "minimum": 1, "maximum": 12 }
-        ],
-        "responses": {
-          "204": {
-            "description": "Report deleted"
-          },
-          "404": {
-            "description": "No report exists for this period"
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes": {
-      "get": {
-        "operationId": "getV1PrnsByAccreditation",
-        "tags": ["packaging-recycling-notes"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "accreditationId", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of PRNs for an accreditation",
-            "schema": {
-              "type": "array",
-              "items": { "$ref": "#/definitions/PrnListItem" }
-            }
-          }
-        }
+      { 'name': 'waste-balances', 'description': 'Waste balance queries' },
+      {
+        'name': 'tonnage',
+        'description': 'Tonnage monitoring and PRN tonnage'
       },
-      "post": {
-        "operationId": "postV1CreatePrn",
-        "tags": ["packaging-recycling-notes"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "accreditationId", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/PrnCreatePayload" }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "PRN created",
-            "schema": { "$ref": "#/definitions/PrnDetail" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{prnId}": {
-      "get": {
-        "operationId": "getV1PrnById",
-        "tags": ["packaging-recycling-notes"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "accreditationId", "in": "path", "required": true },
-          { "type": "string", "name": "prnId", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "PRN details",
-            "schema": { "$ref": "#/definitions/PrnDetail" }
-          }
-        }
-      }
-    },
-    "/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{id}/status": {
-      "post": {
-        "operationId": "postV1PrnStatusUpdate",
-        "tags": ["packaging-recycling-notes"],
-        "parameters": [
-          { "type": "string", "name": "organisationId", "in": "path", "required": true },
-          { "type": "string", "name": "registrationId", "in": "path", "required": true },
-          { "type": "string", "name": "accreditationId", "in": "path", "required": true },
-          { "type": "string", "name": "id", "in": "path", "required": true, "description": "24-character hex string" },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "status": { "$ref": "#/definitions/PrnStatus" }
-              },
-              "required": ["status"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PRN status updated",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "prnNumber": { "type": "string" },
-                "tonnage": { "type": "number" },
-                "material": { "type": "string" },
-                "issuedToOrganisation": { "type": "object" },
-                "status": { "$ref": "#/definitions/PrnStatus" },
-                "updatedAt": { "type": "string", "format": "date-time" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/packaging-recycling-notes": {
-      "get": {
-        "operationId": "getV1PrnsForApiGateway",
-        "tags": ["packaging-recycling-notes"],
-        "description": "Used by API gateway clients",
-        "parameters": [
-          {
-            "type": "array",
-            "items": { "type": "string", "enum": ["awaiting_acceptance", "cancelled"] },
-            "name": "statuses",
-            "in": "query",
-            "required": true
-          },
-          { "type": "string", "name": "dateFrom", "in": "query", "required": false, "format": "date-time" },
-          { "type": "string", "name": "dateTo", "in": "query", "required": false, "format": "date-time" },
-          { "type": "number", "name": "limit", "in": "query", "required": false, "minimum": 1 },
-          { "type": "string", "name": "cursor", "in": "query", "required": false }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated PRN list",
-            "schema": { "$ref": "#/definitions/PaginatedPrnResponse" }
-          }
-        }
-      }
-    },
-    "/v1/packaging-recycling-notes/{prnNumber}/accept": {
-      "post": {
-        "operationId": "postV1PrnAccept",
-        "tags": ["packaging-recycling-notes"],
-        "description": "Used by API gateway clients",
-        "parameters": [
-          { "type": "string", "name": "prnNumber", "in": "path", "required": true, "maxLength": 20 },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "acceptedAt": { "type": "string", "format": "date-time" }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PRN accepted",
-            "schema": { "$ref": "#/definitions/PrnDetail" }
-          }
-        }
-      }
-    },
-    "/v1/packaging-recycling-notes/{prnNumber}/reject": {
-      "post": {
-        "operationId": "postV1PrnReject",
-        "tags": ["packaging-recycling-notes"],
-        "description": "Used by API gateway clients",
-        "parameters": [
-          { "type": "string", "name": "prnNumber", "in": "path", "required": true, "maxLength": 20 },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "rejectedAt": { "type": "string", "format": "date-time" }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PRN rejected",
-            "schema": { "$ref": "#/definitions/PrnDetail" }
-          }
-        }
-      }
-    },
-    "/v1/admin/packaging-recycling-notes": {
-      "get": {
-        "operationId": "getV1AdminPrns",
-        "tags": ["packaging-recycling-notes"],
-        "parameters": [
-          {
-            "type": "array",
-            "items": { "type": "string" },
-            "name": "statuses",
-            "in": "query",
-            "required": true
-          },
-          { "type": "number", "name": "limit", "in": "query", "required": false, "minimum": 1, "maximum": 1000 },
-          { "type": "string", "name": "cursor", "in": "query", "required": false }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated admin PRN list",
-            "schema": { "$ref": "#/definitions/PaginatedPrnResponse" }
-          }
-        }
-      }
-    },
-    "/v1/overseas-sites": {
-      "get": {
-        "operationId": "getV1OverseasSites",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "name", "in": "query", "required": false },
-          { "type": "string", "name": "country", "in": "query", "required": false }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of overseas sites",
-            "schema": {
-              "type": "array",
-              "items": { "$ref": "#/definitions/OverseasSite" }
-            }
-          }
-        }
+      {
+        'name': 'packaging-recycling-notes',
+        'description': 'PRN lifecycle management'
       },
-      "post": {
-        "operationId": "postV1OverseasSite",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/OverseasSiteCreatePayload" }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Overseas site created",
-            "schema": { "$ref": "#/definitions/OverseasSite" }
-          }
-        }
-      }
-    },
-    "/v1/overseas-sites/{id}": {
-      "get": {
-        "operationId": "getV1OverseasSiteById",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "Overseas site details",
-            "schema": { "$ref": "#/definitions/OverseasSite" }
-          }
-        }
+      {
+        'name': 'overseas-sites',
+        'description': 'Overseas site management (feature-flagged)'
       },
-      "put": {
-        "operationId": "putV1OverseasSiteById",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/OverseasSiteUpdatePayload" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Overseas site updated",
-            "schema": { "$ref": "#/definitions/OverseasSite" }
-          }
-        }
+      { 'name': 'system-logs', 'description': 'System audit logs' },
+      {
+        'name': 'public-register',
+        'description': 'Public register generation'
       },
-      "delete": {
-        "operationId": "deleteV1OverseasSiteById",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true }
-        ],
-        "responses": {
-          "204": {
-            "description": "Overseas site deleted"
-          }
-        }
+      {
+        'name': 'dev',
+        'description': 'Development-only endpoints (feature-flagged)'
       }
-    },
-    "/v1/overseas-sites/imports": {
-      "post": {
-        "operationId": "postV1OverseasSiteImport",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/OrsImportCreatePayload" }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Import job created",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "uploadId": { "type": "string" },
-                "status": { "type": "string" },
-                "uploadUrl": { "type": "string" },
-                "statusUrl": { "type": "string" }
-              },
-              "required": ["id", "uploadId", "status", "uploadUrl", "statusUrl"]
-            }
-          }
-        }
-      }
-    },
-    "/v1/overseas-sites/imports/{id}": {
-      "get": {
-        "operationId": "getV1OverseasSiteImportById",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "Import job status",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "status": { "type": "string" },
-                "files": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "fileId": { "type": "string" },
-                      "fileName": { "type": "string" },
-                      "result": { "type": "object" }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/overseas-sites/imports/{id}/upload-completed": {
-      "post": {
-        "operationId": "postV1OverseasSiteImportUploadCompleted",
-        "tags": ["overseas-sites"],
-        "description": "Behind isOverseasSitesEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": { "$ref": "#/definitions/OrsUploadCompletedPayload" }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Upload completion acknowledged"
-          }
-        }
-      }
-    },
-    "/v1/dev/organisations/{id}": {
-      "put": {
-        "operationId": "putV1DevOrganisationById",
-        "tags": ["dev"],
-        "description": "Behind isDevEndpointsEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true },
-          {
-            "in": "body",
-            "name": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "organisation": { "type": "object" }
-              },
-              "required": ["organisation"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Organisation updated",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "organisation": { "type": "object" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/dev/form-submissions/{id}/migrate": {
-      "post": {
-        "operationId": "postV1DevFormSubmissionMigrate",
-        "tags": ["dev"],
-        "description": "Behind isDevEndpointsEnabled feature flag",
-        "parameters": [
-          { "type": "string", "name": "id", "in": "path", "required": true }
-        ],
-        "responses": {
-          "200": {
-            "description": "Migration result",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "migrated": { "type": "object" }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "definitions": {
-    "ApplyPayload": {
-      "type": "object",
-      "description": "Organisation application payload - validated by custom function"
-    },
-    "RegistrationAndAccreditationPayload": {
-      "type": "object",
-      "description": "Registration/accreditation application payload - shared schema"
-    },
-    "SummaryLogStatus": {
-      "type": "string",
-      "enum": [
-        "preprocessing",
-        "rejected",
-        "validating",
-        "invalid",
-        "validated",
-        "submitting",
-        "submitted",
-        "superseded",
-        "validation_failed",
-        "submission_failed"
-      ]
-    },
-    "ValidationIssueType": {
-      "type": "string",
-      "enum": ["error", "warning"]
-    },
-    "ValidationIssueLocation": {
-      "type": "object",
-      "properties": {
-        "field": { "type": "string" },
-        "sheet": { "type": "string" },
-        "table": { "type": "string" },
-        "row": { "type": "number" },
-        "rowId": { "type": "string" },
-        "header": { "type": "string" },
-        "column": { "type": "string" }
-      }
-    },
-    "ValidationIssue": {
-      "type": "object",
-      "properties": {
-        "type": { "$ref": "#/definitions/ValidationIssueType" },
-        "code": { "type": "string" },
-        "errorCode": { "type": "string" },
-        "header": { "type": "string" },
-        "column": { "type": "string" },
-        "actual": {},
-        "expected": {},
-        "location": { "$ref": "#/definitions/ValidationIssueLocation" }
-      },
-      "required": ["code", "errorCode"]
-    },
-    "LoadCategory": {
-      "type": "object",
-      "properties": {
-        "count": { "type": "integer", "minimum": 0 },
-        "rowIds": {
-          "type": "array",
-          "maxItems": 100,
-          "items": {
-            "x-alternatives": [
-              { "type": "string" },
-              { "type": "number" }
-            ]
-          }
-        }
-      },
-      "required": ["count", "rowIds"]
-    },
-    "LoadValidity": {
-      "type": "object",
-      "properties": {
-        "valid": { "$ref": "#/definitions/LoadCategory" },
-        "invalid": { "$ref": "#/definitions/LoadCategory" },
-        "included": { "$ref": "#/definitions/LoadCategory" },
-        "excluded": { "$ref": "#/definitions/LoadCategory" }
-      },
-      "required": ["valid", "invalid", "included", "excluded"]
-    },
-    "Loads": {
-      "type": "object",
-      "properties": {
-        "added": { "$ref": "#/definitions/LoadValidity" },
-        "unchanged": { "$ref": "#/definitions/LoadValidity" },
-        "adjusted": { "$ref": "#/definitions/LoadValidity" }
-      },
-      "required": ["added", "unchanged", "adjusted"]
-    },
-    "SummaryLogResponse": {
-      "type": "object",
-      "properties": {
-        "status": { "$ref": "#/definitions/SummaryLogStatus" },
-        "validation": {
-          "type": "object",
-          "properties": {
-            "failures": {
-              "type": "array",
-              "items": { "$ref": "#/definitions/ValidationIssue" }
-            },
-            "concerns": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "sheet": { "type": "string" },
-                  "rows": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "row": { "type": "number" },
-                        "issues": {
-                          "type": "array",
-                          "items": { "$ref": "#/definitions/ValidationIssue" }
+    ],
+  'paths':
+    {
+      '/health':
+        {
+          'get':
+            {
+              'operationId': 'getHealth',
+              'tags': ['health'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Successful',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'message':
+                                { 'type': 'string', 'enum': ['success'] }
+                            },
+                          'required': ['message']
                         }
-                      },
-                      "required": ["row", "issues"]
                     }
-                  }
-                },
-                "required": ["sheet", "rows"]
-              }
-            }
-          },
-          "required": ["failures", "concerns"]
-        },
-        "loads": { "$ref": "#/definitions/Loads" },
-        "processingType": { "type": "string" },
-        "material": { "type": "string" },
-        "accreditationNumber": { "type": "string" }
-      },
-      "required": ["status"]
-    },
-    "SummaryLogsCreatePayload": {
-      "type": "object",
-      "properties": {
-        "redirectUrl": { "type": "string" }
-      },
-      "required": ["redirectUrl"]
-    },
-    "UploadFileStatus": {
-      "type": "string",
-      "enum": ["complete", "rejected", "pending"]
-    },
-    "UploadCompletedPayload": {
-      "type": "object",
-      "properties": {
-        "form": {
-          "type": "object",
-          "properties": {
-            "summaryLogUpload": {
-              "type": "object",
-              "properties": {
-                "fileId": { "type": "string" },
-                "filename": { "type": "string" },
-                "fileStatus": { "$ref": "#/definitions/UploadFileStatus" },
-                "s3Bucket": { "type": "string", "description": "Required when fileStatus is complete" },
-                "s3Key": { "type": "string", "description": "Required when fileStatus is complete" },
-                "hasError": { "type": "boolean" },
-                "errorMessage": { "type": "string" }
-              },
-              "required": ["fileId", "filename", "fileStatus"]
-            }
-          },
-          "required": ["summaryLogUpload"]
-        }
-      },
-      "required": ["form"]
-    },
-    "SummaryLogUploadsReportResponse": {
-      "type": "object",
-      "properties": {
-        "summaryLogUploads": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "appropriateAgency": { "type": "string" },
-              "type": { "type": "string", "enum": ["Reprocessor", "Exporter"] },
-              "businessName": { "type": "string" },
-              "orgId": { "type": "number" },
-              "registrationNumber": { "type": "string" },
-              "accreditationNumber": { "type": "string" },
-              "reprocessingSite": { "type": "string" },
-              "packagingWasteCategory": {
-                "type": "string",
-                "enum": ["Aluminium", "Fibre based composite", "Paper and board", "Plastic", "Steel", "Wood", "Glass-remelt", "Glass-other", "Glass-remelt-other"]
-              },
-              "lastSuccessfulUpload": { "type": "string" },
-              "lastFailedUpload": { "type": "string" },
-              "successfulUploads": { "type": "number" },
-              "failedUploads": { "type": "number" }
-            },
-            "required": ["appropriateAgency", "type", "businessName", "orgId", "registrationNumber", "accreditationNumber", "reprocessingSite", "packagingWasteCategory", "lastSuccessfulUpload", "lastFailedUpload", "successfulUploads", "failedUploads"]
-          }
-        },
-        "generatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["summaryLogUploads", "generatedAt"]
-    },
-    "WasteBalanceResponse": {
-      "type": "object",
-      "description": "Object keyed by accreditation ID (24-char hex)",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "amount": { "type": "number" },
-          "availableAmount": { "type": "number" }
-        },
-        "required": ["amount", "availableAmount"]
-      }
-    },
-    "WasteBalanceAvailabilityResponse": {
-      "type": "object",
-      "properties": {
-        "generatedAt": { "type": "string", "format": "date-time" },
-        "materials": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "material": { "$ref": "#/definitions/TonnageMonitoringMaterial" },
-              "availableAmount": { "type": "number" }
-            },
-            "required": ["material", "availableAmount"]
-          }
-        },
-        "total": { "type": "number" }
-      },
-      "required": ["generatedAt", "materials", "total"]
-    },
-    "TonnageMonitoringMaterial": {
-      "type": "string",
-      "enum": ["aluminium", "fibre", "paper", "plastic", "steel", "wood", "glass_re_melt", "glass_other"]
-    },
-    "TonnageMonitoringResponse": {
-      "type": "object",
-      "properties": {
-        "generatedAt": { "type": "string", "format": "date-time" },
-        "materials": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "material": { "$ref": "#/definitions/TonnageMonitoringMaterial" },
-              "year": { "type": "integer", "minimum": 2026, "maximum": 2100 },
-              "type": { "type": "string", "enum": ["Reprocessor", "Exporter"] },
-              "months": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "month": { "type": "string", "enum": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"] },
-                    "tonnage": { "type": "number" }
-                  },
-                  "required": ["month", "tonnage"]
                 }
-              }
-            },
-            "required": ["material", "year", "type", "months"]
-          }
-        },
-        "total": { "type": "number" }
-      },
-      "required": ["generatedAt", "materials", "total"]
-    },
-    "Material": {
-      "type": "string",
-      "enum": ["aluminium", "fibre", "glass", "paper", "plastic", "steel", "wood"]
-    },
-    "TonnageBand": {
-      "type": "string",
-      "enum": ["up_to_500", "up_to_5000", "up_to_10000", "over_10000"],
-      "x-nullable": true
-    },
-    "PrnTonnageResponse": {
-      "type": "object",
-      "properties": {
-        "generatedAt": { "type": "string", "format": "date-time" },
-        "rows": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "organisationName": { "type": "string" },
-              "organisationId": { "type": "string" },
-              "accreditationNumber": { "type": "string" },
-              "material": { "$ref": "#/definitions/Material" },
-              "tonnageBand": { "$ref": "#/definitions/TonnageBand" },
-              "awaitingAuthorisationTonnage": { "type": "number" },
-              "awaitingAcceptanceTonnage": { "type": "number" },
-              "awaitingCancellationTonnage": { "type": "number" },
-              "acceptedTonnage": { "type": "number" },
-              "cancelledTonnage": { "type": "number" }
-            },
-            "required": ["organisationName", "organisationId", "accreditationNumber", "material", "tonnageBand", "awaitingAuthorisationTonnage", "awaitingAcceptanceTonnage", "awaitingCancellationTonnage", "acceptedTonnage", "cancelledTonnage"]
-          }
-        }
-      },
-      "required": ["generatedAt", "rows"]
-    },
-    "ReportingPeriod": {
-      "type": "object",
-      "properties": {
-        "year": { "type": "number" },
-        "period": { "type": "number" },
-        "startDate": { "type": "string", "format": "date" },
-        "endDate": { "type": "string", "format": "date" },
-        "dueDate": { "type": "string", "format": "date" },
-        "report": {
-          "type": ["object", "null"],
-          "description": "Persisted report for this period, or null if no report exists (period is due)",
-          "properties": {
-            "status": { "type": "string", "enum": ["in_progress", "ready_to_submit", "submitted", "deleted"] },
-            "id": { "type": "string" }
-          },
-          "required": ["status", "id"]
-        }
-      },
-      "required": ["year", "period", "startDate", "endDate", "dueDate", "report"]
-    },
-    "ReportDetail": {
-      "type": "object",
-      "description": "Aggregated report detail with material and site information",
-      "properties": {
-        "details": {
-          "type": "object",
-          "properties": {
-            "material": { "type": "string" },
-            "site": { "type": "object" }
-          }
-        }
-      }
-    },
-    "PrnStatus": {
-      "type": "string",
-      "enum": ["draft", "awaiting_authorisation", "awaiting_acceptance", "accepted", "awaiting_cancellation", "cancelled", "deleted", "discarded"]
-    },
-    "PrnListItem": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "prnNumber": { "type": "string" },
-        "issuedToOrganisation": { "type": "object" },
-        "tonnage": { "type": "number" },
-        "material": { "$ref": "#/definitions/Material" },
-        "status": { "$ref": "#/definitions/PrnStatus" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "issuedAt": { "type": "string", "format": "date-time" },
-        "wasteProcessingType": { "type": "string", "enum": ["reprocessor", "exporter"] }
-      }
-    },
-    "PrnDetail": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "accreditationYear": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "isDecemberWaste": { "type": "boolean" },
-        "issuedAt": { "type": "string", "format": "date-time" },
-        "issuedBy": { "type": "object" },
-        "issuedToOrganisation": { "type": "object" },
-        "material": { "$ref": "#/definitions/Material" },
-        "notes": { "type": "string" },
-        "prnNumber": { "type": "string" },
-        "processToBeUsed": { "type": "string" },
-        "status": { "$ref": "#/definitions/PrnStatus" },
-        "tonnage": { "type": "number" },
-        "wasteProcessingType": { "type": "string", "enum": ["reprocessor", "exporter"] }
-      }
-    },
-    "PrnCreatePayload": {
-      "type": "object",
-      "properties": {
-        "issuedToOrganisation": {
-          "type": "object",
-          "properties": {
-            "id": { "type": "string" },
-            "name": { "type": "string" },
-            "tradingName": { "type": "string" },
-            "registrationType": { "type": "string" }
-          },
-          "required": ["id", "name"]
-        },
-        "tonnage": { "type": "integer", "minimum": 1 },
-        "notes": { "type": "string", "maxLength": 200 }
-      },
-      "required": ["issuedToOrganisation", "tonnage"]
-    },
-    "PaginatedPrnResponse": {
-      "type": "object",
-      "properties": {
-        "items": { "type": "array", "items": { "type": "object" } },
-        "hasMore": { "type": "boolean" },
-        "nextCursor": { "type": "string" }
-      },
-      "required": ["items", "hasMore"]
-    },
-    "LinkedOrganisationsResponse": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "orgId": { "type": "integer" },
-          "companyDetails": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" }
-            },
-            "required": ["name"]
-          },
-          "status": { "type": "string" },
-          "linkedDefraOrganisation": {
-            "type": "object",
-            "properties": {
-              "orgId": { "type": "string", "format": "uuid" },
-              "orgName": { "type": "string" },
-              "linkedBy": {
-                "type": "object",
-                "properties": {
-                  "email": { "type": "string", "format": "email" },
-                  "id": { "type": "string", "format": "uuid" }
-                },
-                "required": ["email", "id"]
-              },
-              "linkedAt": { "type": "string", "format": "date-time" }
-            },
-            "required": ["orgId", "orgName", "linkedBy", "linkedAt"]
-          }
-        },
-        "required": ["id", "orgId", "companyDetails", "status", "linkedDefraOrganisation"]
-      }
-    },
-    "OverseasSiteAddress": {
-      "type": "object",
-      "properties": {
-        "line1": { "type": "string" },
-        "line2": { "type": "string" },
-        "townOrCity": { "type": "string" },
-        "stateOrRegion": { "type": "string" },
-        "postcode": { "type": "string" }
-      },
-      "required": ["line1", "townOrCity"]
-    },
-    "OverseasSite": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "address": { "$ref": "#/definitions/OverseasSiteAddress" },
-        "country": { "type": "string" },
-        "coordinates": { "type": "string" },
-        "validFrom": { "type": "string", "format": "date-time" }
-      }
-    },
-    "OverseasSiteCreatePayload": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "address": { "$ref": "#/definitions/OverseasSiteAddress" },
-        "country": { "type": "string" },
-        "coordinates": { "type": "string" },
-        "validFrom": { "type": "string", "format": "date-time" }
-      },
-      "required": ["name", "address", "country"]
-    },
-    "OverseasSiteUpdatePayload": {
-      "type": "object",
-      "description": "At least one field required",
-      "properties": {
-        "name": { "type": "string" },
-        "address": {
-          "type": "object",
-          "properties": {
-            "line1": { "type": "string" },
-            "line2": { "type": "string" },
-            "townOrCity": { "type": "string" },
-            "stateOrRegion": { "type": "string" },
-            "postcode": { "type": "string" }
-          }
-        },
-        "country": { "type": "string" },
-        "coordinates": { "type": "string" },
-        "validFrom": { "type": "string", "format": "date-time" }
-      }
-    },
-    "OrsImportCreatePayload": {
-      "type": "object",
-      "properties": {
-        "redirectUrl": { "type": "string" }
-      },
-      "required": ["redirectUrl"]
-    },
-    "OrsUploadFile": {
-      "type": "object",
-      "properties": {
-        "fileId": { "type": "string" },
-        "filename": { "type": "string" },
-        "fileStatus": { "$ref": "#/definitions/UploadFileStatus" },
-        "s3Bucket": { "type": "string", "description": "Required when fileStatus is complete" },
-        "s3Key": { "type": "string", "description": "Required when fileStatus is complete" },
-        "hasError": { "type": "boolean" },
-        "errorMessage": { "type": "string" }
-      },
-      "required": ["fileId", "filename", "fileStatus"]
-    },
-    "OrsUploadCompletedPayload": {
-      "type": "object",
-      "properties": {
-        "form": {
-          "type": "object",
-          "properties": {
-            "orsUpload": {
-              "description": "Single file object or array of file objects",
-              "x-alternatives": [
-                { "$ref": "#/definitions/OrsUploadFile" },
-                { "type": "array", "items": { "$ref": "#/definitions/OrsUploadFile" } }
-              ]
             }
-          },
-          "required": ["orsUpload"]
+        },
+      '/v1/apply/organisation':
+        {
+          'post':
+            {
+              'operationId': 'postV1ApplyOrganisation',
+              'tags': ['apply'],
+              'parameters':
+                [
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema': { '$ref': '#/definitions/ApplyPayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Organisation created',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'orgId': { 'type': 'number' },
+                              'orgName': { 'type': 'string' },
+                              'referenceNumber': { 'type': 'string' }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/apply/registration':
+        {
+          'post':
+            {
+              'operationId': 'postV1ApplyRegistration',
+              'tags': ['apply'],
+              'parameters':
+                [
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        '$ref': '#/definitions/RegistrationAndAccreditationPayload'
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  'default':
+                    {
+                      'description': 'Registration created',
+                      'schema': { 'type': 'object' }
+                    }
+                }
+            }
+        },
+      '/v1/apply/accreditation':
+        {
+          'post':
+            {
+              'operationId': 'postV1ApplyAccreditation',
+              'tags': ['apply'],
+              'parameters':
+                [
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        '$ref': '#/definitions/RegistrationAndAccreditationPayload'
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  'default':
+                    {
+                      'description': 'Accreditation created',
+                      'schema': { 'type': 'object' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations':
+        {
+          'get':
+            {
+              'operationId': 'getV1Organisations',
+              'tags': ['organisations'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'List of organisations',
+                      'schema':
+                        { 'type': 'array', 'items': { 'type': 'object' } }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}':
+        {
+          'get':
+            {
+              'operationId': 'getV1OrganisationById',
+              'tags': ['organisations'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Single organisation',
+                      'schema': { 'type': 'object' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{id}':
+        {
+          'put':
+            {
+              'operationId': 'putV1OrganisationById',
+              'tags': ['organisations'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        'type': 'object',
+                        'properties':
+                          {
+                            'version': { 'type': 'number' },
+                            'updateFragment': { 'type': 'object' }
+                          },
+                        'required': ['version', 'updateFragment']
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Updated organisation',
+                      'schema': { 'type': 'object' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/link':
+        {
+          'post':
+            {
+              'operationId': 'postV1OrganisationLink',
+              'tags': ['organisations'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Organisation linked',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'status': { 'type': 'string' },
+                              'linked':
+                                {
+                                  'type': 'object',
+                                  'properties':
+                                    {
+                                      'id': { 'type': 'string' },
+                                      'name': { 'type': 'string' },
+                                      'linkedAt':
+                                        {
+                                          'type': 'string',
+                                          'format': 'date-time'
+                                        },
+                                      'linkedBy': { 'type': 'string' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/linked-organisations':
+        {
+          'get':
+            {
+              'operationId': 'getV1LinkedOrganisations',
+              'tags': ['organisations'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'name',
+                    'in': 'query',
+                    'required': false
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'List of linked organisations',
+                      'schema':
+                        { '$ref': '#/definitions/LinkedOrganisationsResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/me/organisations':
+        {
+          'get':
+            {
+              'operationId': 'getV1MeOrganisations',
+              'tags': ['organisations'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': "Current user's organisations",
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'organisations':
+                                {
+                                  'type': 'object',
+                                  'properties':
+                                    {
+                                      'current': { 'type': 'object' },
+                                      'linked': { 'type': 'object' },
+                                      'unlinked': { 'type': 'object' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/form-submissions/{documentId}':
+        {
+          'get':
+            {
+              'operationId': 'getV1FormSubmissionById',
+              'tags': ['organisations'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'documentId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Form submission details',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'organisation': { 'type': 'object' },
+                              'registrations':
+                                {
+                                  'type': 'array',
+                                  'items': { 'type': 'object' }
+                                },
+                              'accreditations':
+                                {
+                                  'type': 'array',
+                                  'items': { 'type': 'object' }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/system-logs':
+        {
+          'get':
+            {
+              'operationId': 'getV1SystemLogs',
+              'tags': ['system-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'query',
+                    'required': true
+                  },
+                  {
+                    'type': 'number',
+                    'name': 'limit',
+                    'in': 'query',
+                    'required': false,
+                    'minimum': 1
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cursor',
+                    'in': 'query',
+                    'required': false,
+                    'description': '24-character hex string for pagination'
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Paginated system logs',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'systemLogs':
+                                {
+                                  'type': 'array',
+                                  'items': { 'type': 'object' }
+                                },
+                              'hasMore': { 'type': 'boolean' },
+                              'nextCursor': { 'type': 'string' }
+                            },
+                          'required': ['systemLogs', 'hasMore']
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs':
+        {
+          'post':
+            {
+              'operationId': 'postV1SummaryLogs',
+              'tags': ['summary-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      { '$ref': '#/definitions/SummaryLogsCreatePayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'Summary log created',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'summaryLogId': { 'type': 'string' },
+                              'uploadId': { 'type': 'string' },
+                              'uploadUrl': { 'type': 'string' },
+                              'statusUrl': { 'type': 'string' }
+                            },
+                          'required':
+                            [
+                              'summaryLogId',
+                              'uploadId',
+                              'uploadUrl',
+                              'statusUrl'
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}':
+        {
+          'get':
+            {
+              'operationId': 'getV1SummaryLogById',
+              'tags': ['summary-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'summaryLogId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'uploadId',
+                    'in': 'query',
+                    'required': false
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Summary log details',
+                      'schema': { '$ref': '#/definitions/SummaryLogResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit':
+        {
+          'post':
+            {
+              'operationId': 'postV1SummaryLogSubmit',
+              'tags': ['summary-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'summaryLogId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Summary log submitted',
+                      'schema': { '$ref': '#/definitions/SummaryLogResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/upload-completed':
+        {
+          'post':
+            {
+              'operationId': 'postV1SummaryLogUploadCompleted',
+              'tags': ['summary-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'summaryLogId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema': { '$ref': '#/definitions/UploadCompletedPayload' }
+                  }
+                ],
+              'responses':
+                { '202': { 'description': 'Upload completion acknowledged' } }
+            }
+        },
+      '/v1/organisations/registrations/summary-logs/reports/uploads':
+        {
+          'get':
+            {
+              'operationId': 'getV1SummaryLogUploadsReport',
+              'tags': ['summary-logs'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Summary log uploads report',
+                      'schema':
+                        {
+                          '$ref': '#/definitions/SummaryLogUploadsReportResponse'
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/waste-balances':
+        {
+          'get':
+            {
+              'operationId': 'getV1WasteBalances',
+              'tags': ['waste-balances'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true,
+                    'description': '24-character hex string'
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationIds',
+                    'in': 'query',
+                    'required': true,
+                    'description': 'Comma-separated 24-character hex IDs'
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Waste balances keyed by accreditation ID',
+                      'schema': { '$ref': '#/definitions/WasteBalanceResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/waste-balance-availability':
+        {
+          'get':
+            {
+              'operationId': 'getV1WasteBalanceAvailability',
+              'tags': ['waste-balances'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Available waste balances by material',
+                      'schema':
+                        {
+                          '$ref': '#/definitions/WasteBalanceAvailabilityResponse'
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/tonnage-monitoring':
+        {
+          'get':
+            {
+              'operationId': 'getV1TonnageMonitoring',
+              'tags': ['tonnage'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Tonnage monitoring data by material and month',
+                      'schema':
+                        { '$ref': '#/definitions/TonnageMonitoringResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/prn-tonnage':
+        {
+          'get':
+            {
+              'operationId': 'getV1PrnTonnage',
+              'tags': ['tonnage'],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'PRN tonnage report',
+                      'schema': { '$ref': '#/definitions/PrnTonnageResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/public-register/generate':
+        {
+          'post':
+            {
+              'operationId': 'postV1PublicRegisterGenerate',
+              'tags': ['public-register'],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'Public register generated',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'status':
+                                { 'type': 'string', 'enum': ['generated'] },
+                              'downloadUrl': { 'type': 'string' },
+                              'generatedAt':
+                                { 'type': 'string', 'format': 'date-time' },
+                              'expiresAt':
+                                { 'type': 'string', 'format': 'date-time' }
+                            },
+                          'required':
+                            [
+                              'status',
+                              'downloadUrl',
+                              'generatedAt',
+                              'expiresAt'
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/reports/calendar':
+        {
+          'get':
+            {
+              'operationId': 'getV1ReportsCalendar',
+              'tags': ['reports'],
+              'description': 'Behind isReportsEnabled feature flag. Returns reporting periods with report object (or null if no report exists).',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Reporting periods for a registration',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'cadence':
+                                {
+                                  'type': 'string',
+                                  'enum': ['monthly', 'quarterly']
+                                },
+                              'reportingPeriods':
+                                {
+                                  'type': 'array',
+                                  'items':
+                                    { '$ref': '#/definitions/ReportingPeriod' }
+                                }
+                            },
+                          'required': ['cadence', 'reportingPeriods']
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/reports/{year}/{cadence}/{period}':
+        {
+          'get':
+            {
+              'operationId': 'getV1Report',
+              'tags': ['reports'],
+              'description': 'Behind isReportsEnabled feature flag. Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'year',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 2024,
+                    'maximum': 2100
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cadence',
+                    'in': 'path',
+                    'required': true,
+                    'enum': ['monthly', 'quarterly']
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'period',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 1,
+                    'maximum': 12
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Report for a specific period (stored or generated)',
+                      'schema': { '$ref': '#/definitions/ReportDetail' }
+                    }
+                }
+            },
+          'post':
+            {
+              'operationId': 'postV1Report',
+              'tags': ['reports'],
+              'description': 'Behind isReportsEnabled feature flag. Creates a report for the given period.',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'year',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 2024,
+                    'maximum': 2100
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cadence',
+                    'in': 'path',
+                    'required': true,
+                    'enum': ['monthly', 'quarterly']
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'period',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 1,
+                    'maximum': 12
+                  }
+                ],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'Report created',
+                      'schema': { '$ref': '#/definitions/ReportDetail' }
+                    },
+                  '409':
+                    { 'description': 'Report already exists for this period' }
+                }
+            },
+          'delete':
+            {
+              'operationId': 'deleteV1Report',
+              'tags': ['reports'],
+              'description': 'Behind isReportsEnabled feature flag. Soft-deletes a report for the given period.',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'year',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 2024,
+                    'maximum': 2100
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cadence',
+                    'in': 'path',
+                    'required': true,
+                    'enum': ['monthly', 'quarterly']
+                  },
+                  {
+                    'type': 'integer',
+                    'name': 'period',
+                    'in': 'path',
+                    'required': true,
+                    'minimum': 1,
+                    'maximum': 12
+                  }
+                ],
+              'responses':
+                {
+                  '204': { 'description': 'Report deleted' },
+                  '404': { 'description': 'No report exists for this period' }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes':
+        {
+          'get':
+            {
+              'operationId': 'getV1PrnsByAccreditation',
+              'tags': ['packaging-recycling-notes'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'List of PRNs for an accreditation',
+                      'schema':
+                        {
+                          'type': 'array',
+                          'items': { '$ref': '#/definitions/PrnListItem' }
+                        }
+                    }
+                }
+            },
+          'post':
+            {
+              'operationId': 'postV1CreatePrn',
+              'tags': ['packaging-recycling-notes'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema': { '$ref': '#/definitions/PrnCreatePayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'PRN created',
+                      'schema': { '$ref': '#/definitions/PrnDetail' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{prnId}':
+        {
+          'get':
+            {
+              'operationId': 'getV1PrnById',
+              'tags': ['packaging-recycling-notes'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'prnId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'PRN details',
+                      'schema': { '$ref': '#/definitions/PrnDetail' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/packaging-recycling-notes/{id}/status':
+        {
+          'post':
+            {
+              'operationId': 'postV1PrnStatusUpdate',
+              'tags': ['packaging-recycling-notes'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true,
+                    'description': '24-character hex string'
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        'type': 'object',
+                        'properties':
+                          { 'status': { '$ref': '#/definitions/PrnStatus' } },
+                        'required': ['status']
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'PRN status updated',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'id': { 'type': 'string' },
+                              'prnNumber': { 'type': 'string' },
+                              'tonnage': { 'type': 'number' },
+                              'material': { 'type': 'string' },
+                              'issuedToOrganisation': { 'type': 'object' },
+                              'status': { '$ref': '#/definitions/PrnStatus' },
+                              'updatedAt':
+                                { 'type': 'string', 'format': 'date-time' }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/packaging-recycling-notes':
+        {
+          'get':
+            {
+              'operationId': 'getV1PrnsForApiGateway',
+              'tags': ['packaging-recycling-notes'],
+              'description': 'Used by API gateway clients',
+              'parameters':
+                [
+                  {
+                    'type': 'array',
+                    'items':
+                      {
+                        'type': 'string',
+                        'enum': ['awaiting_acceptance', 'cancelled']
+                      },
+                    'name': 'statuses',
+                    'in': 'query',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'dateFrom',
+                    'in': 'query',
+                    'required': false,
+                    'format': 'date-time'
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'dateTo',
+                    'in': 'query',
+                    'required': false,
+                    'format': 'date-time'
+                  },
+                  {
+                    'type': 'number',
+                    'name': 'limit',
+                    'in': 'query',
+                    'required': false,
+                    'minimum': 1
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cursor',
+                    'in': 'query',
+                    'required': false
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Paginated PRN list',
+                      'schema': { '$ref': '#/definitions/PaginatedPrnResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/packaging-recycling-notes/{prnNumber}/accept':
+        {
+          'post':
+            {
+              'operationId': 'postV1PrnAccept',
+              'tags': ['packaging-recycling-notes'],
+              'description': 'Used by API gateway clients',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'prnNumber',
+                    'in': 'path',
+                    'required': true,
+                    'maxLength': 20
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        'type': 'object',
+                        'properties':
+                          {
+                            'acceptedAt':
+                              { 'type': 'string', 'format': 'date-time' }
+                          }
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'PRN accepted',
+                      'schema': { '$ref': '#/definitions/PrnDetail' }
+                    }
+                }
+            }
+        },
+      '/v1/packaging-recycling-notes/{prnNumber}/reject':
+        {
+          'post':
+            {
+              'operationId': 'postV1PrnReject',
+              'tags': ['packaging-recycling-notes'],
+              'description': 'Used by API gateway clients',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'prnNumber',
+                    'in': 'path',
+                    'required': true,
+                    'maxLength': 20
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        'type': 'object',
+                        'properties':
+                          {
+                            'rejectedAt':
+                              { 'type': 'string', 'format': 'date-time' }
+                          }
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'PRN rejected',
+                      'schema': { '$ref': '#/definitions/PrnDetail' }
+                    }
+                }
+            }
+        },
+      '/v1/admin/packaging-recycling-notes':
+        {
+          'get':
+            {
+              'operationId': 'getV1AdminPrns',
+              'tags': ['packaging-recycling-notes'],
+              'parameters':
+                [
+                  {
+                    'type': 'array',
+                    'items': { 'type': 'string' },
+                    'name': 'statuses',
+                    'in': 'query',
+                    'required': true
+                  },
+                  {
+                    'type': 'number',
+                    'name': 'limit',
+                    'in': 'query',
+                    'required': false,
+                    'minimum': 1,
+                    'maximum': 1000
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'cursor',
+                    'in': 'query',
+                    'required': false
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Paginated admin PRN list',
+                      'schema': { '$ref': '#/definitions/PaginatedPrnResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/overseas-sites':
+        {
+          'get':
+            {
+              'operationId': 'getV1OverseasSites',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'name',
+                    'in': 'query',
+                    'required': false
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'country',
+                    'in': 'query',
+                    'required': false
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'List of overseas sites',
+                      'schema':
+                        {
+                          'type': 'array',
+                          'items': { '$ref': '#/definitions/OverseasSite' }
+                        }
+                    }
+                }
+            },
+          'post':
+            {
+              'operationId': 'postV1OverseasSite',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      { '$ref': '#/definitions/OverseasSiteCreatePayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'Overseas site created',
+                      'schema': { '$ref': '#/definitions/OverseasSite' }
+                    }
+                }
+            }
+        },
+      '/v1/overseas-sites/{id}':
+        {
+          'get':
+            {
+              'operationId': 'getV1OverseasSiteById',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Overseas site details',
+                      'schema': { '$ref': '#/definitions/OverseasSite' }
+                    }
+                }
+            },
+          'put':
+            {
+              'operationId': 'putV1OverseasSiteById',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      { '$ref': '#/definitions/OverseasSiteUpdatePayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Overseas site updated',
+                      'schema': { '$ref': '#/definitions/OverseasSite' }
+                    }
+                }
+            },
+          'delete':
+            {
+              'operationId': 'deleteV1OverseasSiteById',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses': { '204': { 'description': 'Overseas site deleted' } }
+            }
+        },
+      '/v1/overseas-sites/imports':
+        {
+          'post':
+            {
+              'operationId': 'postV1OverseasSiteImport',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema': { '$ref': '#/definitions/OrsImportCreatePayload' }
+                  }
+                ],
+              'responses':
+                {
+                  '201':
+                    {
+                      'description': 'Import job created',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'id': { 'type': 'string' },
+                              'uploadId': { 'type': 'string' },
+                              'status': { 'type': 'string' },
+                              'uploadUrl': { 'type': 'string' },
+                              'statusUrl': { 'type': 'string' }
+                            },
+                          'required':
+                            [
+                              'id',
+                              'uploadId',
+                              'status',
+                              'uploadUrl',
+                              'statusUrl'
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/overseas-sites/imports/{id}':
+        {
+          'get':
+            {
+              'operationId': 'getV1OverseasSiteImportById',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Import job status',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'status': { 'type': 'string' },
+                              'files':
+                                {
+                                  'type': 'array',
+                                  'items':
+                                    {
+                                      'type': 'object',
+                                      'properties':
+                                        {
+                                          'fileId': { 'type': 'string' },
+                                          'fileName': { 'type': 'string' },
+                                          'result': { 'type': 'object' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/overseas-sites/imports/{id}/upload-completed':
+        {
+          'post':
+            {
+              'operationId': 'postV1OverseasSiteImportUploadCompleted',
+              'tags': ['overseas-sites'],
+              'description': 'Behind isOverseasSitesEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      { '$ref': '#/definitions/OrsUploadCompletedPayload' }
+                  }
+                ],
+              'responses':
+                { '202': { 'description': 'Upload completion acknowledged' } }
+            }
+        },
+      '/v1/dev/organisations/{id}':
+        {
+          'put':
+            {
+              'operationId': 'putV1DevOrganisationById',
+              'tags': ['dev'],
+              'description': 'Behind isDevEndpointsEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'in': 'body',
+                    'name': 'body',
+                    'schema':
+                      {
+                        'type': 'object',
+                        'properties': { 'organisation': { 'type': 'object' } },
+                        'required': ['organisation']
+                      }
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Organisation updated',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties': { 'organisation': { 'type': 'object' } }
+                        }
+                    }
+                }
+            }
+        },
+      '/v1/dev/form-submissions/{id}/migrate':
+        {
+          'post':
+            {
+              'operationId': 'postV1DevFormSubmissionMigrate',
+              'tags': ['dev'],
+              'description': 'Behind isDevEndpointsEnabled feature flag',
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'id',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Migration result',
+                      'schema':
+                        {
+                          'type': 'object',
+                          'properties': { 'migrated': { 'type': 'object' } }
+                        }
+                    }
+                }
+            }
         }
-      },
-      "required": ["form"]
+    },
+  'definitions':
+    {
+      'ApplyPayload':
+        {
+          'type': 'object',
+          'description': 'Organisation application payload - validated by custom function'
+        },
+      'RegistrationAndAccreditationPayload':
+        {
+          'type': 'object',
+          'description': 'Registration/accreditation application payload - shared schema'
+        },
+      'SummaryLogStatus':
+        {
+          'type': 'string',
+          'enum':
+            [
+              'preprocessing',
+              'rejected',
+              'validating',
+              'invalid',
+              'validated',
+              'submitting',
+              'submitted',
+              'superseded',
+              'validation_failed',
+              'submission_failed'
+            ]
+        },
+      'ValidationIssueType': { 'type': 'string', 'enum': ['error', 'warning'] },
+      'ValidationIssueLocation':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'field': { 'type': 'string' },
+              'sheet': { 'type': 'string' },
+              'table': { 'type': 'string' },
+              'row': { 'type': 'number' },
+              'rowId': { 'type': 'string' },
+              'header': { 'type': 'string' },
+              'column': { 'type': 'string' }
+            }
+        },
+      'ValidationIssue':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'type': { '$ref': '#/definitions/ValidationIssueType' },
+              'code': { 'type': 'string' },
+              'errorCode': { 'type': 'string' },
+              'header': { 'type': 'string' },
+              'column': { 'type': 'string' },
+              'actual': {},
+              'expected': {},
+              'location': { '$ref': '#/definitions/ValidationIssueLocation' }
+            },
+          'required': ['code', 'errorCode']
+        },
+      'LoadCategory':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'count': { 'type': 'integer', 'minimum': 0 },
+              'rowIds':
+                {
+                  'type': 'array',
+                  'maxItems': 100,
+                  'items':
+                    {
+                      'x-alternatives':
+                        [{ 'type': 'string' }, { 'type': 'number' }]
+                    }
+                }
+            },
+          'required': ['count', 'rowIds']
+        },
+      'LoadValidity':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'valid': { '$ref': '#/definitions/LoadCategory' },
+              'invalid': { '$ref': '#/definitions/LoadCategory' },
+              'included': { '$ref': '#/definitions/LoadCategory' },
+              'excluded': { '$ref': '#/definitions/LoadCategory' }
+            },
+          'required': ['valid', 'invalid', 'included', 'excluded']
+        },
+      'Loads':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'added': { '$ref': '#/definitions/LoadValidity' },
+              'unchanged': { '$ref': '#/definitions/LoadValidity' },
+              'adjusted': { '$ref': '#/definitions/LoadValidity' }
+            },
+          'required': ['added', 'unchanged', 'adjusted']
+        },
+      'SummaryLogResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'status': { '$ref': '#/definitions/SummaryLogStatus' },
+              'validation':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'failures':
+                        {
+                          'type': 'array',
+                          'items': { '$ref': '#/definitions/ValidationIssue' }
+                        },
+                      'concerns':
+                        {
+                          'type': 'object',
+                          'additionalProperties':
+                            {
+                              'type': 'object',
+                              'properties':
+                                {
+                                  'sheet': { 'type': 'string' },
+                                  'rows':
+                                    {
+                                      'type': 'array',
+                                      'items':
+                                        {
+                                          'type': 'object',
+                                          'properties':
+                                            {
+                                              'row': { 'type': 'number' },
+                                              'issues':
+                                                {
+                                                  'type': 'array',
+                                                  'items':
+                                                    {
+                                                      '$ref': '#/definitions/ValidationIssue'
+                                                    }
+                                                }
+                                            },
+                                          'required': ['row', 'issues']
+                                        }
+                                    }
+                                },
+                              'required': ['sheet', 'rows']
+                            }
+                        }
+                    },
+                  'required': ['failures', 'concerns']
+                },
+              'loads': { '$ref': '#/definitions/Loads' },
+              'processingType': { 'type': 'string' },
+              'material': { 'type': 'string' },
+              'accreditationNumber': { 'type': 'string' }
+            },
+          'required': ['status']
+        },
+      'SummaryLogsCreatePayload':
+        {
+          'type': 'object',
+          'properties': { 'redirectUrl': { 'type': 'string' } },
+          'required': ['redirectUrl']
+        },
+      'UploadFileStatus':
+        { 'type': 'string', 'enum': ['complete', 'rejected', 'pending'] },
+      'UploadCompletedPayload':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'form':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'summaryLogUpload':
+                        {
+                          'type': 'object',
+                          'properties':
+                            {
+                              'fileId': { 'type': 'string' },
+                              'filename': { 'type': 'string' },
+                              'fileStatus':
+                                { '$ref': '#/definitions/UploadFileStatus' },
+                              's3Bucket':
+                                {
+                                  'type': 'string',
+                                  'description': 'Required when fileStatus is complete'
+                                },
+                              's3Key':
+                                {
+                                  'type': 'string',
+                                  'description': 'Required when fileStatus is complete'
+                                },
+                              'hasError': { 'type': 'boolean' },
+                              'errorMessage': { 'type': 'string' }
+                            },
+                          'required': ['fileId', 'filename', 'fileStatus']
+                        }
+                    },
+                  'required': ['summaryLogUpload']
+                }
+            },
+          'required': ['form']
+        },
+      'SummaryLogUploadsReportResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'summaryLogUploads':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'appropriateAgency': { 'type': 'string' },
+                          'type':
+                            {
+                              'type': 'string',
+                              'enum': ['Reprocessor', 'Exporter']
+                            },
+                          'businessName': { 'type': 'string' },
+                          'orgId': { 'type': 'number' },
+                          'registrationNumber': { 'type': 'string' },
+                          'accreditationNumber': { 'type': 'string' },
+                          'reprocessingSite': { 'type': 'string' },
+                          'packagingWasteCategory':
+                            {
+                              'type': 'string',
+                              'enum':
+                                [
+                                  'Aluminium',
+                                  'Fibre based composite',
+                                  'Paper and board',
+                                  'Plastic',
+                                  'Steel',
+                                  'Wood',
+                                  'Glass-remelt',
+                                  'Glass-other',
+                                  'Glass-remelt-other'
+                                ]
+                            },
+                          'lastSuccessfulUpload': { 'type': 'string' },
+                          'lastFailedUpload': { 'type': 'string' },
+                          'successfulUploads': { 'type': 'number' },
+                          'failedUploads': { 'type': 'number' }
+                        },
+                      'required':
+                        [
+                          'appropriateAgency',
+                          'type',
+                          'businessName',
+                          'orgId',
+                          'registrationNumber',
+                          'accreditationNumber',
+                          'reprocessingSite',
+                          'packagingWasteCategory',
+                          'lastSuccessfulUpload',
+                          'lastFailedUpload',
+                          'successfulUploads',
+                          'failedUploads'
+                        ]
+                    }
+                },
+              'generatedAt': { 'type': 'string', 'format': 'date-time' }
+            },
+          'required': ['summaryLogUploads', 'generatedAt']
+        },
+      'WasteBalanceResponse':
+        {
+          'type': 'object',
+          'description': 'Object keyed by accreditation ID (24-char hex)',
+          'additionalProperties':
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'amount': { 'type': 'number' },
+                  'availableAmount': { 'type': 'number' }
+                },
+              'required': ['amount', 'availableAmount']
+            }
+        },
+      'WasteBalanceAvailabilityResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'generatedAt': { 'type': 'string', 'format': 'date-time' },
+              'materials':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'material':
+                            {
+                              '$ref': '#/definitions/TonnageMonitoringMaterial'
+                            },
+                          'availableAmount': { 'type': 'number' }
+                        },
+                      'required': ['material', 'availableAmount']
+                    }
+                },
+              'total': { 'type': 'number' }
+            },
+          'required': ['generatedAt', 'materials', 'total']
+        },
+      'TonnageMonitoringMaterial':
+        {
+          'type': 'string',
+          'enum':
+            [
+              'aluminium',
+              'fibre',
+              'paper',
+              'plastic',
+              'steel',
+              'wood',
+              'glass_re_melt',
+              'glass_other'
+            ]
+        },
+      'TonnageMonitoringResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'generatedAt': { 'type': 'string', 'format': 'date-time' },
+              'materials':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'material':
+                            {
+                              '$ref': '#/definitions/TonnageMonitoringMaterial'
+                            },
+                          'year':
+                            {
+                              'type': 'integer',
+                              'minimum': 2026,
+                              'maximum': 2100
+                            },
+                          'type':
+                            {
+                              'type': 'string',
+                              'enum': ['Reprocessor', 'Exporter']
+                            },
+                          'months':
+                            {
+                              'type': 'array',
+                              'items':
+                                {
+                                  'type': 'object',
+                                  'properties':
+                                    {
+                                      'month':
+                                        {
+                                          'type': 'string',
+                                          'enum':
+                                            [
+                                              'Jan',
+                                              'Feb',
+                                              'Mar',
+                                              'Apr',
+                                              'May',
+                                              'Jun',
+                                              'Jul',
+                                              'Aug',
+                                              'Sept',
+                                              'Oct',
+                                              'Nov',
+                                              'Dec'
+                                            ]
+                                        },
+                                      'tonnage': { 'type': 'number' }
+                                    },
+                                  'required': ['month', 'tonnage']
+                                }
+                            }
+                        },
+                      'required': ['material', 'year', 'type', 'months']
+                    }
+                },
+              'total': { 'type': 'number' }
+            },
+          'required': ['generatedAt', 'materials', 'total']
+        },
+      'Material':
+        {
+          'type': 'string',
+          'enum':
+            ['aluminium', 'fibre', 'glass', 'paper', 'plastic', 'steel', 'wood']
+        },
+      'TonnageBand':
+        {
+          'type': 'string',
+          'enum': ['up_to_500', 'up_to_5000', 'up_to_10000', 'over_10000'],
+          'x-nullable': true
+        },
+      'PrnTonnageResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'generatedAt': { 'type': 'string', 'format': 'date-time' },
+              'rows':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'organisationName': { 'type': 'string' },
+                          'organisationId': { 'type': 'string' },
+                          'accreditationNumber': { 'type': 'string' },
+                          'material': { '$ref': '#/definitions/Material' },
+                          'tonnageBand':
+                            { '$ref': '#/definitions/TonnageBand' },
+                          'awaitingAuthorisationTonnage': { 'type': 'number' },
+                          'awaitingAcceptanceTonnage': { 'type': 'number' },
+                          'awaitingCancellationTonnage': { 'type': 'number' },
+                          'acceptedTonnage': { 'type': 'number' },
+                          'cancelledTonnage': { 'type': 'number' }
+                        },
+                      'required':
+                        [
+                          'organisationName',
+                          'organisationId',
+                          'accreditationNumber',
+                          'material',
+                          'tonnageBand',
+                          'awaitingAuthorisationTonnage',
+                          'awaitingAcceptanceTonnage',
+                          'awaitingCancellationTonnage',
+                          'acceptedTonnage',
+                          'cancelledTonnage'
+                        ]
+                    }
+                }
+            },
+          'required': ['generatedAt', 'rows']
+        },
+      'ReportingPeriod':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'year': { 'type': 'number' },
+              'period': { 'type': 'number' },
+              'startDate': { 'type': 'string', 'format': 'date' },
+              'endDate': { 'type': 'string', 'format': 'date' },
+              'dueDate': { 'type': 'string', 'format': 'date' },
+              'report':
+                {
+                  'type': ['object', 'null'],
+                  'description': 'Persisted report for this period, or null if no report exists (period is due)',
+                  'properties':
+                    {
+                      'status':
+                        {
+                          'type': 'string',
+                          'enum': ['in_progress', 'ready_to_submit']
+                        },
+                      'id': { 'type': 'string' }
+                    },
+                  'required': ['status', 'id']
+                }
+            },
+          'required':
+            ['year', 'period', 'startDate', 'endDate', 'dueDate', 'report']
+        },
+      'ReportDetail':
+        {
+          'type': 'object',
+          'description': 'Report detail — matches the reports collection shape. Report metadata fields (id, version, status, statusHistory) are present only when a stored report exists.',
+          'properties':
+            {
+              'id':
+                {
+                  'type': 'string',
+                  'format': 'uuid',
+                  'description': 'Present only when a stored report exists'
+                },
+              'version':
+                {
+                  'type': 'integer',
+                  'description': 'Present only when a stored report exists'
+                },
+              'status': { '$ref': '#/definitions/ReportStatus' },
+              'statusHistory':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/ReportStatusHistoryEntry' }
+                },
+              'material': { 'type': 'string' },
+              'wasteProcessingType': { 'type': 'string' },
+              'siteAddress': { 'type': 'string' },
+              'recyclingActivity':
+                { '$ref': '#/definitions/RecyclingActivity' },
+              'exportActivity': { '$ref': '#/definitions/ExportActivity' },
+              'wasteSent': { '$ref': '#/definitions/WasteSent' },
+              'prnData': { '$ref': '#/definitions/ReportPrnData' },
+              'supportingInformation': { 'type': 'string' },
+              'details':
+                {
+                  'type': 'object',
+                  'description': 'Registration details appended by the route handler',
+                  'properties':
+                    {
+                      'material': { 'type': 'string' },
+                      'site': { 'type': 'object' }
+                    }
+                }
+            },
+          'required': ['recyclingActivity', 'wasteSent', 'details']
+        },
+      'ReportStatus':
+        {
+          'type': 'string',
+          'enum': ['in_progress', 'ready_to_submit', 'submitted']
+        },
+      'ReportStatusHistoryEntry':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'status': { '$ref': '#/definitions/ReportStatus' },
+              'changedBy':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'id': { 'type': 'string' },
+                      'name': { 'type': 'string' },
+                      'position': { 'type': 'string' }
+                    },
+                  'required': ['id', 'name', 'position']
+                },
+              'changedAt': { 'type': 'string', 'format': 'date-time' }
+            },
+          'required': ['status', 'changedBy', 'changedAt']
+        },
+      'RecyclingActivity':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'suppliers':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'supplierName': { 'type': 'string' },
+                          'facilityType': { 'type': 'string' },
+                          'address': { 'type': 'object' },
+                          'phone': { 'type': 'string' },
+                          'email': { 'type': 'string' },
+                          'tonnageReceived': { 'type': 'number' }
+                        },
+                      'required': ['supplierName', 'tonnageReceived']
+                    }
+                },
+              'totalTonnageReceived': { 'type': 'number' },
+              'tonnageRecycled':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                },
+              'tonnageNotRecycled':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                }
+            },
+          'required':
+            [
+              'suppliers',
+              'totalTonnageReceived',
+              'tonnageRecycled',
+              'tonnageNotRecycled'
+            ]
+        },
+      'ExportActivity':
+        {
+          'type': 'object',
+          'description': 'Present only for exporters',
+          'properties':
+            {
+              'overseasSites':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'siteName': { 'type': 'string' },
+                          'orsId': { 'type': 'string' },
+                          'tonnageExported': { 'type': 'number' }
+                        },
+                      'required': ['siteName', 'orsId']
+                    }
+                },
+              'totalTonnageReceivedForExporting': { 'type': 'number' },
+              'tonnageReceivedNotExported':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                },
+              'tonnageRefusedAtRecepientDestination':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                },
+              'tonnageStoppedDuringExport':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                },
+              'tonnageRepatriated':
+                {
+                  'type': ['number', 'null'],
+                  'description': 'null means not yet entered'
+                }
+            },
+          'required': ['overseasSites', 'totalTonnageReceivedForExporting']
+        },
+      'WasteSent':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'tonnageSentToReprocessor': { 'type': 'number' },
+              'tonnageSentToExporter': { 'type': 'number' },
+              'tonnageSentToAnotherSite': { 'type': 'number' },
+              'finalDestinations':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'recipientName': { 'type': 'string' },
+                          'facilityType': { 'type': 'string' },
+                          'address': { 'type': 'object' },
+                          'phone': { 'type': 'string' },
+                          'email': { 'type': 'string' },
+                          'tonnageSentOn': { 'type': 'number' }
+                        },
+                      'required': ['recipientName', 'tonnageSentOn']
+                    }
+                }
+            },
+          'required':
+            [
+              'tonnageSentToReprocessor',
+              'tonnageSentToExporter',
+              'tonnageSentToAnotherSite',
+              'finalDestinations'
+            ]
+        },
+      'ReportPrnData':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'tonnageIssued': { 'type': 'number' },
+              'totalRevenue': { 'type': 'number' },
+              'averagePricePerTonne': { 'type': 'number' }
+            },
+          'required': ['tonnageIssued', 'totalRevenue', 'averagePricePerTonne']
+        },
+      'PrnStatus':
+        {
+          'type': 'string',
+          'enum':
+            [
+              'draft',
+              'awaiting_authorisation',
+              'awaiting_acceptance',
+              'accepted',
+              'awaiting_cancellation',
+              'cancelled',
+              'deleted',
+              'discarded'
+            ]
+        },
+      'PrnListItem':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'prnNumber': { 'type': 'string' },
+              'issuedToOrganisation': { 'type': 'object' },
+              'tonnage': { 'type': 'number' },
+              'material': { '$ref': '#/definitions/Material' },
+              'status': { '$ref': '#/definitions/PrnStatus' },
+              'createdAt': { 'type': 'string', 'format': 'date-time' },
+              'issuedAt': { 'type': 'string', 'format': 'date-time' },
+              'wasteProcessingType':
+                { 'type': 'string', 'enum': ['reprocessor', 'exporter'] }
+            }
+        },
+      'PrnDetail':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'accreditationYear': { 'type': 'number' },
+              'createdAt': { 'type': 'string', 'format': 'date-time' },
+              'isDecemberWaste': { 'type': 'boolean' },
+              'issuedAt': { 'type': 'string', 'format': 'date-time' },
+              'issuedBy': { 'type': 'object' },
+              'issuedToOrganisation': { 'type': 'object' },
+              'material': { '$ref': '#/definitions/Material' },
+              'notes': { 'type': 'string' },
+              'prnNumber': { 'type': 'string' },
+              'processToBeUsed': { 'type': 'string' },
+              'status': { '$ref': '#/definitions/PrnStatus' },
+              'tonnage': { 'type': 'number' },
+              'wasteProcessingType':
+                { 'type': 'string', 'enum': ['reprocessor', 'exporter'] }
+            }
+        },
+      'PrnCreatePayload':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'issuedToOrganisation':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'id': { 'type': 'string' },
+                      'name': { 'type': 'string' },
+                      'tradingName': { 'type': 'string' },
+                      'registrationType': { 'type': 'string' }
+                    },
+                  'required': ['id', 'name']
+                },
+              'tonnage': { 'type': 'integer', 'minimum': 1 },
+              'notes': { 'type': 'string', 'maxLength': 200 }
+            },
+          'required': ['issuedToOrganisation', 'tonnage']
+        },
+      'PaginatedPrnResponse':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'items': { 'type': 'array', 'items': { 'type': 'object' } },
+              'hasMore': { 'type': 'boolean' },
+              'nextCursor': { 'type': 'string' }
+            },
+          'required': ['items', 'hasMore']
+        },
+      'LinkedOrganisationsResponse':
+        {
+          'type': 'array',
+          'items':
+            {
+              'type': 'object',
+              'properties':
+                {
+                  'id': { 'type': 'string' },
+                  'orgId': { 'type': 'integer' },
+                  'companyDetails':
+                    {
+                      'type': 'object',
+                      'properties': { 'name': { 'type': 'string' } },
+                      'required': ['name']
+                    },
+                  'status': { 'type': 'string' },
+                  'linkedDefraOrganisation':
+                    {
+                      'type': 'object',
+                      'properties':
+                        {
+                          'orgId': { 'type': 'string', 'format': 'uuid' },
+                          'orgName': { 'type': 'string' },
+                          'linkedBy':
+                            {
+                              'type': 'object',
+                              'properties':
+                                {
+                                  'email':
+                                    { 'type': 'string', 'format': 'email' },
+                                  'id': { 'type': 'string', 'format': 'uuid' }
+                                },
+                              'required': ['email', 'id']
+                            },
+                          'linkedAt':
+                            { 'type': 'string', 'format': 'date-time' }
+                        },
+                      'required': ['orgId', 'orgName', 'linkedBy', 'linkedAt']
+                    }
+                },
+              'required':
+                [
+                  'id',
+                  'orgId',
+                  'companyDetails',
+                  'status',
+                  'linkedDefraOrganisation'
+                ]
+            }
+        },
+      'OverseasSiteAddress':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'line1': { 'type': 'string' },
+              'line2': { 'type': 'string' },
+              'townOrCity': { 'type': 'string' },
+              'stateOrRegion': { 'type': 'string' },
+              'postcode': { 'type': 'string' }
+            },
+          'required': ['line1', 'townOrCity']
+        },
+      'OverseasSite':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'name': { 'type': 'string' },
+              'address': { '$ref': '#/definitions/OverseasSiteAddress' },
+              'country': { 'type': 'string' },
+              'coordinates': { 'type': 'string' },
+              'validFrom': { 'type': 'string', 'format': 'date-time' }
+            }
+        },
+      'OverseasSiteCreatePayload':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'address': { '$ref': '#/definitions/OverseasSiteAddress' },
+              'country': { 'type': 'string' },
+              'coordinates': { 'type': 'string' },
+              'validFrom': { 'type': 'string', 'format': 'date-time' }
+            },
+          'required': ['name', 'address', 'country']
+        },
+      'OverseasSiteUpdatePayload':
+        {
+          'type': 'object',
+          'description': 'At least one field required',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'address':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'line1': { 'type': 'string' },
+                      'line2': { 'type': 'string' },
+                      'townOrCity': { 'type': 'string' },
+                      'stateOrRegion': { 'type': 'string' },
+                      'postcode': { 'type': 'string' }
+                    }
+                },
+              'country': { 'type': 'string' },
+              'coordinates': { 'type': 'string' },
+              'validFrom': { 'type': 'string', 'format': 'date-time' }
+            }
+        },
+      'OrsImportCreatePayload':
+        {
+          'type': 'object',
+          'properties': { 'redirectUrl': { 'type': 'string' } },
+          'required': ['redirectUrl']
+        },
+      'OrsUploadFile':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'fileId': { 'type': 'string' },
+              'filename': { 'type': 'string' },
+              'fileStatus': { '$ref': '#/definitions/UploadFileStatus' },
+              's3Bucket':
+                {
+                  'type': 'string',
+                  'description': 'Required when fileStatus is complete'
+                },
+              's3Key':
+                {
+                  'type': 'string',
+                  'description': 'Required when fileStatus is complete'
+                },
+              'hasError': { 'type': 'boolean' },
+              'errorMessage': { 'type': 'string' }
+            },
+          'required': ['fileId', 'filename', 'fileStatus']
+        },
+      'OrsUploadCompletedPayload':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'form':
+                {
+                  'type': 'object',
+                  'properties':
+                    {
+                      'orsUpload':
+                        {
+                          'description': 'Single file object or array of file objects',
+                          'x-alternatives':
+                            [
+                              { '$ref': '#/definitions/OrsUploadFile' },
+                              {
+                                'type': 'array',
+                                'items':
+                                  { '$ref': '#/definitions/OrsUploadFile' }
+                              }
+                            ]
+                        }
+                    },
+                  'required': ['orsUpload']
+                }
+            },
+          'required': ['form']
+        }
     }
-  }
 }
