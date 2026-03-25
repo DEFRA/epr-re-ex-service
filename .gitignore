@@ -18,10 +18,3 @@ mongodb-backups/
 backups-mongo/
 data-mongo/
 data-redis/
-
-.beads/
-.claude/
-prompts/
-docs/plans
-CLAUDE.*
-AGENTS.md
