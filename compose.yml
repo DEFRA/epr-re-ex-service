@@ -350,10 +350,10 @@ services:
       - ./lib/epr-backend/src:/home/node/src
       - ./lib/epr-backend/package.json:/home/node/package.json
 
-################################################################################
+  ################################################################################
 
   selenium-chrome:
-    profiles: [ 'all', 'journey-test' ]
+    profiles: ['all', 'journey-test']
     image: selenium/standalone-chrome:123.0
     ports:
       - 4444:4444

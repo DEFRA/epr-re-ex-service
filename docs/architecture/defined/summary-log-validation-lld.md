@@ -6,6 +6,7 @@ For the architectural decision and rationale for the transformation pipeline, se
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
+
 - [Summary Log Validation: Low Level Design](#summary-log-validation-low-level-design)
   - [Context](#context)
     - [Row classification alignment](#row-classification-alignment)
@@ -20,8 +21,8 @@ For the architectural decision and rationale for the transformation pipeline, se
     - [Test categories](#test-categories)
   - [Open questions](#open-questions)
   - [Resolved questions](#resolved-questions)
-<!-- TOC -->
-<!-- prettier-ignore-end -->
+    <!-- TOC -->
+    <!-- prettier-ignore-end -->
 
 ## Context
 
@@ -38,11 +39,11 @@ This design implements that validation layer using Joi schemas, with clean separ
 
 This design aligns with the [Summary Log Row Validation Classification](./summary-log-row-validation-classification.md) document, which defines three row outcomes:
 
-| Outcome | Caused by | Effect |
-|---------|-----------|--------|
-| **REJECTED** | Fails VAL010 (validation of filled fields) | Blocks entire submission |
+| Outcome      | Caused by                                                                   | Effect                                        |
+| ------------ | --------------------------------------------------------------------------- | --------------------------------------------- |
+| **REJECTED** | Fails VAL010 (validation of filled fields)                                  | Blocks entire submission                      |
 | **EXCLUDED** | Fails VAL011 (fields required for Waste Balance) or VAL013 (business rules) | Row submitted but excluded from Waste Balance |
-| **INCLUDED** | Passes all validation | Contributes to Waste Balance |
+| **INCLUDED** | Passes all validation                                                       | Contributes to Waste Balance                  |
 
 The validation pipeline implements each decision point from the classification flowchart as a distinct schema or check.
 
@@ -52,14 +53,14 @@ The validation pipeline implements each decision point from the classification f
 
 The validation layer slots into ADR 0019's architecture, with each step mapping to a decision point in the classification flowchart:
 
-| Step | Flowchart Decision | Schema/Config | Failure Outcome |
-|------|-------------------|---------------|-----------------|
-| 1. Filter to filled fields | Is field filled? | `unfilledValues` | - |
-| 2. Validate filled fields | VAL010 | `validationSchema` | REJECTED |
-| 3. Check fields required for Waste Balance | VAL011 | `fieldsRequiredForWasteBalance` | EXCLUDED |
-| 4. Transform to waste record | - | Row transformer | - |
-| 5. Apply business rules | VAL013 | Row transformer | EXCLUDED |
-| 6. All pass | - | - | INCLUDED |
+| Step                                       | Flowchart Decision | Schema/Config                   | Failure Outcome |
+| ------------------------------------------ | ------------------ | ------------------------------- | --------------- |
+| 1. Filter to filled fields                 | Is field filled?   | `unfilledValues`                | -               |
+| 2. Validate filled fields                  | VAL010             | `validationSchema`              | REJECTED        |
+| 3. Check fields required for Waste Balance | VAL011             | `fieldsRequiredForWasteBalance` | EXCLUDED        |
+| 4. Transform to waste record               | -                  | Row transformer                 | -               |
+| 5. Apply business rules                    | VAL013             | Row transformer                 | EXCLUDED        |
+| 6. All pass                                | -                  | -                               | INCLUDED        |
 
 The validation pipeline:
 
@@ -181,11 +182,11 @@ export const RECEIVED_LOADS_FOR_REPROCESSING = {
 
 **Schema components:**
 
-| Component | Purpose | Failure Outcome |
-|-----------|---------|-----------------|
-| `unfilledValues` | Defines per-field "unfilled" sentinel values beyond the default empty check | - |
-| `validationSchema` | VAL010 - Joi schema applied to filled fields only. All fields marked optional. | REJECTED |
-| `fieldsRequiredForWasteBalance` | VAL011 - Fields that must be filled for the row to contribute to Waste Balance | EXCLUDED |
+| Component                       | Purpose                                                                        | Failure Outcome |
+| ------------------------------- | ------------------------------------------------------------------------------ | --------------- |
+| `unfilledValues`                | Defines per-field "unfilled" sentinel values beyond the default empty check    | -               |
+| `validationSchema`              | VAL010 - Joi schema applied to filled fields only. All fields marked optional. | REJECTED        |
+| `fieldsRequiredForWasteBalance` | VAL011 - Fields that must be filled for the row to contribute to Waste Balance | EXCLUDED        |
 
 **Note:** VAL013 (business rules like accreditation date range) are applied in the row transformer, not the table schema. This keeps the schema focused on field-level validation while business rules that require external context (e.g. accreditation period) live in the transformation layer.
 
@@ -215,7 +216,7 @@ const PROCESSING_TYPES = {
     RECEIVED_LOADS_FOR_REPROCESSING: transformReceivedLoadsRow,
     REPROCESSED_LOADS: transformReprocessedLoadsRow,
     SENT_ON_LOADS: transformSentOnLoadsRow
-  },
+  }
   // ... same structure as schema registry
 }
 ```
@@ -243,8 +244,10 @@ export const transformReceivedLoadsRow = (rowData, context) => {
   // VAL013: Check load date within accreditation period
   if (context.accreditation) {
     const loadDate = new Date(rowData.LOAD_DATE)
-    if (loadDate < context.accreditation.startDate ||
-        loadDate > context.accreditation.endDate) {
+    if (
+      loadDate < context.accreditation.startDate ||
+      loadDate > context.accreditation.endDate
+    ) {
       issues.push({
         code: 'LOAD_DATE_OUTSIDE_ACCREDITATION',
         field: 'LOAD_DATE',
@@ -259,7 +262,7 @@ export const transformReceivedLoadsRow = (rowData, context) => {
       rowId: rowData.ROW_ID,
       data: rowData
     },
-    issues  // Non-empty issues → EXCLUDED
+    issues // Non-empty issues → EXCLUDED
   }
 }
 ```
@@ -314,10 +317,10 @@ const validateRow = createRowValidator(TEST_SCHEMAS)
 
 ### Test categories
 
-| Category | Registry | Purpose |
-|----------|----------|---------|
-| Unit tests | Minimal test schemas | Test validation logic in isolation |
-| Integration tests | Production schemas | Verify real schemas work correctly end-to-end |
+| Category          | Registry             | Purpose                                       |
+| ----------------- | -------------------- | --------------------------------------------- |
+| Unit tests        | Minimal test schemas | Test validation logic in isolation            |
+| Integration tests | Production schemas   | Verify real schemas work correctly end-to-end |
 
 ## Open questions
 

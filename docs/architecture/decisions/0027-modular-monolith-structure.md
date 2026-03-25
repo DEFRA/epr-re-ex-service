@@ -43,15 +43,15 @@ Continue with the existing flat organisation and manage conflicts through commun
 
 ##### Advantages
 
-* No migration effort required
-* Team is already familiar with the structure
+- No migration effort required
+- Team is already familiar with the structure
 
 ##### Disadvantages
 
-* High risk of merge conflicts between teams
-* No clear ownership boundaries
-* Difficult to understand feature scope
-* Changes to one feature may inadvertently affect another
+- High risk of merge conflicts between teams
+- No clear ownership boundaries
+- Difficult to understand feature scope
+- Changes to one feature may inadvertently affect another
 
 #### 2. Split into separate microservices
 
@@ -59,16 +59,16 @@ Extract PRNs (and potentially other features) into separate deployable services.
 
 ##### Advantages
 
-* Complete isolation between teams
-* Independent deployment and scaling
-* Clear service boundaries
+- Complete isolation between teams
+- Independent deployment and scaling
+- Clear service boundaries
 
 ##### Disadvantages
 
-* Significant operational overhead (multiple deployments, monitoring, networking)
-* Premature optimisation—we don't yet know where the boundaries should be
-* Increased complexity for cross-cutting concerns (auth, logging)
-* Data consistency challenges across services
+- Significant operational overhead (multiple deployments, monitoring, networking)
+- Premature optimisation—we don't yet know where the boundaries should be
+- Increased complexity for cross-cutting concerns (auth, logging)
+- Data consistency challenges across services
 
 #### 3. Modular monolith
 
@@ -76,18 +76,18 @@ Restructure the codebase into feature modules within the same deployable unit. E
 
 ##### Advantages
 
-* Clear ownership boundaries without operational overhead
-* Teams can work independently with minimal conflicts
-* Maintains deployment simplicity
-* Preserves data consistency (single database, transactions)
-* Natural evolution path—modules can be extracted to services later if needed
-* Incremental migration possible
+- Clear ownership boundaries without operational overhead
+- Teams can work independently with minimal conflicts
+- Maintains deployment simplicity
+- Preserves data consistency (single database, transactions)
+- Natural evolution path—modules can be extracted to services later if needed
+- Incremental migration possible
 
 ##### Disadvantages
 
-* Requires migration effort for existing code
-* Need to establish and maintain module conventions
-* Discipline required to respect module boundaries
+- Requires migration effort for existing code
+- Need to establish and maintain module conventions
+- Discipline required to respect module boundaries
 
 ## Decision
 
@@ -146,36 +146,36 @@ src/
 
 ### Suggested team ownership
 
-| Module | Team |
-|--------|------|
-| `packaging-recycling-notes` | PRNs feature team |
-| `summary-logs` | Support/BAU |
-| `waste-balances` | Support/BAU |
-| `organisations` | Support/BAU |
-| `public-register` | Support/BAU |
-| `shared` | Both (requires cross-team review) |
+| Module                      | Team                              |
+| --------------------------- | --------------------------------- |
+| `packaging-recycling-notes` | PRNs feature team                 |
+| `summary-logs`              | Support/BAU                       |
+| `waste-balances`            | Support/BAU                       |
+| `organisations`             | Support/BAU                       |
+| `public-register`           | Support/BAU                       |
+| `shared`                    | Both (requires cross-team review) |
 
 ## Consequences
 
 ### Advantages
 
-* **Clear ownership**: Each team knows which directories they own
-* **Reduced conflicts**: Teams work in separate parts of the codebase
-* **Better cohesion**: All code for a feature is co-located
-* **Easier onboarding**: New developers can understand a feature by looking at one directory
-* **Future flexibility**: Modules can be extracted to separate packages or services if needed
+- **Clear ownership**: Each team knows which directories they own
+- **Reduced conflicts**: Teams work in separate parts of the codebase
+- **Better cohesion**: All code for a feature is co-located
+- **Easier onboarding**: New developers can understand a feature by looking at one directory
+- **Future flexibility**: Modules can be extracted to separate packages or services if needed
 
 ### Disadvantages
 
-* **Migration effort**: Existing features need to be moved (though this can be incremental)
-* **Learning curve**: Team needs to understand and follow module conventions
-* **Potential duplication**: Some code may be duplicated between modules initially until it's clear what should be shared
-* **Import path changes**: Existing import paths will need updating as code moves
+- **Migration effort**: Existing features need to be moved (though this can be incremental)
+- **Learning curve**: Team needs to understand and follow module conventions
+- **Potential duplication**: Some code may be duplicated between modules initially until it's clear what should be shared
+- **Import path changes**: Existing import paths will need updating as code moves
 
 ### Risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Module boundaries become unclear over time | Document conventions, enforce in code review |
-| Shared code becomes a dumping ground | Require justification for additions to `shared/`, prefer module-specific code |
-| Migration disrupts active development | Migrate during low-activity periods, coordinate with both teams |
+| Risk                                       | Mitigation                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| Module boundaries become unclear over time | Document conventions, enforce in code review                                  |
+| Shared code becomes a dumping ground       | Require justification for additions to `shared/`, prefer module-specific code |
+| Migration disrupts active development      | Migrate during low-activity periods, coordinate with both teams               |

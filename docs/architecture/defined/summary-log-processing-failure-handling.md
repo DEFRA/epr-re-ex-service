@@ -43,10 +43,10 @@ The frontend polls the backend `GET /summary-logs/{id}` endpoint waiting for the
 
 ### Observed failure scenarios
 
-| Scenario | Root cause | Status stuck at |
-| -------- | ---------- | --------------- |
-| CDP callback never arrives | Incorrect CDP Uploader configuration | `preprocessing` |
-| Worker thread crashes | Out-of-memory processing large spreadsheet | `validating` |
+| Scenario                   | Root cause                                 | Status stuck at |
+| -------------------------- | ------------------------------------------ | --------------- |
+| CDP callback never arrives | Incorrect CDP Uploader configuration       | `preprocessing` |
+| Worker thread crashes      | Out-of-memory processing large spreadsheet | `validating`    |
 
 Both issues have been fixed, but the system remains vulnerable to similar failures.
 
@@ -96,21 +96,21 @@ The backend has no way to detect that processing has failed. It simply returns t
 
 ### Two-component approach
 
-| Component | Type | Catches |
-| --------- | ---- | ------- |
-| **Background timeout tracker** | Proactive | Worker crashes, worker hangs, worker OOM |
-| **CDP status check** | Reactive | Missed callbacks, server restarts mid-processing |
+| Component                      | Type      | Catches                                          |
+| ------------------------------ | --------- | ------------------------------------------------ |
+| **Background timeout tracker** | Proactive | Worker crashes, worker hangs, worker OOM         |
+| **CDP status check**           | Reactive  | Missed callbacks, server restarts mid-processing |
 
 Neither component alone covers all failure scenarios. Together they provide complete protection.
 
 ### Coverage matrix
 
-| Scenario | Background timeout tracker | CDP status check |
-| -------- | -------------------------- | ---------------- |
-| CDP callback never arrives | No - worker never spawned | **Yes** - detects file ready but status stuck |
-| Worker crashes (OOM, etc.) | **Yes** - promise rejects | Yes - but slower (reactive) |
-| Worker hangs forever | **Yes** - timeout fires | Yes - but slower (reactive) |
-| Server restarts mid-processing | No - in-memory state lost | **Yes** - survives restart |
+| Scenario                       | Background timeout tracker | CDP status check                              |
+| ------------------------------ | -------------------------- | --------------------------------------------- |
+| CDP callback never arrives     | No - worker never spawned  | **Yes** - detects file ready but status stuck |
+| Worker crashes (OOM, etc.)     | **Yes** - promise rejects  | Yes - but slower (reactive)                   |
+| Worker hangs forever           | **Yes** - timeout fires    | Yes - but slower (reactive)                   |
+| Server restarts mid-processing | No - in-memory state lost  | **Yes** - survives restart                    |
 
 ## Status transitions
 
@@ -154,19 +154,19 @@ stateDiagram-v2
 
 ### New terminal states
 
-| State | Phase | Caused by | User action |
-| ----- | ----- | --------- | ----------- |
-| `validation_failed` | Upload/Validation | Worker crash, timeout, missed callback | Re-upload |
-| `submission_failed` | Submission | Detectable submission failure | Re-upload or retry |
+| State               | Phase             | Caused by                              | User action        |
+| ------------------- | ----------------- | -------------------------------------- | ------------------ |
+| `validation_failed` | Upload/Validation | Worker crash, timeout, missed callback | Re-upload          |
+| `submission_failed` | Submission        | Detectable submission failure          | Re-upload or retry |
 
 ### Distinction between failure states
 
-| State | Meaning | How detected |
-| ----- | ------- | ------------ |
-| `rejected` | CDP rejected the file (virus, wrong type, too large) | CDP callback with rejection |
-| `invalid` | Validation completed but found fatal errors in data | Validation pipeline completed |
-| `validation_failed` | Processing failed before validation could complete | Timeout tracker or CDP status check |
-| `submission_failed` | Submission failed after validation passed | Submission error handling (Phase 3) |
+| State               | Meaning                                              | How detected                        |
+| ------------------- | ---------------------------------------------------- | ----------------------------------- |
+| `rejected`          | CDP rejected the file (virus, wrong type, too large) | CDP callback with rejection         |
+| `invalid`           | Validation completed but found fatal errors in data  | Validation pipeline completed       |
+| `validation_failed` | Processing failed before validation could complete   | Timeout tracker or CDP status check |
+| `submission_failed` | Submission failed after validation passed            | Submission error handling (Phase 3) |
 
 **Key distinction**: `invalid` means "we validated your file and found problems with the data". `validation_failed` means "we couldn't complete validation due to a technical issue".
 
@@ -206,7 +206,6 @@ flowchart TD
 ## Component 2: CDP status check
 
 ### How it works
-
 
 ```mermaid
 flowchart TD
@@ -256,4 +255,3 @@ The frontend must store and pass the `uploadId` received during upload initiatio
 ```
 GET /summary-logs/{id}?uploadId={uploadId}
 ```
-

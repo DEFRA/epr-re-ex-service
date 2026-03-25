@@ -5,18 +5,19 @@
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
-* [EPR Frontend Page Navigation](#epr-frontend-page-navigation)
-  * [Overview](#overview)
-  * [All Routes](#all-routes)
-  * [Navigation Flow Diagram](#navigation-flow-diagram)
-  * [Key Conditional Logic](#key-conditional-logic)
-    * [Start Page Navigation](#start-page-navigation)
-    * [Authentication & Organisation Linking](#authentication--organisation-linking)
-    * [Summary Log Processing States](#summary-log-processing-states)
-  * [Authentication Requirements](#authentication-requirements)
-  * [Session & State Management](#session--state-management)
-<!-- TOC -->
-<!-- prettier-ignore-end -->
+
+- [EPR Frontend Page Navigation](#epr-frontend-page-navigation)
+  - [Overview](#overview)
+  - [All Routes](#all-routes)
+  - [Navigation Flow Diagram](#navigation-flow-diagram)
+  - [Key Conditional Logic](#key-conditional-logic)
+    - [Start Page Navigation](#start-page-navigation)
+    - [Authentication & Organisation Linking](#authentication--organisation-linking)
+    - [Summary Log Processing States](#summary-log-processing-states)
+  - [Authentication Requirements](#authentication-requirements)
+  - [Session & State Management](#session--state-management)
+    <!-- TOC -->
+    <!-- prettier-ignore-end -->
 
 ## Overview
 
@@ -24,27 +25,27 @@ The EPR Frontend is a Hapi.js application that provides the user interface for t
 
 ## All Routes
 
-| Path | Method | Purpose | Auth Required |
-|------|--------|---------|---------------|
-| `/health` | GET | Health check endpoint | No |
-| `/` | GET | Redirects to `/start` | No |
-| `/start` | GET | Start/landing page with conditional "Start now" button | No |
-| `/login` | GET | Initiates OIDC login flow | No |
-| `/auth/callback` | GET | OIDC callback handler | No |
-| `/auth/organisation` | GET | Fallback safeguard | No |
-| `/logout` | GET | Clears session & redirects to Defra ID logout | Yes |
-| `/logged-out` | GET | Logout confirmation page | No |
-| `/account/linking` | GET | Account linking form | Yes |
-| `/account/linking` | POST | Process organisation linking | Yes |
-| `/email-not-recognised` | GET | Email not recognised page | Yes |
-| `/organisations/{id}` | GET | Organisation dashboard (reprocessing tab) | Yes |
-| `/organisations/{id}/exporting` | GET | Organisation dashboard (exporting tab) | Yes |
-| `/organisations/{organisationId}/registrations/{registrationId}` | GET | Registration detail page | Yes |
-| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/upload` | GET | Summary log upload page | Yes |
-| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}` | GET | Summary log progress tracker | Yes |
-| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit` | POST | Submit summary log | Yes |
-| `/contact` | GET | Contact page | No |
-| `/cookies` | GET | Cookie policy page | No |
+| Path                                                                                                | Method | Purpose                                                | Auth Required |
+| --------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------ | ------------- |
+| `/health`                                                                                           | GET    | Health check endpoint                                  | No            |
+| `/`                                                                                                 | GET    | Redirects to `/start`                                  | No            |
+| `/start`                                                                                            | GET    | Start/landing page with conditional "Start now" button | No            |
+| `/login`                                                                                            | GET    | Initiates OIDC login flow                              | No            |
+| `/auth/callback`                                                                                    | GET    | OIDC callback handler                                  | No            |
+| `/auth/organisation`                                                                                | GET    | Fallback safeguard                                     | No            |
+| `/logout`                                                                                           | GET    | Clears session & redirects to Defra ID logout          | Yes           |
+| `/logged-out`                                                                                       | GET    | Logout confirmation page                               | No            |
+| `/account/linking`                                                                                  | GET    | Account linking form                                   | Yes           |
+| `/account/linking`                                                                                  | POST   | Process organisation linking                           | Yes           |
+| `/email-not-recognised`                                                                             | GET    | Email not recognised page                              | Yes           |
+| `/organisations/{id}`                                                                               | GET    | Organisation dashboard (reprocessing tab)              | Yes           |
+| `/organisations/{id}/exporting`                                                                     | GET    | Organisation dashboard (exporting tab)                 | Yes           |
+| `/organisations/{organisationId}/registrations/{registrationId}`                                    | GET    | Registration detail page                               | Yes           |
+| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/upload`                | GET    | Summary log upload page                                | Yes           |
+| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}`        | GET    | Summary log progress tracker                           | Yes           |
+| `/organisations/{organisationId}/registrations/{registrationId}/summary-logs/{summaryLogId}/submit` | POST   | Submit summary log                                     | Yes           |
+| `/contact`                                                                                          | GET    | Contact page                                           | No            |
+| `/cookies`                                                                                          | GET    | Cookie policy page                                     | No            |
 
 ## Navigation Flow Diagram
 
@@ -176,17 +177,17 @@ The "Start now" button destination is determined dynamically based on authentica
 
 The summary log upload workflow uses asynchronous processing with status polling:
 
-| State | UI Behaviour |
-|-------|-------------|
-| `preprocessing` | Shows "Processing..." with polling |
-| `validating` | Shows "Processing..." with polling |
-| `validated` | Shows check page with row counts, user can submit |
-| `submitting` | Shows "Submitting..." with polling |
-| `submitted` | Shows success page |
-| `invalid` | Shows validation errors, re-upload link |
-| `rejected` | Shows validation errors, re-upload link |
-| `validationFailed` | Shows validation errors, re-upload link |
-| `superseded` | Shows message that a newer upload exists |
+| State              | UI Behaviour                                      |
+| ------------------ | ------------------------------------------------- |
+| `preprocessing`    | Shows "Processing..." with polling                |
+| `validating`       | Shows "Processing..." with polling                |
+| `validated`        | Shows check page with row counts, user can submit |
+| `submitting`       | Shows "Submitting..." with polling                |
+| `submitted`        | Shows success page                                |
+| `invalid`          | Shows validation errors, re-upload link           |
+| `rejected`         | Shows validation errors, re-upload link           |
+| `validationFailed` | Shows validation errors, re-upload link           |
+| `superseded`       | Shows message that a newer upload exists          |
 
 ## Authentication Requirements
 

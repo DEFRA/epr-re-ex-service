@@ -15,9 +15,9 @@ All rows that pass in-sheet validation are included in the submission. The INCLU
 
 Two categories of validation apply to each row:
 
-| Category | References | What it Validates | Failure Effect |
-|----------|------------|-------------------|----------------|
-| **In-Sheet Validation** | VAL010 | Excel template's built-in validation rules on all filled fields | **REJECTED** - blocks entire submission |
+| Category                | References     | What it Validates                                                                    | Failure Effect                                                             |
+| ----------------------- | -------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **In-Sheet Validation** | VAL010         | Excel template's built-in validation rules on all filled fields                      | **REJECTED** - blocks entire submission                                    |
 | **Business Validation** | VAL011, VAL013 | Fields required for Waste Balance and business rules (e.g. accreditation date range) | **EXCLUDED** - row excluded from Waste Balance, but included in submission |
 
 ### In-Sheet Validation (VAL010)
@@ -39,20 +39,20 @@ There is no distinction made between different types of business validation fail
 
 ## Row Classification Matrix
 
-| # | In-Sheet Validation | Business Validation | Row Outcome | Waste Balance | Summary Log |
-|---|---------------------|---------------------|-------------|---------------|-------------|
-| 1 | ✅ All pass | ✅ All pass | **INCLUDED** | ✅ Contributes | ✅ Can submit |
-| 2 | ✅ All pass | ❌ Some fail | **EXCLUDED** | ❌ Excluded | ✅ Can submit |
-| 3 | ❌ Some fail | ✅ All pass | **REJECTED** | N/A | ❌ Blocked |
-| 4 | ❌ Some fail | ❌ Some fail | **REJECTED** | N/A | ❌ Blocked |
+| #   | In-Sheet Validation | Business Validation | Row Outcome  | Waste Balance  | Summary Log   |
+| --- | ------------------- | ------------------- | ------------ | -------------- | ------------- |
+| 1   | ✅ All pass         | ✅ All pass         | **INCLUDED** | ✅ Contributes | ✅ Can submit |
+| 2   | ✅ All pass         | ❌ Some fail        | **EXCLUDED** | ❌ Excluded    | ✅ Can submit |
+| 3   | ❌ Some fail        | ✅ All pass         | **REJECTED** | N/A            | ❌ Blocked    |
+| 4   | ❌ Some fail        | ❌ Some fail        | **REJECTED** | N/A            | ❌ Blocked    |
 
 ## Outcome Summary
 
-| Outcome | Meaning | Caused by | Waste Balance | Submission |
-|---------|---------|-----------|---------------|------------|
-| **INCLUDED** | Row passes all validation | Passes VAL010 + business validation | ✅ Contributes | ✅ Included |
-| **EXCLUDED** | Row fails business validation but no in-sheet errors | Fails VAL011 or VAL013 | ❌ Excluded | ✅ Included |
-| **REJECTED** | One or more filled values fail in-sheet validation | Fails VAL010 | N/A | ❌ Blocks submission |
+| Outcome      | Meaning                                              | Caused by                           | Waste Balance  | Submission           |
+| ------------ | ---------------------------------------------------- | ----------------------------------- | -------------- | -------------------- |
+| **INCLUDED** | Row passes all validation                            | Passes VAL010 + business validation | ✅ Contributes | ✅ Included          |
+| **EXCLUDED** | Row fails business validation but no in-sheet errors | Fails VAL011 or VAL013              | ❌ Excluded    | ✅ Included          |
+| **REJECTED** | One or more filled values fail in-sheet validation   | Fails VAL010                        | N/A            | ❌ Blocks submission |
 
 ## Decision Flowchart
 
@@ -84,11 +84,11 @@ The checks are evaluated in order of severity:
 
 ## Related Requirements
 
-| Validation | Wireframe Reference | Jira |
-|------------|---------------------|------|
-| VAL010 | WR14 | PAE-472 |
-| VAL011 | WR18, WR19, WR20 | PAE-475, PAE-476, PAE-477 |
-| VAL013 | TBD | TBD |
+| Validation | Wireframe Reference | Jira                      |
+| ---------- | ------------------- | ------------------------- |
+| VAL010     | WR14                | PAE-472                   |
+| VAL011     | WR18, WR19, WR20    | PAE-475, PAE-476, PAE-477 |
+| VAL013     | TBD                 | TBD                       |
 
 ## Additional Context
 

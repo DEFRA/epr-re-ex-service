@@ -18,13 +18,13 @@ A Redis layer and @hapi/yar are available, so the frontend could store the PRN d
 
 ##### Advantages
 
-* keeps back end API very simple, single post endpoint for creation of a PRN
+- keeps back end API very simple, single post endpoint for creation of a PRN
 
 ##### Disadvantages
 
-* introduces extra complexity on the frontend for session storage and retrieval
-* doesn't save a partial or draft PRN
-* potential added complexity for clearing session values for users creating multiple PRNs during a single session
+- introduces extra complexity on the frontend for session storage and retrieval
+- doesn't save a partial or draft PRN
+- potential added complexity for clearing session values for users creating multiple PRNs during a single session
 
 ##### 2. Allow partial submissions on a single post endpoint
 
@@ -32,18 +32,18 @@ The epr-backend exposes a single POST endpoint for updating a draft PRN. Each ep
 
 ##### Advantages
 
-* single endpoint is developed and maintained for draft PRN creation
-* avoids coupling backend endpoints directly to individual UI pages
-* allows draft PRN to be incrementally updated and revisited
-* frontend state management is simple, just post a form
-* API doesn't need to change if pages are reordered, merged, or split in the future
-* new PRN data points can be added without creating new endpoints
-* multiple clients (with differing UIs) can use the same endpoint
+- single endpoint is developed and maintained for draft PRN creation
+- avoids coupling backend endpoints directly to individual UI pages
+- allows draft PRN to be incrementally updated and revisited
+- frontend state management is simple, just post a form
+- API doesn't need to change if pages are reordered, merged, or split in the future
+- new PRN data points can be added without creating new endpoints
+- multiple clients (with differing UIs) can use the same endpoint
 
 ##### Disadvantages
 
-* requires backend rules distinguishing draft validation from submission validation
-* single endpoint handles multiple possible field combinations
+- requires backend rules distinguishing draft validation from submission validation
+- single endpoint handles multiple possible field combinations
 
 #### 3. Expose multiple single-purpose endpoints per PRN update
 
@@ -51,19 +51,19 @@ The epr-backend exposes a set of POST endpoints, each responsible for updating a
 
 ##### Advantages
 
-* frontend state management is simple, just post a form
-* allows draft PRN to be incrementally updated and revisited
-* each endpoint has a narrow well-defined responsibility
-* validation logic is clearly scoped to a specific update
-* avoids any ambiguity about which fields are expected in a given request
-* endpoints can be reasoned about independently
+- frontend state management is simple, just post a form
+- allows draft PRN to be incrementally updated and revisited
+- each endpoint has a narrow well-defined responsibility
+- validation logic is clearly scoped to a specific update
+- avoids any ambiguity about which fields are expected in a given request
+- endpoints can be reasoned about independently
 
 ##### Disadvantages
 
-* introduces a large number of backend endpoints
-* increased initial development and maintenance overhead, (additional schemas and testing)
-* couples API closely to the current UI structure
-* changes to the user journey may require API changes
+- introduces a large number of backend endpoints
+- increased initial development and maintenance overhead, (additional schemas and testing)
+- couples API closely to the current UI structure
+- changes to the user journey may require API changes
 
 ## Decision
 
@@ -79,15 +79,15 @@ Create a single POST endpoint `../packaging-recycling-notes/{id}/status` for upd
 
 ### Advantages
 
-* avoids coupling backend endpoints directly to individual UI pages
-* allows draft PRN to be incrementally updated and revisited
-* frontend state management is simple, just post a form
-* API doesn't need to change if pages are reordered, merged, or split in the future
-* new PRN data points can be added without creating new endpoints
-* multiple clients (with differing UIs) can use the same endpoint
-* endpoints are limited in scope
-* flexibility remains to adapt with further endpoints if needed
+- avoids coupling backend endpoints directly to individual UI pages
+- allows draft PRN to be incrementally updated and revisited
+- frontend state management is simple, just post a form
+- API doesn't need to change if pages are reordered, merged, or split in the future
+- new PRN data points can be added without creating new endpoints
+- multiple clients (with differing UIs) can use the same endpoint
+- endpoints are limited in scope
+- flexibility remains to adapt with further endpoints if needed
 
 ### Disadvantages
 
-* requires backend rules distinguishing draft validation from submission validation
+- requires backend rules distinguishing draft validation from submission validation
