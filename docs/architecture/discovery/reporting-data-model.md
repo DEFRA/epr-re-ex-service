@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -18,7 +18,7 @@ Current system has operational collections (`summary-logs`, `waste-records`, `wa
 
 Create two collections:
 
-- `periodic-reports` — one document per `(organisationId, registrationId, year)`; nested `reports` map keyed by cadence then period number; each slot holds `startDate`, `endDate`, `currentReportId`, `previousReportIds`.
+- `periodic-reports` — one document per `(organisationId, registrationId, year)`; nested `reports` map keyed by cadence then period number; each slot holds `startDate`, `endDate`, `dueDate`, `currentReportId`, `previousReportIds`.
 - `reports` — standalone submission documents containing all field data and full status audit trail.
 
 ## Design Decisions
@@ -135,15 +135,16 @@ erDiagram
     REPORT_PER_PERIOD {
       date     startDate
       date     endDate
-      ObjectId currentReportId   FK "nullable"
-      ObjectId[] previousReportIds
+      date     dueDate
+      string   currentReportId   FK "nullable, UUIDv4"
+      string[] previousReportIds "UUIDv4"
     }
 
     REPORTS {
-        ObjectId            _id                   PK
+        string              _id                   PK "UUIDv4"
         number              version               "incremented on every write"
         number              schemaVersion
-        enum                status                "in_progress|ready_to_submit|submitted"
+        enum                status                "in_progress|ready_to_submit|submitted|superseded|deleted"
         STATUS_HISTORY[]    statusHistory
         string              material
         string              wasteProcessingType
@@ -157,7 +158,7 @@ erDiagram
     }
 
     STATUS_HISTORY {
-        enum         status    "in_progress|ready_to_submit|submitted|superseded"
+        enum         status    "in_progress|ready_to_submit|submitted|superseded|deleted"
         USER-SUMMARY changedBy
         ISO8601      changedAt
     }
@@ -242,27 +243,31 @@ erDiagram
       "4": {
         "startDate": "2026-04-01",
         "endDate": "2026-04-30",
-        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340004\")",
+        "dueDate": "2026-05-28",
+        "currentReportId": "a1b2c3d4-0004-0000-0000-000000000000",
         "previousReportIds": []
       },
       "5": {
         "startDate": "2026-05-01",
         "endDate": "2026-05-31",
+        "dueDate": "2026-06-28",
         "currentReportId": null,
         "previousReportIds": []
       },
       "6": {
         "startDate": "2026-06-01",
         "endDate": "2026-06-30",
-        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340006\")",
-        "previousReportIds": ["ObjectId(\"682a1c4e2f8b3d0012340005\")"]
+        "dueDate": "2026-07-28",
+        "currentReportId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "previousReportIds": ["a1b2c3d4-0005-0000-0000-000000000000"]
       }
     },
     "quarterly": {
       "1": {
         "startDate": "2026-01-01",
         "endDate": "2026-03-31",
-        "currentReportId": "ObjectId(\"682a1c4e2f8b3d0012340010\")",
+        "dueDate": "2026-04-28",
+        "currentReportId": "a1b2c3d4-0010-0000-0000-000000000000",
         "previousReportIds": []
       }
     }
@@ -274,12 +279,12 @@ erDiagram
 
 ```json
 {
-  "_id": "ObjectId(\"682a1c4e2f8b3d0012340006\")",
+  "_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "version": 2,
   "schemaVersion": 1,
   "status": "submitted",
   "material": "plastic",
-  "wasteProcessingType": "mechanical",
+  "wasteProcessingType": "reprocessor",
   "siteAddress": "1 Recycling Way, Leeds, LS1 1AA",
   "recyclingActivity": {
     "suppliers": [
