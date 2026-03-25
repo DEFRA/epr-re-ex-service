@@ -24,7 +24,7 @@ A report is **due** for a given `(organisationId, registrationId, year, period)`
 
 A report that has been created (status `in_progress`, `ready_to_submit`, or `submitted`) is no longer "due" — it has a persisted status instead.
 
-Reports for periods that have not yet ended are not shown to the user.
+Periods are shown to the user once their start date has been reached, including the current in-progress period. However, a report can only be **created** after the period has ended — the POST endpoint enforces this constraint.
 
 ### Reporting API Endpoints
 
@@ -37,8 +37,8 @@ Base: /v1/organisations/{organisationId}/registrations/{registrationId}
 | Method | Path                                 | Description                                                                                                                                                                                                                                |
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | GET    | `/reports/calendar`                  | List reporting periods. Each item includes `year`, `period`, `startDate`, `endDate`, `dueDate`, and a `report` object (`{ status, id }` or `null` if no report exists).                                                                    |
-| GET    | `/reports/{year}/{cadence}/{period}` | Get a report for a specific period. If a persisted report exists, returns the stored data. If no report exists, generates the aggregated data (tonnage, supplier, destination, PRN data) on the fly. Returns the same shape in both cases. |
-| POST   | `/reports/{year}/{cadence}/{period}` | Create a report for the given period. Generates the aggregated data and persists it in the database with status `in_progress`. Returns 201 with the created report. Returns 409 if a report already exists for this period.                |
+| GET    | `/reports/{year}/{cadence}/{period}` | Get a report for a specific period. If a persisted report exists, returns the stored data. If no report exists, generates the aggregated data on the fly. Returns the same shape in both cases — the `reports` collection shape (see [Regulatory Reporting Data Model](../discovery/reporting-data-model.md)). When no stored report exists, report metadata fields (`id`, `version`, `status`, `statusHistory`) are absent. |
+| POST   | `/reports/{year}/{cadence}/{period}` | Create a report for the given period. Generates the aggregated data and persists it in the database with status `in_progress`. Returns 201 with the full created report. Returns 409 if a report already exists for this period.                |
 | DELETE | `/reports/{year}/{cadence}/{period}` | Delete (soft-delete) a report. Sets status to `deleted`, archives `currentReportId` to `previousReportIds`, and clears the slot. The period reverts to "due" status on the list endpoint.                                                  |
 
 ### Changes from Current Implementation
@@ -55,18 +55,30 @@ These are replaced by the four endpoints above. Key changes:
 3. **`POST /reports/{year}/{cadence}/{period}`** is new — creates a report and snapshots the aggregated data
 4. **`DELETE /reports/{year}/{cadence}/{period}`** is new — soft-deletes a report
 
+### Detail Endpoint Response Shape
+
+The `GET /reports/{year}/{cadence}/{period}` and `POST /reports/{year}/{cadence}/{period}` endpoints return the `reports` collection document shape as the API contract. The API shape matches the database shape — no transformation layer exists between the two.
+
+When a stored report exists, all fields are returned as persisted. When no stored report exists (computed on the fly), the response contains the same data structure with aggregated values from waste records. Report metadata fields (`id`, `version`, `status`, `statusHistory`) are absent in the computed case since no report has been created.
+
+Manual entry fields (`tonnageRecycled`, `tonnageNotRecycled`, export activity manual fields) are `null` on a computed or newly created report — `null` means "not yet entered" as distinct from `0` which means "the operator entered zero".
+
+The route handler appends `details: { material, site }` from the registration to both stored and computed responses.
+
+See [Regulatory Reporting Data Model](../discovery/reporting-data-model.md) for the full `REPORTS` entity definition and the `ReportDetail` schema in the API definition for the complete field list.
+
 ### List Endpoint Behaviour
 
 The `GET /reports/calendar` endpoint merges two data sources:
 
-1. **Computed periods** from `discoverPeriods()` — periods where waste records exist and the period has ended
+1. **Computed periods** from `generateReportingPeriods()` — periods whose start date has been reached (including the current in-progress period)
 2. **Persisted reports** from `reportsRepository.findPeriodicReports()` — periods with stored reports
 
 Merge logic for each period:
 
 - Period has waste records + no persisted report + period has ended = reporting period with `report: null`
 - Period has a persisted report = reporting period with `report: { status, id }`
-- Period has not ended yet = excluded from response
+- Period has not started yet = excluded from response
 
 Response shape:
 
@@ -104,4 +116,4 @@ Note: the `cadence` reflects the operator's current reporting cadence (as accred
 - The "due" concept is implicit — a reporting period with `report: null` is due. There is no `due` status in the database. This avoids needing background jobs to create "due" records and keeps the source of truth in the waste records.
 - Deleting a report sets `report` back to `null` for the period, reverting it to due automatically (assuming waste records still exist and the period has ended).
 - The single `GET /reports/{year}/{cadence}/{period}` endpoint serves both preview and retrieval — if no report exists it generates the aggregated data on the fly; if a report exists it returns the stored snapshot.
-- Period filtering (only showing ended periods) means users cannot create reports for the current in-progress period.
+- The list endpoint shows periods once they have started (including the current in-progress period). The POST endpoint enforces that a period must have ended before a report can be created. This separation allows users to view aggregated data for the current period without being able to submit prematurely.
