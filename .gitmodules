@@ -34,3 +34,6 @@
 	path = lib/epr-re-ex-admin-frontend-tests
 	url = git@github.com:DEFRA/epr-re-ex-admin-frontend-tests.git
 	branch = main
+[submodule "lib/epr-re-ex-entra-stub"]
+	path = lib/epr-re-ex-entra-stub
+	url = git@github.com:DEFRA/epr-re-ex-entra-stub.git
