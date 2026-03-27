@@ -19,7 +19,7 @@
   "license": "OGL-UK-3.0",
   "overrides": {},
   "devDependencies": {
-    "@dotenvx/dotenvx": "1.55.1",
+    "@dotenvx/dotenvx": "1.57.2",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
     "mongodb": "7.1.0",
