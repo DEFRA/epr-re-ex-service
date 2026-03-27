@@ -8,19 +8,18 @@ Proposed
 
 ## Context
 
-During 3 amigos for the registered-only epic (PAE-735), the team identified four edge cases that could affect summary log uploads for non-accredited operators:
+During 3 amigos for the registered-only epic (PAE-735), the team identified three edge cases that could affect summary log uploads for non-accredited operators:
 
 1. Suspension of an accreditation and the impact on summary log uploads
 2. Cancellation of an accreditation and the impact on summary log uploads
 3. Movement from registered-only to accredited and the impact on summary log uploads
-4. Non-mandatory fields on registered-only summary log uploads and the positions an operator can get themselves into
 
 This document records what the investigation found for each case. The investigation covered the backend validation pipeline, the domain model, the frontend gating logic, and the relevant table schemas.
 
 A subsequent review against the team wiki revealed two further gaps not covered by the original spike:
 
-5. Cadence transition rules — the business rules governing when an operator switches between quarterly and monthly reporting, and when they revert
-6. Report completeness gating — whether the system should block report creation when mandatory fields are missing from uploaded data
+4. Cadence transition rules — the business rules governing when an operator switches between quarterly and monthly reporting, and when they revert
+5. Report completeness gating — whether the system should block report creation when mandatory fields are missing from uploaded data
 
 ### Background: how the system classifies operators
 
@@ -75,7 +74,7 @@ Three follow-up items:
 
 - A policy decision is needed on whether cancelled operators should be blocked from uploading. Until resolved, the existing behaviour (permit uploads, ignore post-cancellation rows in waste balance) is not actively harmful.
 - The `AccreditationOther` typedef should be corrected to include `'cancelled'`.
-- The cadence reversion logic for cancelled operators is unimplemented — see Finding 5.
+- The cadence reversion logic for cancelled operators is unimplemented — see Finding 4.
 
 ---
 
@@ -110,36 +109,11 @@ The mechanical transition works for uploads, but historical data is silently los
 - **User guidance**: There is no user-facing message or notification explaining that the operator must switch to the accredited template after gaining accreditation. The first attempt with the old template will produce a `PROCESSING_TYPE_MISMATCH` error — a confusing experience without context.
 - **Date granularity**: The implicit change from monthly to daily dates when re-submitting carried-over rows is not explained to the user and is not documented anywhere. It is likely correct behaviour but should be confirmed with the business.
 - **Historical record visibility**: Report aggregation is broken for registrations with mixed processing type history. Historical registered-only records are silently excluded after the operator category transitions. A dedicated story is needed to define how pre-transition data should be handled in reports.
-- **Mid-quarter accreditation cadence**: Per the business rules, if an operator is accredited at any point in a quarter, the entire quarter is treated as monthly — including months before the accreditation date. See Finding 5 for the gap this creates.
+- **Mid-quarter accreditation cadence**: Per the business rules, if an operator is accredited at any point in a quarter, the entire quarter is treated as monthly — including months before the accreditation date. See Finding 4 for the gap this creates.
 
 ---
 
-### 4. Non-mandatory fields on registered-only uploads
-
-**Current behaviour**
-
-All Joi field schemas in the registered-only table schemas use `.optional()` (see `src/domain/summary-logs/table-schemas/shared/field-schemas.js`). The validation pipeline strips empty and unfilled cells before running Joi validation (`filterToFilled` in `validation-pipeline.js`). Because registered-only schemas have no `classifyForWasteBalance` function, every syntactically valid row receives outcome `EXCLUDED` with no issues, regardless of which fields are populated.
-
-The practical consequence is that a row containing only a `ROW_ID` — with every other field empty — passes validation and is persisted as a waste record.
-
-Contrast with accredited templates: their `classifyForWasteBalance` implementations check a defined set of `WASTE_BALANCE_FIELDS` and return `MISSING_REQUIRED_FIELD` reasons for any row missing those fields. This does not block submission, but it does surface the sparse rows to the user on the check page.
-
-**Positions an operator can get into**
-
-- A row with month and weight but no supplier details is silently accepted.
-- A row with no month filled (the dropdown stays on "Choose option") is silently accepted, persisted without a date.
-- A completely empty row (ROW_ID only) is accepted and permanently locked in by row continuity — it can never be removed from future uploads.
-- Multiple rounds of partly-filled rows accumulate: the operator sees a valid row count on the check page with no indication of sparse data quality.
-
-**Assessment**
-
-There is no "minimum viable row" concept for registered-only uploads. The system accepts and permanently retains sparse rows without surfacing the problem to the user. This is the primary risk from this edge case investigation.
-
-**Recommendation**: Introduce a `classifyForFields` mechanism for registered-only schemas — analogous to `classifyForWasteBalance` in accredited schemas — that identifies rows missing key fields (at minimum: month and weight for received-loads tables) and returns `MISSING_REQUIRED_FIELD` reasons. These would be surfaced on the check page as rows with data quality issues, without blocking submission. This matches the existing pattern and avoids introducing a new validation concept.
-
----
-
-### 5. Cadence transition rules
+### 4. Cadence transition rules
 
 **Business rules (from team wiki)**
 
@@ -180,7 +154,7 @@ These are design decisions that go beyond the scope of this spike. A separate st
 
 ---
 
-### 6. Report completeness gating
+### 5. Report completeness gating
 
 **Business requirement (from team wiki)**
 
@@ -202,7 +176,7 @@ Report creation (`POST /reports/{year}/{cadence}/{period}` in `src/reports/appli
 
 The upload-time `classifyForWasteBalance` mechanism in accredited schemas does surface rows with `MISSING_REQUIRED_FIELD` issues on the check page, but this does not block upload or report creation.
 
-For registered-only schemas, there is no equivalent — see Finding 4.
+Registered-only schemas have no `classifyForWasteBalance`, so sparse rows receive no issue classification at upload time.
 
 **Assessment**
 
@@ -212,14 +186,13 @@ The report completeness requirement is a policy question not yet resolved. The D
 
 ## Decision
 
-The six findings have materially different risk profiles:
+The five findings have materially different risk profiles:
 
 1. **Suspension** — no action required. The system handles this correctly.
-2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix, and cadence reversion logic (see Finding 5).
+2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix, and cadence reversion logic (see Finding 4).
 3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is silently lost from report aggregation after the transition, user-facing guidance is missing, and mid-quarter cadence rules are not implemented.
-4. **Non-mandatory fields** — medium risk. A minimum viable row check should be added to registered-only table schemas.
-5. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented. A separate design story is required before implementation.
-6. **Report completeness gating** — policy not yet resolved. No code change until agreed.
+4. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented. A separate design story is required before implementation.
+5. **Report completeness gating** — policy not yet resolved. No code change until agreed.
 
 ## Consequences
 
@@ -227,7 +200,6 @@ The following follow-up tickets are created:
 
 - **Tech / minor bug**: Fix `AccreditationOther` typedef to include `'cancelled'` status
 - **Policy decision**: Determine whether cancelled accredited operators should be blocked from uploading (no code change until decision is made)
-- **Story**: Add `classifyForFields` (or equivalent) to registered-only schemas to surface sparse rows on the check page, matching the `MISSING_REQUIRED_FIELD` pattern used in accredited schemas
 - **Story**: Add user-facing guidance (error message content or documentation) to explain the template switch required when gaining accreditation
 - **Bug / data loss**: Historical registered-only waste records are silently excluded from report aggregation after an operator transitions to accredited, because the accredited operator category looks up a different date field name. Needs design work to decide how pre-transition data should be represented in reports.
 - **Story / design spike**: Implement cadence transition rules — mid-quarter accreditation makes the full quarter monthly; cancellation reverts to quarterly only after one full non-accredited quarter. Requires a design decision on how to handle mixed-cadence history in the reporting calendar.
