@@ -29,3 +29,5 @@
 * [27. Modular monolith structure](0027-modular-monolith-structure.md)
 * [28. Reporting API and Due Rules](0028-reporting-api-and-due-rules.md)
 * [29. Compute on write for loadsByWasteRecordType](0029-compute-on-write-for-loads-by-waste-record-type.md)
+* [30. User-Entered PERN Data for Exporter Reports](0030-user-entered-pern-data-for-exporter-reports.md)
+* [31. URL and Folder Structure for the Four Reporting Flows](0031-reporting-flow-url-and-folder-structure.md)
