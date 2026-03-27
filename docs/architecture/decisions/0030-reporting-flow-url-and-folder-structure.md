@@ -182,17 +182,17 @@ Note: `prn-summary` exists in both `exporter/` and `reprocessor/` because the pa
 
 The `REPORTS` entity (see `reporting-data-model.md`) already defines all fields. The table below records which fields require user entry during the creation flow, which flow(s) they apply to, and their PATCH key.
 
-| Field                                  | User-entered on            | Applies to                    | PATCH key                                        |
-| -------------------------------------- | -------------------------- | ----------------------------- | ------------------------------------------------ |
-| `recyclingActivity.tonnageRecycled`    | `tonnes-recycled`          | Reprocessors (flows 3 & 4)    | TBD                                              |
-| `recyclingActivity.tonnageNotRecycled` | `tonnes-not-recycled`      | Reprocessors (flows 3 & 4)    | TBD                                              |
-| `prnData.totalRevenue`                 | `prn-summary`              | Accredited only (flows 1 & 3) | `prnRevenue`                                     |
-| `prnData.freeTonnage`                  | `free-perns` / `free-prns` | Accredited only (flows 1 & 3) | `freePernTonnage` (exporter) / TBD (reprocessor) |
-| `supportingInformation`                | `supporting-information`   | All four flows                | `supportingInformation`                          |
+| Field                                  | User-entered on            | Applies to                    | PATCH key                                                     |
+| -------------------------------------- | -------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| `recyclingActivity.tonnageRecycled`    | `tonnes-recycled`          | Reprocessors (flows 3 & 4)    | `tonnageRecycled`                                             |
+| `recyclingActivity.tonnageNotRecycled` | `tonnes-not-recycled`      | Reprocessors (flows 3 & 4)    | `tonnageNotRecycled`                                          |
+| `prnData.totalRevenue`                 | `prn-summary`              | Accredited only (flows 1 & 3) | `prnRevenue`                                                  |
+| `prnData.freeTonnage`                  | `free-perns` / `free-prns` | Accredited only (flows 1 & 3) | `freePernTonnage` (exporter) / `freePrnTonnage` (reprocessor) |
+| `supportingInformation`                | `supporting-information`   | All four flows                | `supportingInformation`                                       |
 
 All other `REPORTS` fields (`recyclingActivity.totalTonnageReceived`, `recyclingActivity.suppliers`, `exportActivity.*`, `wasteSent.*`, `prnData.tonnageIssued`) are system-derived at report creation from summary log and PRN/PERN issuance data — they do not require dedicated entry pages. This was confirmed by the Figma designs: the registered-only flows proceed directly from the detail/agree-to-proceed page (which displays all system-derived data) to `supporting-information` without any intermediate data-entry steps.
 
-The `prnData.averagePricePerTonne` field is backend-computed on every PATCH (see ADR 0030).
+The `prnData.averagePricePerTonne` field is backend-computed on every PATCH.
 
 ### Check-your-answers page — conditional sections
 
@@ -211,4 +211,3 @@ The CYA page renders sections conditionally based on flow:
 - Route guards must validate that flow-specific pages are only accessible for the correct combination of org type and cadence. A reprocessor requesting `/prn-summary` without `monthly` cadence, or an exporter requesting `/tonnes-recycled`, should be redirected to the reports list.
 - The `reprocessor/prn-summary` and `exporter/prn-summary` controllers share the same URL path (`{base}/prn-summary`) but serve different content — the route handler dispatches to the correct controller based on registration type.
 - Similarly, `{base}/free-prns` and `{base}/free-perns` are separate paths — the navigation chain ensures only the correct one is reachable for a given registration.
-- The PATCH keys for reprocessor tonnage fields (`tonnageRecycled`, `tonnageNotRecycled`) and the reprocessor free-PRNs field are TBD — these need a backend ADR addendum before implementation.
