@@ -106,7 +106,6 @@ In other words: any data the operator submitted under the registered-only templa
 
 The mechanical transition works for uploads, but historical data is silently lost from report aggregation. Four follow-up items are identified:
 
-- **User guidance**: There is no user-facing message or notification explaining that the operator must switch to the accredited template after gaining accreditation. The first attempt with the old template will produce a `PROCESSING_TYPE_MISMATCH` error — a confusing experience without context.
 - **Date granularity**: The implicit change from monthly to daily dates when re-submitting carried-over rows is not explained to the user and is not documented anywhere. It is likely correct behaviour but should be confirmed with the business.
 - **Historical record visibility**: Report aggregation is broken for registrations with mixed processing type history. Historical registered-only records are silently excluded after the operator category transitions. A dedicated story is needed to define how pre-transition data should be handled in reports.
 - **Mid-quarter accreditation cadence**: Per the business rules, if an operator is accredited at any point in a quarter, the entire quarter is treated as monthly — including months before the accreditation date. See Finding 4 for the gap this creates.
@@ -190,7 +189,7 @@ The five findings have materially different risk profiles:
 
 1. **Suspension** — no action required. The system handles this correctly.
 2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix, and cadence reversion logic (see Finding 4).
-3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is silently lost from report aggregation after the transition, user-facing guidance is missing, and mid-quarter cadence rules are not implemented.
+3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is silently lost from report aggregation after the transition, and mid-quarter cadence rules are not implemented.
 4. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented. A separate design story is required before implementation.
 5. **Report completeness gating** — policy not yet resolved. No code change until agreed.
 
@@ -200,7 +199,6 @@ The following follow-up tickets are created:
 
 - **Tech / minor bug**: Fix `AccreditationOther` typedef to include `'cancelled'` status
 - **Policy decision**: Determine whether cancelled accredited operators should be blocked from uploading (no code change until decision is made)
-- **Story**: Add user-facing guidance (error message content or documentation) to explain the template switch required when gaining accreditation
 - **Bug / data loss**: Historical registered-only waste records are silently excluded from report aggregation after an operator transitions to accredited, because the accredited operator category looks up a different date field name. Needs design work to decide how pre-transition data should be represented in reports.
 - **Story / design spike**: Implement cadence transition rules — mid-quarter accreditation makes the full quarter monthly; cancellation reverts to quarterly only after one full non-accredited quarter. Requires a design decision on how to handle mixed-cadence history in the reporting calendar.
 - **Policy decision**: Determine whether report creation should be blocked when mandatory supplier fields are missing. Implement gating on `POST /reports` once policy is agreed.
