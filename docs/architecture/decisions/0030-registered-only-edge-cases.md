@@ -104,7 +104,7 @@ In other words: any data the operator submitted under the registered-only templa
 
 **Assessment**
 
-The mechanical transition works for uploads, but historical data is silently lost from report aggregation. Four follow-up items are identified:
+The mechanical transition works for uploads, but historical data is silently lost from report aggregation. Three follow-up items are identified:
 
 - **Date granularity**: The implicit change from monthly to daily dates when re-submitting carried-over rows is not explained to the user and is not documented anywhere. It is likely correct behaviour but should be confirmed with the business.
 - **Historical record visibility**: Report aggregation is broken for registrations with mixed processing type history. Historical registered-only records are silently excluded after the operator category transitions. A dedicated story is needed to define how pre-transition data should be handled in reports.
