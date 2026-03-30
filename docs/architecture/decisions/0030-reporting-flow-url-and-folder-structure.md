@@ -129,22 +129,8 @@ Flow-specific controllers live in `exporter/` and `reprocessor/` sub-directories
 ```
 src/server/reports/
   index.js                                      ← route registration for all flows
-  constants.js
-  en.json
   helpers/
-    build-table-rows.js
-    create-report.js
-    delete-report.js
-    derive-submission-status.js
-    fetch-report-detail.js
-    fetch-reporting-periods.js
-    format-period-label.js
-    format-submission-status.js
-    is-session-match.js
-    period-params-schema.js
-    update-report-status.js
-    update-report.js
-    versioned-payload-schema.js
+    ...
   exporter/
     prn-summary-controller.js
     prn-summary.njk
@@ -159,7 +145,7 @@ src/server/reports/
     prn-summary.njk
     free-prns-controller.js
     free-prns.njk
-  check-controller.js
+  check-your-answers-controller.js
   check-your-answers.njk
   confirm-delete.njk
   create-controller.js
