@@ -299,13 +299,14 @@ erDiagram
 
 ## MongoDB Indexes
 
-| Collection | Index fields                                                                                    | Options |
-| ---------- | ----------------------------------------------------------------------------------------------- | ------- |
-| `reports`  | `{ id: 1 }`                                                                                     | unique  |
-| `reports`  | `{ organisationId: 1, registrationId: 1 }`                                                      | —       |
-| `reports`  | `{ organisationId: 1, registrationId: 1, year: 1, cadence: 1, period: 1, submissionNumber: 1 }` | unique  |
+| Collection | Index fields                                                                                    | Options                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `reports`  | `{ id: 1 }`                                                                                     | unique                                                                     |
+| `reports`  | `{ organisationId: 1, registrationId: 1 }`                                                      | —                                                                          |
+| `reports`  | `{ organisationId: 1, registrationId: 1, year: 1, cadence: 1, period: 1, submissionNumber: 1 }` | unique                                                                     |
+| `reports`  | `{ organisationId: 1, registrationId: 1, year: 1, cadence: 1, period: 1 }`                      | unique, partial: `status.currentStatus $in [in_progress, ready_to_submit]` |
 
-The compound unique index enforces one document per submission slot. A duplicate key error (code 11000) is translated to a `409 Conflict` response.
+The compound unique index enforces one document per submission slot. The partial unique index (`reports_one_active_draft_per_slot`) enforces that at most one active draft (`in_progress` or `ready_to_submit`) can exist for a given `(organisationId, registrationId, year, cadence, period)` at any time, regardless of `submissionNumber`. Both violations produce a duplicate key error (code 11000), translated to a `409 Conflict` response.
 
 ## Example
 
