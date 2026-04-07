@@ -6,7 +6,7 @@ runs:
   steps:
     - name: Check branch name
       uses: actions/github-script@v8
-      if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
+      if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') && !startsWith(github.head_ref, 'renovate/') }}
       with:
         script: |
           const branchName = context.payload.pull_request.head.ref;
@@ -21,7 +21,7 @@ runs:
 
     - name: Add ticket link to PR description
       uses: actions/github-script@v8
-      if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
+      if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') && !startsWith(github.head_ref, 'renovate/') }}
       with:
         script: |
           const { pull_request, repository } = context.payload;
