@@ -7,10 +7,10 @@ runs:
     - name: Detect automated PR
       id: check-bot
       shell: bash
+      env:
+        BRANCH: ${{ github.head_ref }}
+        ACTOR: ${{ github.actor }}
       run: |
-        BRANCH="${{ github.head_ref }}"
-        ACTOR="${{ github.actor }}"
-
         if [[ "$ACTOR" == *"[bot]" ]] || \
            [[ "$BRANCH" == dependabot/* ]] || \
            [[ "$BRANCH" == renovate/* ]] || \
