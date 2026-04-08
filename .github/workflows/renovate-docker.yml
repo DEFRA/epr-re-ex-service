@@ -16,15 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/renovate-docker
         with:
-          node-version: 24
-          cache: npm
-
-      - uses: renovatebot/github-action@v46.1.8
-        with:
-          renovate-version: 43.108.1
-          mount-docker-socket: false
           token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          RENOVATE_REPOSITORIES: ${{ github.repository }}
