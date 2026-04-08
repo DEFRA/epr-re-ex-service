@@ -1,5 +1,11 @@
 {
   "minimumReleaseAge": "3 days",
   "recreateWhen": "always",
-  "commitMessagePrefix": "Renovate:"
+  "commitMessagePrefix": "Renovate:",
+  "packageRules": [
+    {
+      "matchManagers": ["docker-compose"],
+      "groupName": "docker compose images"
+    }
+  ]
 }
