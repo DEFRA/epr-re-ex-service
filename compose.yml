@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: nginxproxy/nginx-proxy:1.4
+    image: nginxproxy/nginx-proxy:1.10
     ports:
       - '7300:80'
     environment:
