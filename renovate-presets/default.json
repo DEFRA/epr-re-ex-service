@@ -1,0 +1,5 @@
+{
+  "minimumReleaseAge": "3 days",
+  "recreateWhen": "always",
+  "commitMessagePrefix": "Renovate:"
+}
