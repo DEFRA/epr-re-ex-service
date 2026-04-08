@@ -38,7 +38,7 @@ services:
       - cdp-tenant
 
   mongodb:
-    image: mongo:7.0.28
+    image: mongo:7.0.31
     networks:
       - cdp-tenant
     ports:
