@@ -13,7 +13,7 @@ services:
       - cdp-tenant
 
   localstack:
-    image: localstack/localstack:3.0.2
+    image: localstack/localstack:3.8.1
     ports:
       - '4566:4566' # LocalStack Gateway
       - '4510-4559:4510-4559' # external services port range
