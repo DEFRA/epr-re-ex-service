@@ -5,6 +5,7 @@
   "packageRules": [
     {
       "matchManagers": ["docker-compose"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "docker compose images"
     }
   ]
