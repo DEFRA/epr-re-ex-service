@@ -13,5 +13,7 @@
       "path": "lib/epr-re-ex-admin-fe-perf-tests"
     }
   ],
-  "settings": {}
+  "settings": {
+    "eslint.useRealpaths": true
+  }
 }

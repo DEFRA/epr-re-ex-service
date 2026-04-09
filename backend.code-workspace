@@ -13,5 +13,7 @@
       "path": "lib/epr-backend-performance-tests"
     }
   ],
-  "settings": {}
+  "settings": {
+    "eslint.useRealpaths": true
+  }
 }
