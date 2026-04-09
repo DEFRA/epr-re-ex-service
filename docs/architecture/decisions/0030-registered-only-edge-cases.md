@@ -6,6 +6,24 @@ Date: 2026-03-27
 
 Proposed
 
+## Executive summary
+
+Three findings require no immediate code change: suspension is already handled correctly (Finding 1), cancellation is low-risk while policy is pending (Finding 2), and report completeness gating is awaiting a policy decision (Finding 5). Two carry real risk if left unaddressed: silent data loss after a registered-only → accredited transition (Finding 3) and incorrect cadence rules for mid-quarter transitions and cancellations (Finding 4).
+
+### Impact of doing nothing
+
+- **Data silently disappears from reports.** If a registered-only operator gains accreditation, all waste records they submitted before the transition are excluded from every report generated afterwards. There is no error, no warning — the data just stops appearing. This is the most serious finding (Finding 3).
+- **Cadence rules are wrong for edge cases.** An operator accredited mid-quarter gets the right monthly periods going forward, but their pre-accreditation months in that quarter show empty reports (same root cause as above). A cancelled operator never reverts to quarterly — they stay on monthly reporting indefinitely (Finding 4).
+- **Cancelled operators can keep uploading.** No guard exists. Post-cancellation rows are harmlessly ignored in waste balance, so the practical risk is low, but it may not match regulatory intent (Finding 2).
+- **Sparse registered-only rows are permanently locked in.** A row with only ROW_ID and no mandatory fields is accepted, passes no classification check, and becomes immutable via row continuity. There is no mechanism to flag or fix these later (Finding 5).
+
+### Questions for the business
+
+1. **Should cancelled operators be blocked from uploading?** The system currently permits it (post-cancellation data is ignored in waste balance). Is this intentional to allow late historical submissions, or should uploads be blocked after cancellation?
+2. **How should pre-transition data appear in reports after an operator gains accreditation?** Options: (a) show it under the registered-only category alongside the new accredited data, (b) migrate it to the accredited format, or (c) accept it won't appear (and document that decision).
+3. **Is incomplete data better than no data?** The regulator wants to block report creation when mandatory fields are missing. The team flags that this incentivises fake data. Which risk does the business prefer to carry?
+4. **When an operator is accredited mid-quarter, should pre-accreditation months in that quarter appear as monthly reports?** The wiki says yes (the whole quarter becomes monthly), but the data for those months may only exist at monthly granularity — meaning the reports would show the right periods but potentially miss records.
+
 ## Context
 
 During 3 amigos for the registered-only epic (PAE-735), the team identified three edge cases that could affect summary log uploads for non-accredited operators:
