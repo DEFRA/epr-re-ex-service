@@ -42,7 +42,8 @@ flowchart LR
     REG -.->|"processing type\nand material\nselect schemas"| SL
     REG -.->|"suspension\ncascades"| ACC
     REG -.->|"site address\ndenormalised\ninto response"| RPT
-    ORS -.->|"approval date\naffects classification;\nsite names captured\nat upload time"| WR
+    ORS -.->|"per-accreditation\napproval date affects\nclassification;\nsite names captured\nat upload time"| WR
+    ORS -.->|"site name and\ncountry resolved\nlive at read time"| RPT
     ORG -.->|"name and trading\nname snapshotted\nat creation"| PRN
     ACC -.->|"details snapshotted\nat creation"| PRN
     ACC -.->|"accredited vs\nregistered-only\nsets cadence"| RPT
@@ -77,7 +78,7 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Waste Record data** | `ADD_PRODUCT_WEIGHT` (reprocessor output only) | If not "Yes" → row EXCLUDED |
 | **Waste Record data** | `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (exporter only) | Switches which tonnage field is used |
 | **Waste Record data** | Tonnage field (varies by table) | The actual credit or debit amount |
-| **ORS approval data** (exporter only) | ORS `validFrom` date matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance |
+| **ORS approval data** (exporter only) | ORS `validFrom` date (per accreditation, resolved via `registration.overseasSites`) matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance |
 | **Existing balance** | Prior transactions per rowId | Delta mechanism — only creates a transaction if the target amount differs from what was previously credited |
 
 ### PRN operations read
@@ -97,7 +98,8 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Waste Records** | Date fields (varies by operator category) | Determines which records fall in which reporting period |
 | **Waste Records** | Tonnage fields | Summed for received, exported, sent-on totals |
 | **Waste Records** | `SUPPLIER_NAME`, `ACTIVITIES_CARRIED_OUT_BY_SUPPLIER` | Listed in recycling activity section |
-| **Waste Records** | `OSR_ID`, `OSR_NAME` | Listed as overseas sites in export activity section |
+| **Waste Records** | `OSR_ID` | Groups exported waste by overseas site |
+| **Overseas Sites** (live) | `siteName`, `country` | Resolved from ORS reference data at read time via `getOrsDetailsMap()` |
 | **Waste Records** | `FINAL_DESTINATION_NAME`, `FINAL_DESTINATION_FACILITY_TYPE` | Listed in waste sent section, categorised by facility type |
 | **PRNs** (accredited only) | Tonnage of PRNs with `status.issued.at` in period | PRN issuance data in report |
 | **Registration** | `accreditationId` (present or absent) | Determines cadence: monthly (accredited) or quarterly (registered-only) |
@@ -287,12 +289,11 @@ flowchart TD
     T --> CLASS["Row classification\nchanges for exporters:\nORS approval date\nchecked against\nexport date (VAL014)"]:::stale
     T --> WB["Waste Balance may\nbe stale if rows\nare newly included\nor excluded"]:::stale
     T --> WR["Existing Waste Records\nretain old ORS ID\nand name (captured\nfrom spreadsheet\nat upload time)"]:::stale
-    T --> RPT_C["Computed Reports show\nstale ORS names\n(derived from\nWaste Records)"]:::stale
+    T --> RPT_C["Computed Reports\nautomatically reflect\ncurrent ORS names\n(read live from\nORS reference data)"]:::auto
     T --> RPT_P["Persisted Reports\ncontain stale\nORS snapshot"]:::stale
 
     WB --> WB_FIX["Corrected on next\nSummary Log\nsubmission"]:::manual
     WR --> WR_FIX["New Summary Log\nupload captures\ncurrent ORS details"]:::manual
-    WR_FIX --> RPT_C_FIX["Computed Reports then\nreflect updated names"]:::auto
     RPT_P --> RPT_P_FIX["Delete and recreate\naffected Reports"]:::manual
 ```
 
@@ -325,7 +326,7 @@ flowchart TD
 | **Accreditation granted/removed** | Schema changes | Created or removed | Cadence changes | Historical | — |
 | **Registration details changed** | Unaffected (IDs only) | Unaffected | Site address auto-corrected | — | Retain old snapshot |
 | **Organisation details changed** | Unaffected (IDs only) | Unaffected | Unaffected | Unaffected | Retain old snapshot |
-| **ORS data changed** | Retain old snapshot | **Stale** until next submission (VAL014 classification) | **Stale** (old names) | **Stale** — recreate | — |
+| **ORS data changed** | Retain old snapshot | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | — |
 | **Pending Report exists** | — | — | — | — | — (submission blocked) |
 
 ## Key Architectural Insight
