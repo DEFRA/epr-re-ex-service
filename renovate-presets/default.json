@@ -1,0 +1,29 @@
+{
+  "minimumReleaseAge": "3 days",
+  "recreateWhen": "always",
+  "commitMessagePrefix": "Renovate:",
+  "packageRules": [
+    {
+      "matchManagers": ["docker-compose"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "docker compose images"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "matchDatasources": ["docker", "node-version"],
+      "matchPackageNames": [
+        "/(?:^|/)node$/",
+        "!defradigital/node",
+        "!calico/node",
+        "!docker.io/calico/node",
+        "!ghcr.io/devcontainers/features/node",
+        "!kindest/node"
+      ],
+      "groupName": "Node.js"
+    }
+  ]
+}
