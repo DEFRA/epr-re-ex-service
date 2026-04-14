@@ -354,7 +354,7 @@ services:
 
   selenium-chrome:
     profiles: ['all', 'journey-test']
-    image: selenium/standalone-chrome:123.0
+    image: selenium/standalone-chrome:145.0
     ports:
       - 4444:4444
     environment:
