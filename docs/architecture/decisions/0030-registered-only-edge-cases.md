@@ -91,7 +91,7 @@ There is no upload guard on `cancelled` status. A cancelled operator can initiat
 Three follow-up items:
 
 - A policy decision is needed on whether cancelled operators should be blocked from uploading. Until resolved, the existing behaviour (permit uploads, ignore post-cancellation rows in waste balance) is not actively harmful.
-- The `AccreditationOther` typedef should be corrected to include `'cancelled'`.
+- The `AccreditationOther` typedef should be corrected to include `'cancelled'`. **Done** — fixed in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040), using `Extract<RegAccStatus, ...>` to stay in sync with the domain model.
 - The cadence reversion logic for cancelled operators is unimplemented — see Finding 4.
 
 ---
@@ -125,7 +125,7 @@ In other words: any data the operator submitted under the registered-only templa
 The mechanical transition works for uploads, but historical data is silently lost from report aggregation. Three follow-up items are identified:
 
 - **Date granularity**: The implicit change from monthly to daily dates when re-submitting carried-over rows is not explained to the user and is not documented anywhere. It is likely correct behaviour but should be confirmed with the business.
-- **Historical record visibility**: Report aggregation is broken for registrations with mixed processing type history. Historical registered-only records are silently excluded after the operator category transitions. A dedicated story is needed to define how pre-transition data should be handled in reports.
+- **Historical record visibility**: Report aggregation is broken for registrations with mixed processing type history. Historical registered-only records are silently excluded after the operator category transitions. A dedicated story is needed to define how pre-transition data should be handled in reports. Diagnostics tracking excluded record counts (`diagnostics.wasteReceivedRecordsExcluded`) and a warning log at the GET report-detail route were added in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040) to surface this silently-dropped data; the underlying fix still requires a business decision.
 - **Mid-quarter accreditation cadence**: Per the business rules, if an operator is accredited at any point in a quarter, the entire quarter is treated as monthly — including months before the accreditation date. See Finding 4 for the gap this creates.
 
 ---
@@ -206,7 +206,7 @@ The report completeness requirement is a policy question not yet resolved. The D
 The five findings have materially different risk profiles:
 
 1. **Suspension** — no action required. The system handles this correctly.
-2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix, and cadence reversion logic (see Finding 4).
+2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix (done — [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040)), and cadence reversion logic (see Finding 4).
 3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is silently lost from report aggregation after the transition, and mid-quarter cadence rules are not implemented.
 4. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented. A separate design story is required before implementation.
 5. **Report completeness gating** — policy not yet resolved. No code change until agreed.
@@ -215,8 +215,8 @@ The five findings have materially different risk profiles:
 
 The following follow-up tickets are created:
 
-- **Tech / minor bug**: Fix `AccreditationOther` typedef to include `'cancelled'` status
+- **Tech / minor bug**: Fix `AccreditationOther` typedef to include `'cancelled'` status. **Done** — implemented in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040).
 - **Policy decision**: Determine whether cancelled accredited operators should be blocked from uploading (no code change until decision is made)
-- **Bug / data loss**: Historical registered-only waste records are silently excluded from report aggregation after an operator transitions to accredited, because the accredited operator category looks up a different date field name. Needs design work to decide how pre-transition data should be represented in reports.
+- **Bug / data loss**: Historical registered-only waste records are silently excluded from report aggregation after an operator transitions to accredited, because the accredited operator category looks up a different date field name. Needs design work to decide how pre-transition data should be represented in reports. Diagnostics and warning logging to surface excluded records were added in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040); the underlying fix still requires a design decision.
 - **Story / design spike**: Implement cadence transition rules — mid-quarter accreditation makes the full quarter monthly; cancellation reverts to quarterly only after one full non-accredited quarter. Requires a design decision on how to handle mixed-cadence history in the reporting calendar.
 - **Policy decision**: Determine whether report creation should be blocked when mandatory supplier fields are missing. Implement gating on `POST /reports` once policy is agreed.
