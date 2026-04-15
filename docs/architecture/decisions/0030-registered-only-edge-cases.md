@@ -43,7 +43,7 @@ A subsequent review against the team wiki revealed two further gaps not covered 
 
 The system classifies operators into two categories based on whether the registration has a linked accreditation with an `accreditationNumber`:
 
-- **Accredited**: registration has an `accreditationId` linking to an `Accreditation` with a non-null `accreditationNumber` (status `approved` or `suspended`). Must use accredited templates: `REPROCESSOR_INPUT`, `REPROCESSOR_OUTPUT`, or `EXPORTER`.
+- **Accredited**: registration has an `accreditationId` linking to an `Accreditation` with a non-null `accreditationNumber` (in practice this includes operators whose accreditation is `approved`, `suspended`, or `cancelled`, because none of those states clear `accreditationNumber`). Must use accredited templates: `REPROCESSOR_INPUT`, `REPROCESSOR_OUTPUT`, or `EXPORTER`.
 - **Registered-only**: registration has no `accreditationId`, or the linked accreditation has no `accreditationNumber`. Must use registered-only templates: `REPROCESSOR_REGISTERED_ONLY` or `EXPORTER_REGISTERED_ONLY`.
 
 This classification is enforced by `isRegisteredOnlyMismatch` in `src/application/summary-logs/validations/processing-type.js`. A mismatch between the operator class and the uploaded template type produces a fatal `PROCESSING_TYPE_MISMATCH` error.
