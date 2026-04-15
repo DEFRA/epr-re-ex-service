@@ -15,7 +15,7 @@ Three findings require no immediate code change: suspension is already handled c
 - **Data silently disappears from reports.** If a registered-only operator gains accreditation, all waste records they submitted before the transition are excluded from every report generated afterwards. There is no error, no warning — the data just stops appearing. This is the most serious finding (Finding 3).
 - **Cadence rules are wrong for edge cases.** An operator accredited mid-quarter gets the right monthly periods going forward, but their pre-accreditation months in that quarter show empty reports (same root cause as above). A cancelled operator never reverts to quarterly — they stay on monthly reporting indefinitely (Finding 4).
 - **Cancelled operators can keep uploading.** No guard exists. Post-cancellation rows are harmlessly ignored in waste balance, so the practical risk is low, but it may not match regulatory intent (Finding 2).
-- **Sparse registered-only rows are permanently locked in.** A row with only ROW_ID and no mandatory fields is accepted, passes no classification check, and becomes immutable via row continuity. There is no mechanism to flag or fix these later (Finding 5).
+- **Sparse registered-only rows have no classification mechanism at upload time, so they are not surfaced to the user for review.** Registered-only schemas lack the `classifyForWasteBalance` function that accredited schemas use to flag `MISSING_REQUIRED_FIELD` issues on the check page. Incomplete rows are silently accepted (Finding 5).
 
 ### Questions for the business
 
