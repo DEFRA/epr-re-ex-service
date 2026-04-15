@@ -84,7 +84,7 @@ There is no upload guard on `cancelled` status. A cancelled operator can initiat
 
 2. **Type definition gap**: The `AccreditationOther` typedef in `src/domain/organisations/accreditation.js` lists status values as `'created'|'rejected'|'archived'` but does not include `'cancelled'`, even though `REG_ACC_STATUS` in `src/domain/organisations/model.js` defines `cancelled` as a valid status. This is a minor inconsistency that could cause confusion.
 
-3. **Cadence reversion on cancellation**: Per the business rules, cancellation does not immediately revert the operator to quarterly reporting. The current (cancelled) quarter remains monthly, and the operator reverts to quarterly only for the first full quarter after cancellation. See Finding 5 for the gap this creates.
+3. **Cadence reversion on cancellation**: Per the business rules, cancellation does not immediately revert the operator to quarterly reporting. The current (cancelled) quarter remains monthly, and the operator reverts to quarterly only for the first full quarter after cancellation. See Finding 4 for the gap this creates.
 
 **Assessment**
 
