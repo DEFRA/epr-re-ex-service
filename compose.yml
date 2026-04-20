@@ -12,28 +12,34 @@ services:
     networks:
       - cdp-tenant
 
-  localstack:
-    image: localstack/localstack:3.8.1
+  floci:
+    image: hectorvent/floci:1.5.3
     ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
-    env_file:
-      - ./compose/aws.env
+      - '4566:4566'
     environment:
-      DEBUG: ${DEBUG:-1}
-      LS_LOG: WARN # Localstack DEBUG Level
-      SERVICES: s3,sqs,sns,firehose
-      LOCALSTACK_HOST: 127.0.0.1
+      FLOCI_HOSTNAME: floci
+      FLOCI_DEFAULT_REGION: eu-west-2
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    networks:
+      - cdp-tenant
+
+  floci-init:
+    image: amazon/aws-cli:2.17.43
+    entrypoint: /bin/sh
+    command: /setup/init.sh
+    depends_on:
+      floci:
+        condition: service_started
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: eu-west-2
+      AWS_DEFAULT_REGION: eu-west-2
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     volumes:
-      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/localstack:/etc/localstack/init/ready.d
-      - ./lib/epr-backend-journey-tests/docker/scripts/localstack/summarylogs:/etc/localstack/init/ready.d/summarylogs
-      - ./lib/epr-backend-journey-tests/docker/scripts/localstack/10-setup-buckets.sh:/etc/localstack/init/ready.d/10-setup-buckets.sh
-    healthcheck:
-      test: ['CMD', 'test', '-f', '/tmp/READY']
-      interval: 5s
-      start_period: 5s
-      retries: 10
+      - ./compose/floci:/setup:ro
+      - ./lib/epr-backend-journey-tests/docker/scripts/floci/summarylogs:/summarylogs:ro
     networks:
       - cdp-tenant
 
@@ -62,12 +68,12 @@ services:
       - data-redis:/data
 
   cdp-uploader:
-    image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
+    image: defradigital/cdp-uploader:1.15.0
     ports:
       - '7337:7337'
     depends_on:
-      localstack:
-        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     env_file:
@@ -79,8 +85,14 @@ services:
       NODE_ENV: development
       PORT: 7337
       REDIS_HOST: redis
-      S3_ENDPOINT: http://localstack:4566
-      SQS_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://floci:4566
+      SQS_ENDPOINT: http://floci:4566
+      # Floci requires path-form queue URLs (/<account>/<name>) for ReceiveMessage;
+      # cdp-uploader's baked defaults are bare names — override them here.
+      SQS_SCAN_RESULTS: http://floci:4566/000000000000/cdp-clamav-results
+      SQS_SCAN_RESULTS_CALLBACK: http://floci:4566/000000000000/cdp-uploader-scan-results-callback.fifo
+      SQS_DOWNLOAD_REQUESTS: http://floci:4566/000000000000/cdp-uploader-download-requests
+      SQS_MOCK_CLAMAV: http://floci:4566/000000000000/mock-clamav
       USE_SINGLE_INSTANCE_CACHE: true
       VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
       VIRTUAL_PATH: /
@@ -208,8 +220,8 @@ services:
         - path: ./lib/epr-re-ex-admin-frontend/webpack.config.js
           action: rebuild
     depends_on:
-      localstack:
-        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     env_file:
@@ -261,8 +273,8 @@ services:
     depends_on:
       defra-id-stub:
         condition: service_started
-      localstack:
-        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
       redis:
         condition: service_started
     env_file:
@@ -305,8 +317,8 @@ services:
         condition: service_started
       wire-mock:
         condition: service_healthy
-      localstack:
-        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
       mongodb:
         condition: service_started
     env_file:
@@ -335,9 +347,9 @@ services:
       PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_CLIENT_ID:-5357lgchj0h0fuomqyas5r87u}
       PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL: ${PACKAGING_RECYCLING_NOTES_EXTERNAL_API_JWKS_URL:-http://cognito-stub:9229/local_4D8shcYm/.well-known/jwks.json}
       PORT: 3001
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://floci:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk"]}
-      SQS_ENDPOINT: http://localstack:4566
+      SQS_ENDPOINT: http://floci:4566
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
     secrets:
       - govuk_notify_api_key
