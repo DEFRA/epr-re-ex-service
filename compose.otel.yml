@@ -25,8 +25,14 @@ services:
       - cdp-tenant
 
   epr-frontend:
-    # Bypass nodemon so OTel instrumentation loads before app
-    command: ['node', './src']
+    # One-shot asset build, then exec node with NODE_OPTIONS set so OTel loads
+    # before the app. Bypasses nodemon to avoid double-init and dropped spans;
+    # hot-reload is disabled in OTel mode — restart the container after edits.
+    command:
+      - sh
+      - -c
+      - |
+        env -u NODE_OPTIONS npm run build:frontend && exec node ./src
     environment:
       NODE_OPTIONS: --import /opt/otel/loader.mjs
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
