@@ -43,6 +43,9 @@ aws s3api put-bucket-notification-configuration \
   --notification-configuration '{"QueueConfigurations":[{"QueueArn":"arn:aws:sqs:eu-west-2:000000000000:mock-clamav","Events":["s3:ObjectCreated:*"]}]}'
 
 echo "[floci-init] Uploading summary log fixtures" >&2
+# Fixtures are bind-mounted from the epr-backend-journey-tests submodule at a
+# separate path from this script, so SL_DIR points at /summarylogs here whereas
+# the referenced upstream init uses /setup/summarylogs.
 SL_DIR=/summarylogs
 for pair in \
   "test-upload.xlsx:test-upload-key" \
