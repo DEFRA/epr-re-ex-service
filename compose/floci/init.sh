@@ -11,11 +11,15 @@ done
 echo "[floci-init] Floci is ready" >&2
 
 mk_bucket() {
-  aws s3api create-bucket --bucket "$1" >/dev/null 2>&1 || true
+  local bucket=$1
+  aws s3api create-bucket --bucket "$bucket" >/dev/null 2>&1 || true
+  return 0
 }
 
 mk_queue() {
-  aws sqs create-queue --queue-name "$1" >/dev/null 2>&1 || true
+  local queue_name=$1
+  aws sqs create-queue --queue-name "$queue_name" >/dev/null 2>&1 || true
+  return 0
 }
 
 echo "[floci-init] Creating buckets" >&2
