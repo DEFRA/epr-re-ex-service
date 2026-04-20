@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@opentelemetry/sdk-node": "^0.210.0",
-    "@opentelemetry/exporter-trace-otlp-proto": "^0.210.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.68.0"
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.215.0",
+    "@opentelemetry/auto-instrumentations-node": "0.73.0"
   }
 }
