@@ -32,6 +32,7 @@ In v2:
 - PRN operations continue to produce one transaction per action, as they already do. PRN transactions from v1 are carried over unchanged on cutover.
 - `amount` and `availableAmount` are stored as materialised projections of the ledger, kept in sync as transactions append.
 - The ledger is append-only. There is no per-row keying anywhere.
+- Entities carry `currentVersionId` only — the version that contributed to *this* event. `previousVersionIds[]` is dropped. Prior versions of a waste record are already recorded on the waste-records document; duplicating that history on every transaction inflates the ledger without adding audit value that isn't already available at source.
 
 ## Considered alternatives
 
@@ -42,7 +43,7 @@ In v2:
 ### Positive
 
 - Eliminates the class of bugs caused by per-row keying, including PAE-1364 and any future overlap in entity-identity space.
-- Bounds document growth in practice. One transaction per upload per waste record type means a daily-uploading reprocessor produces on the order of 365-1000 transactions per year, comfortably below the 16MB ceiling (≈30,000 at today's per-transaction size). This retires PAE-1382's 73,000-transactions-per-year projection.
+- Bounds document growth. One transaction per upload per waste record type means a daily-uploading reprocessor produces on the order of 365-1000 transactions per year, comfortably below the 16MB ceiling (≈30,000 at today's per-transaction size). Dropping `previousVersionIds[]` removes the per-entity unbounded-growth multiplier identified in PAE-1382. The scale risk is fully retired.
 - Brings the implementation back in line with the LLD. No silent design drift.
 - Ledger entries map one-to-one to business events, making the audit trail readable when it is eventually surfaced.
 - PRN code paths are untouched — they already follow the per-event pattern.
@@ -50,7 +51,7 @@ In v2:
 ### Negative
 
 - Requires a new collection and a cutover path. Readers must handle both v1 and v2 during transition.
-- `previousVersionIds[]` growth per entity is not addressed by this ADR. Per-event reduces the count of documents carrying this array from one-per-row to one-per-upload, but does not cap per-entity version-list size: rows re-submitted thousands of times still accumulate UUIDs on the entity that references them. Under per-event, a pathological upload (many rows, each heavily re-submitted) could still grow a single transaction past the 16MB ceiling via fat `entities[]`. Mitigation (truncate, externalise, or stop tracking per-event version history) is out of scope here but should be tracked as follow-up to PAE-1382.
+- Anyone reading a v2 transaction in isolation no longer sees the version history on the entity — they must consult the waste-records document to trace prior versions. This is a move from duplicated state to a single source of truth, but any tooling or UI that relied on `previousVersionIds[]` on the ledger must now follow the reference.
 - `summary-log-data-flow.md` needs correction to match the restored design — the "Prior transactions per rowId" and "delta mechanism" descriptions will no longer apply.
 
 ## Related
