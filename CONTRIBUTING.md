@@ -58,7 +58,7 @@ and shared services:
 - CDP Uploader
 - Defra ID Stub
 - Entra ID Stub // @todo
-- Localstack for AWS services (S3, SQS)
+- Floci for AWS services (S3, SQS)
 - MongoDB
 - Redis
 
