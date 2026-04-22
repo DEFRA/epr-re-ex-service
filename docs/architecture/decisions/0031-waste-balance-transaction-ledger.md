@@ -35,6 +35,12 @@ Each transaction document keeps almost the same field set as today. The only cha
 - `accreditationId` — top-level reference; partition key for the ledger (previously implicit in the embedding document).
 - `organisationId`, `registrationId` — denormalised onto each transaction. Organisation-level and registration-level queries (e.g. `GET /v1/organisations/{id}/waste-balances`) then resolve with a single indexed lookup rather than requiring a join from accreditation back to its parents. Both values are immutable for the lifetime of an accreditation, so the denormalisation is safe.
 - `number` — sequential per accreditation, starting at 1.
+- `source` — nested object recording the upstream event that caused this transaction, discriminated by `source.kind`:
+  - `summary-log-row` → `source.summaryLogRow: { summaryLogId, rowId, rowType }`
+  - `prn-operation` → `source.prnOperation: { prnId, operationType }`
+  - `manual-adjustment` → `source.manualAdjustment: { userId, reason }`
+
+  Exactly one sub-object is populated per transaction. This answers upstream queries directly — e.g. "which transactions did summary log S produce?" becomes a single indexed lookup on `source.summaryLogRow.summaryLogId`, and "which transactions did a specific row cause?" becomes a compound lookup on `(summaryLogId, rowId, rowType)` — with no traversal through waste-records. The `entities[]` array continues to track the downstream artifacts (waste-records, PRNs) the transaction affected. `source` and `entities[]` are complementary: one tracks cause, the other tracks effect.
 
 **Removed fields:**
 
@@ -89,6 +95,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - **No cached state to maintain.** There is no separate projection document that can go stale, get corrupted, or need repair — so the failure modes associated with maintaining one simply do not exist.
 - **Single write mechanism.** Summary-log row writes and PRN operations both append to the same ledger through the same optimistic-append path — no separate code to update a projection, no second concurrency surface.
 - **Constant-cost balance reads.** The current balance for an accreditation is a single indexed read on the latest transaction — O(1) via the `(accreditationId, number)` index. Organisation-level and registration-level queries resolve with a single-pass aggregation against denormalised `organisationId` / `registrationId` fields on each transaction.
+- **Upstream provenance queries are direct.** The nested `source` object means "which transactions did summary log S produce?" or "which transactions did PRN P cause?" resolve with a single indexed query — no traversal through waste-records. This is what the PAE-1364 long-term fix needs for summary-log → transaction reconciliation, and it means forensic questions about how a balance got where it did can be answered from the ledger alone.
 
 ### Negative
 
