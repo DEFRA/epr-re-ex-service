@@ -23,6 +23,7 @@ Shape:
 - Each accreditation has an append-only **ledger** — a collection of transactions. Each transaction is its own document.
 - Each transaction carries a `number` that is sequential per accreditation, starting at 1. Uniqueness of `(accreditationId, number)` is enforced by the database, so two writers cannot claim the same slot.
 - Each transaction carries the running totals (`closingAmount`, `closingAvailableAmount`) it produced. The current balance for an accreditation is the closing totals on its highest-numbered transaction — one indexed read.
+- **One balance-affecting event produces exactly one transaction, referring to exactly one affected entity.** A summary-log row produces one transaction referring to one waste record; a PRN operation (creation, issuance, acceptance, cancellation) produces one transaction referring to one PRN; a manual adjustment produces one transaction. The affected entity is identified within the transaction's `source` object — there is no multi-entity shape.
 
 Implemented as a new MongoDB ledger collection. The existing `waste-balances` collection remains in place during cutover; reads fall back to it until each accreditation has been transitioned to the ledger.
 
@@ -35,17 +36,18 @@ Each transaction document keeps almost the same field set as today. The only cha
 - `accreditationId` — top-level reference; partition key for the ledger (previously implicit in the embedding document).
 - `organisationId`, `registrationId` — denormalised onto each transaction. Organisation-level and registration-level queries (e.g. `GET /v1/organisations/{id}/waste-balances`) then resolve with a single indexed lookup rather than requiring a join from accreditation back to its parents. Both values are immutable for the lifetime of an accreditation, so the denormalisation is safe.
 - `number` — sequential per accreditation, starting at 1.
-- `source` — nested object recording the upstream event that caused this transaction, discriminated by `source.kind`:
-  - `summary-log-row` → `source.summaryLogRow: { summaryLogId, rowId, rowType }`
+- `source` — nested object recording both the upstream event that caused this transaction and the entity it affected, discriminated by `source.kind`:
+  - `summary-log-row` → `source.summaryLogRow: { summaryLogId, rowId, rowType, wasteRecordId, wasteRecordVersionId }`
   - `prn-operation` → `source.prnOperation: { prnId, operationType }`
   - `manual-adjustment` → `source.manualAdjustment: { userId, reason }`
 
-  Exactly one sub-object is populated per transaction. This answers upstream queries directly — e.g. "which transactions did summary log S produce?" becomes a single indexed lookup on `source.summaryLogRow.summaryLogId`, and "which transactions did a specific row cause?" becomes a compound lookup on `(summaryLogId, rowId, rowType)` — with no traversal through waste-records. The `entities[]` array continues to track the downstream artifacts (waste-records, PRNs) the transaction affected. `source` and `entities[]` are complementary: one tracks cause, the other tracks effect.
+  Exactly one sub-object is populated per transaction. Because one summary-log row produces exactly one waste-record update, and one PRN operation affects exactly one PRN, the source uniquely identifies both the cause and the affected entity — there is no need for a separate entity array. Queries resolve directly: "which transactions did summary log S produce?" is a single indexed lookup on `source.summaryLogRow.summaryLogId`; "which transactions touched waste record W?" is `source.summaryLogRow.wasteRecordId`; "which transactions did a specific row cause?" is a compound lookup on `(summaryLogId, rowId, rowType)`. No traversal through waste-records.
 
 **Removed fields:**
 
 - `id` (the existing UUID on embedded transactions) — dropped. Nothing outside the waste-balance document references it: the public API exposes only totals, the admin and public frontends do not display it, and audit logs record transaction payloads by value rather than by id lookup. `(accreditationId, number)` becomes the sole business identifier for a transaction.
-- `entities[].previousVersionIds[]` — dropped. Version history is available on the waste-records document; duplicating it on every transaction adds no audit value available from source.
+- `entities[]` — dropped entirely. The existing shape is a plural array for forward flexibility, but under per-row emission every transaction has exactly one entity and every current code path (`buildTransaction`, `buildPrnCreationTransaction`, `buildPrnIssuedTransaction`, `buildPrnCancellationTransaction`, `buildIssuedPrnCancellationTransaction`) hardcodes a single-element array literal. The affected entity is fully determined by the source kind, so folding its identifiers into `source` removes a lie in the schema (plural-with-guaranteed-length-one) without losing any information.
+- `entities[].previousVersionIds[]` — dropped along with the array. Version history is available on the waste-records document; duplicating it on every transaction adds no audit value available from source.
 
 **Kept unchanged:**
 
@@ -53,7 +55,6 @@ Each transaction document keeps almost the same field set as today. The only cha
 - `createdAt`, `createdBy`
 - `amount` (the delta)
 - `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount` — running totals recorded per transaction, so every entry is self-auditing (`opening + delta = closing`) without needing to consult its predecessor.
-- `entities[]` with `id`, `currentVersionId`, `type`.
 
 Uniqueness of `(accreditationId, number)` is enforced by a compound unique index. That single index also serves the read patterns — "find transactions for this accreditation", "find transaction N", "sort by number" — so one index covers both the optimistic-append lock and the query path. The MongoDB-assigned `_id` remains an auto-generated `ObjectId` used only inside the storage layer.
 
@@ -85,6 +86,8 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 
 **Keep a materialised projection document alongside the ledger.** Maintain the waste balance as a separate document carrying `amount`, `availableAmount`, and `lastTransactionNumber`, updated after each ledger append under an optimistic lock, rebuildable from the ledger on demand. Rejected because every transaction already carries its own closing totals, so the current balance is available in a single indexed read on the latest transaction — the projection would cache information already cheap to derive. Maintaining it introduces a second optimistic-concurrency surface, creates stale-cache and projection-repair states that otherwise do not exist, and doubles the collection count to migrate and reason about, for no measurable query benefit.
 
+**Keep `entities[]` (plural array) on transactions for forward flexibility.** The LLD currently specifies `entities: WASTE-BALANCE-TRANSACTION-ENTITY[]` and one worked example bundles two entities in a single transaction. Rejected because no production code path has ever populated the array with more than one element: five construction sites (`buildTransaction`, `buildPrnCreationTransaction`, `buildPrnIssuedTransaction`, `buildPrnCancellationTransaction`, `buildIssuedPrnCancellationTransaction`) each hardcode a single-element literal, and per-row emission guarantees this will remain the case. Every caller reads `entities[0]`. Collapsing the entity identifiers into `source` removes the plural-with-guaranteed-length-one lie without losing any capability; if a multi-entity transaction is ever genuinely required, the shape can be evolved at that point rather than reserved speculatively today.
+
 ## Consequences
 
 ### Positive
@@ -101,7 +104,8 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 
 - Requires a new collection and a cutover path. Readers must handle both v1 (balance on the waste-balance document) and v2 (balance derived from the ledger's latest transaction) during the transition.
 - PRN write paths move from updating the embedded transactions array to appending to the ledger collection via the shared optimistic-write mechanism. The transaction shape itself is nearly unchanged but the mechanism is, so the migration is not purely additive on top of v1.
-- Anyone reading a v2 transaction in isolation no longer sees the version history on the entity — they must consult the waste-records document to trace prior versions. Any tooling or UI that relied on `previousVersionIds[]` on the ledger must follow the reference instead.
+- Anyone reading a v2 transaction in isolation no longer sees the version history of the affected entity — the transaction carries only the current version id (via `source`). Any tooling or UI that relied on `previousVersionIds[]` on the old embedded transactions must follow the reference to the waste-records document to trace prior versions.
+- The LLD needs updating to match: `entities[]` → single entity identifiers folded into `source`, and the worked example that shows a multi-entity transaction needs revising to reflect the per-row, single-entity invariant.
 - Organisation-level and registration-level balance queries rely on `organisationId` and `registrationId` being denormalised onto every transaction. These values are immutable for the lifetime of an accreditation, so the denormalisation is safe, but each transaction document is a few dozen bytes larger than strictly necessary.
 - `summary-log-data-flow.md` needs updating to describe the new storage shape.
 
