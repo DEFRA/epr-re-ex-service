@@ -2,7 +2,9 @@ const SCANNED_SECTIONS = [
   'dependencies',
   'devDependencies',
   'optionalDependencies',
-  'peerDependencies'
+  'peerDependencies',
+  'overrides',
+  'resolutions'
 ]
 
 export const findUnpinned = (pkg) => {

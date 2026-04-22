@@ -31,4 +31,11 @@ describe('findUnpinned', () => {
     const pkg = { engines: { node: '^24.10.0' } }
     expect(findUnpinned(pkg)).toEqual([])
   })
+
+  it('should flag caret ranges in flat overrides', () => {
+    const pkg = { overrides: { 'follow-redirects': '^1.16.0' } }
+    expect(findUnpinned(pkg)).toEqual([
+      { section: 'overrides', name: 'follow-redirects', range: '^1.16.0' }
+    ])
+  })
 })
