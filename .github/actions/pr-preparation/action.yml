@@ -1,5 +1,5 @@
 name: Preparation
-description: 'Check branch name and add ticket link to PR description'
+description: 'Check branch name, add ticket link to PR description, and check for pinned dependencies'
 
 runs:
   using: 'composite'
@@ -53,3 +53,10 @@ runs:
           } else {
             console.log('PR description already contains a link to the ticket')
           }
+
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Check for pinned dependencies
+      shell: bash
+      run: node ${{ github.action_path }}/check-pins.mjs package.json
