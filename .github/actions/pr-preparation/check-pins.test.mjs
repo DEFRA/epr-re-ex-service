@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findUnpinned } from './check-pins.mjs'
+import { findUnpinned, scanFiles } from './check-pins.mjs'
 
 describe('findUnpinned', () => {
   it('should return an empty array for a package with only exact versions', () => {
@@ -61,5 +61,23 @@ describe('findUnpinned', () => {
   ])('should not flag $kind values', ({ value }) => {
     const pkg = { dependencies: { foo: value } }
     expect(findUnpinned(pkg)).toEqual([])
+  })
+})
+
+describe('scanFiles', () => {
+  it('should tag each offender with its source file path', async () => {
+    const files = {
+      'a/package.json': JSON.stringify({ dependencies: { foo: '^1.0.0' } }),
+      'b/package.json': JSON.stringify({ dependencies: { bar: '2.0.0' } })
+    }
+    const readFile = async (p) => files[p]
+    expect(await scanFiles(['a/package.json', 'b/package.json'], readFile)).toEqual([
+      {
+        file: 'a/package.json',
+        section: 'dependencies',
+        name: 'foo',
+        range: '^1.0.0'
+      }
+    ])
   })
 })

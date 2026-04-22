@@ -27,3 +27,14 @@ export const findUnpinned = (pkg) => {
   }
   return offenders
 }
+
+export const scanFiles = async (paths, readFile) => {
+  const offenders = []
+  for (const path of paths) {
+    const pkg = JSON.parse(await readFile(path))
+    for (const o of findUnpinned(pkg)) {
+      offenders.push({ file: path, ...o })
+    }
+  }
+  return offenders
+}
