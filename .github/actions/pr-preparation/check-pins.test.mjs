@@ -38,4 +38,17 @@ describe('findUnpinned', () => {
       { section: 'overrides', name: 'follow-redirects', range: '^1.16.0' }
     ])
   })
+
+  it('should recurse into nested overrides', () => {
+    const pkg = {
+      overrides: {
+        foo: {
+          bar: '^1.0.0'
+        }
+      }
+    }
+    expect(findUnpinned(pkg)).toEqual([
+      { section: 'overrides', name: 'foo > bar', range: '^1.0.0' }
+    ])
+  })
 })
