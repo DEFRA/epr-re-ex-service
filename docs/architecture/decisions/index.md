@@ -30,4 +30,4 @@
 * [28. Reporting API and Due Rules](0028-reporting-api-and-due-rules.md)
 * [29. Compute on write for loadsByWasteRecordType](0029-compute-on-write-for-loads-by-waste-record-type.md)
 * [30. Registered-only operator edge cases](0030-registered-only-edge-cases.md)
-* [31. Waste balance per-event transaction ledger](0031-waste-balance-per-event-transaction-ledger.md)
+* [31. Waste balance transaction ledger](0031-waste-balance-transaction-ledger.md)
