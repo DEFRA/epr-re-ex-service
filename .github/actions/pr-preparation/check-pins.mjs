@@ -1,4 +1,9 @@
-const SCANNED_SECTIONS = ['dependencies']
+const SCANNED_SECTIONS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies'
+]
 
 export const findUnpinned = (pkg) => {
   const offenders = []

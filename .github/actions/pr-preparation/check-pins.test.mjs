@@ -16,4 +16,14 @@ describe('findUnpinned', () => {
       { section: 'dependencies', name: 'foo', range: '^1.2.3' }
     ])
   })
+
+  it.for([
+    { section: 'dependencies', range: '~1.2.3' },
+    { section: 'devDependencies', range: '^2.0.0' },
+    { section: 'optionalDependencies', range: '~3.0.0' },
+    { section: 'peerDependencies', range: '^4.0.0' }
+  ])('should flag $range in $section', ({ section, range }) => {
+    const pkg = { [section]: { foo: range } }
+    expect(findUnpinned(pkg)).toEqual([{ section, name: 'foo', range }])
+  })
 })
