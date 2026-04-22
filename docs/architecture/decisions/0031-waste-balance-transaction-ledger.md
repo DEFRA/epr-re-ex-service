@@ -23,9 +23,32 @@ Shape:
 - Each accreditation has an append-only **ledger** — a collection of transactions. Each transaction is its own document.
 - Each transaction carries a `number` that is sequential per accreditation, starting at 1. Uniqueness of `(accreditationId, number)` is enforced by the database, so two writers cannot claim the same slot.
 - The **waste balance document** becomes a projection: the running totals (`amount`, `availableAmount`) and the `lastTransactionNumber` it is correct at. No embedded transaction array.
-- Entities carry `currentVersionId` only. `previousVersionIds[]` is dropped — prior versions of a waste record already live on the waste-records document, and duplicating that history on every transaction adds no audit value available from source.
 
 Implemented in new MongoDB collections running alongside the existing `waste-balances`, so the two designs can coexist during cutover — reads fall back to the v1 shape until each accreditation has a v2 projection.
+
+### Transaction shape
+
+Each transaction document keeps almost the same field set as today. The only changes are those the mechanism requires.
+
+**New fields:**
+
+- `accreditationId` — top-level reference; partition key for the ledger (previously implicit in the embedding document).
+- `number` — sequential per accreditation, starting at 1.
+
+**Removed fields:**
+
+- `id` (the existing UUID on embedded transactions) — dropped. Nothing outside the waste-balance document references it: the public API exposes only totals, the admin and public frontends do not display it, and audit logs record transaction payloads by value rather than by id lookup. `(accreditationId, number)` becomes the sole business identifier for a transaction.
+- `entities[].previousVersionIds[]` — dropped. Version history is available on the waste-records document; duplicating it on every transaction adds no audit value available from source.
+
+**Kept unchanged:**
+
+- `type` (`credit`, `debit`, `pending_debit`)
+- `createdAt`, `createdBy`
+- `amount` (the delta)
+- `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount` — running totals recorded per transaction, so every entry is self-auditing (`opening + delta = closing`) without needing to consult its predecessor.
+- `entities[]` with `id`, `currentVersionId`, `type`.
+
+Uniqueness of `(accreditationId, number)` is enforced by a compound unique index. That single index also serves the read patterns — "find transactions for this accreditation", "find transaction N", "sort by number" — so one index covers both the optimistic-append lock and the query path. The MongoDB-assigned `_id` remains an auto-generated `ObjectId` used only inside the storage layer.
 
 ### Writing a transaction
 
@@ -47,6 +70,10 @@ Comparing `wasteBalance.lastTransactionNumber` against the highest `number` in t
 **Keep transactions embedded, manage growth via archival or pruning.** Defers the size problem rather than removing it. The projection stays coupled to a bounded-capacity document, and the ledger cannot safely be the authoritative source of truth under concurrent writes. Rejected — we'd be revisiting the same decision when the ceiling returns, and it doesn't unlock a return to ledger-derived balance calculation.
 
 **Keep the current workaround: derive balance from waste records and leave the ledger largely unused.** Works in the short term but waste records are not the natural source of truth for a balance that is moved by both summary-log uploads and PRN operations. Rejected because it freezes the current ledger into an artefact of history rather than a durable source of truth.
+
+**Keep the existing UUID `id` on transactions alongside the sequential `number`.** Carrying two identifiers for the same transaction creates a second surface area — any future caller has to choose which to use, and both have to stay in sync. Since `(accreditationId, number)` is already unique by construction and is what every read and write needs to use, a separate UUID adds no capability. Rejected.
+
+**Use a compound `_id: { accreditationId, number }` instead of flat fields plus a compound unique index.** The composite would give uniqueness for free from the primary key, at a saving of 24 bytes per document. Rejected because every query would have to reach through dotted paths (`{ '_id.accreditationId': ... }`), which is visually noisier and less obvious to readers than top-level fields. The extra ObjectId is cheap; the query ergonomics are not.
 
 ## Consequences
 
