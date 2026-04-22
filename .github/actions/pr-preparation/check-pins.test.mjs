@@ -26,4 +26,9 @@ describe('findUnpinned', () => {
     const pkg = { [section]: { foo: range } }
     expect(findUnpinned(pkg)).toEqual([{ section, name: 'foo', range }])
   })
+
+  it('should ignore engines even with caret ranges', () => {
+    const pkg = { engines: { node: '^24.10.0' } }
+    expect(findUnpinned(pkg)).toEqual([])
+  })
 })
