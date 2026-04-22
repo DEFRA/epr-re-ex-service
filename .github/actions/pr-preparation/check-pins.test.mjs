@@ -51,4 +51,15 @@ describe('findUnpinned', () => {
       { section: 'overrides', name: 'foo > bar', range: '^1.0.0' }
     ])
   })
+
+  it.for([
+    { kind: 'override $ref', value: '$eslint' },
+    { kind: 'git url', value: 'git+https://github.com/user/repo.git#v1.0.0' },
+    { kind: 'file path', value: 'file:../local-pkg' },
+    { kind: 'npm alias', value: 'npm:lodash@4.17.21' },
+    { kind: 'workspace', value: 'workspace:*' }
+  ])('should not flag $kind values', ({ value }) => {
+    const pkg = { dependencies: { foo: value } }
+    expect(findUnpinned(pkg)).toEqual([])
+  })
 })
