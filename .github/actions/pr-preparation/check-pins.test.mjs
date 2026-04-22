@@ -9,4 +9,11 @@ describe('findUnpinned', () => {
     }
     expect(findUnpinned(pkg)).toEqual([])
   })
+
+  it('should flag caret ranges in dependencies', () => {
+    const pkg = { dependencies: { foo: '^1.2.3' } }
+    expect(findUnpinned(pkg)).toEqual([
+      { section: 'dependencies', name: 'foo', range: '^1.2.3' }
+    ])
+  })
 })
