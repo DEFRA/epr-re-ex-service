@@ -8,21 +8,21 @@ Proposed
 
 ## Context
 
-The [waste balance LLD](../defined/pepr-lld.md#waste-balance) describes the `transactions` array on a waste balance document as a **per-event ledger**: each business action (a summary log upload, a PRN operation) produces one transaction, which may reference multiple entities. The worked example in that doc shows a single CREDIT of 40 tonnes with two `waste_record:received` entities — one upload event, two records, one ledger entry.
+The [waste balance LLD](../defined/pepr-lld.md#waste-balance) describes a `transactions` array on the waste balance document but does not explicitly choose between per-event and per-row emission. Its schema has `entities[]` as a plural array on each transaction, and one transaction in the worked example bundles two `waste_record:received` entities from the same upload (40 tonnes CREDIT, two rows, one transaction) — both consistent with a per-event reading. The remaining transactions in the example are single-entity and neutral between the two readings.
 
-The as-built implementation diverged from this. Since PR #526 ([DEFRA/epr-backend#526](https://github.com/DEFRA/epr-backend/pull/526), PAE-659, December 2025) the calculator emits **one transaction per waste record** and reconciles re-uploads via a `creditedAmountMap` keyed by `String(rowId)`. `summary-log-data-flow.md` was later written to describe this per-row delta mechanism as if it were the intended design. Neither document acknowledges the other, and no ADR records the shift.
+The as-built went per-row. Since PR #526 ([DEFRA/epr-backend#526](https://github.com/DEFRA/epr-backend/pull/526), PAE-659, December 2025) the calculator emits **one transaction per waste record** and reconciles re-uploads via a `creditedAmountMap` keyed by `String(rowId)`. [summary-log-data-flow.md](../defined/summary-log-data-flow.md) was later written to describe this per-row delta mechanism as if it were the intended design. The LLD and `summary-log-data-flow.md` therefore pull in opposite directions, neither acknowledges the other, and no ADR has chosen between them.
 
-Two problems have since surfaced from this divergence:
+Two problems have since surfaced from the per-row as-built:
 
 **Correctness ([PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364)).** `rowId` is not unique across waste record types — the real identity is `(type, rowId)`. A Received row and a Reprocessed row that share a rowId collide in the map, and the Reprocessed target of 0 silently wipes the Received credit. The diagnostic landing on PR #1086 has already identified seven affected registrations on production, one with 13,037 colliding rowIds.
 
 **Scale ([PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382)).** Per-row emission produces unbounded document growth. Per-transaction BSON cost is 400-600 bytes, so MongoDB's 16MB document ceiling equates to roughly 30,000 transactions, with noticeable read/write and optimistic-lock churn starting at 1,000-2,000. A reprocessor submitting 200 changed rows per day for a year produces 73,000 transactions — already past the ceiling. Failure is per-accreditation and silent. A hidden multiplier compounds this: each transaction's entity carries `previousVersionIds[]`, which grows by a UUID per re-submit of the same row.
 
-The per-event design in the LLD does not have either failure mode. There is no per-row lookup, so no key can collide. The ledger grows by one entry per business event, not per affected row, so a 3,000-row upload appends one to three transactions instead of up to 3,000. The `amount` and `availableAmount` fields are defined in the LLD as projections over the ledger (`amount = sum(credits) - sum(debits)`); the transactions are the balance, not a secondary audit trail.
+A per-event ledger does not have either failure mode. There is no per-row lookup, so no key can collide. The ledger grows by one entry per business event, not per affected row, so a 3,000-row upload appends one to three transactions instead of up to 3,000. The LLD's `amount` and `availableAmount` fields are defined as projections over the transactions (`amount = sum(credits) - sum(debits)`); the transactions are the balance, not a secondary audit trail.
 
 ## Decision
 
-Restore the per-event transaction ledger described in the LLD, structured so that the current balance is a projection on the accreditation's transactions:
+Adopt a per-event transaction ledger, structured so that the current balance is a projection on the accreditation's transactions:
 
 - Each accreditation has its own append-only **ledger** of transactions. A transaction is appended for every business event that moves the balance — a summary log upload or a PRN operation.
 - Each transaction carries a `number` that is sequential per accreditation, starting at 1. Uniqueness of `(accreditationId, number)` is enforced by the database, so two writers cannot claim the same slot.
@@ -59,7 +59,7 @@ This is event sourcing with a projection — the ledger is the event stream, the
 
 ## Considered alternatives
 
-**Keep per-row emission, move the array out into a sibling collection.** Addresses the scale risk in PAE-1382 by freeing each transaction from the 16MB ceiling, but does not on its own fix the per-row keying bug (PAE-1364) — the calculator still emits one transaction per row and the entity-id collision persists, just in a different shape of storage. Rejected because per-event semantics are already specified in the LLD, and restoring them fixes the correctness bug and the scale bug in one change.
+**Keep per-row emission, move the array out into a sibling collection.** Addresses the scale risk in PAE-1382 by freeing each transaction from the 16MB ceiling, but does not on its own fix the per-row keying bug (PAE-1364) — the calculator still emits one transaction per row and the entity-id collision persists, just in a different shape of storage. Rejected because per-event is consistent with the LLD's schema and multi-entity example, and choosing per-event fixes the correctness bug and the scale bug in one change.
 
 ## Consequences
 
@@ -70,7 +70,7 @@ This is event sourcing with a projection — the ledger is the event stream, the
 - The waste balance document shrinks to running totals plus one integer — cheap to read, cheap to update, bounded in size forever.
 - **Freshness is cheap to check.** Comparing two integers tells any reader whether the waste balance is current. Today the only way to check is to rebuild.
 - **Self-healing.** If the waste balance update fails mid-write, the ledger still holds the correct transaction; the next reader or writer detects the staleness via `lastTransactionNumber` and catches up. The ledger is the source of truth; the waste balance is a derived view.
-- Brings the implementation back in line with the LLD. No silent design drift.
+- Resolves the ambiguity between the LLD and `summary-log-data-flow.md` by making per-event the canonical design, consistent with the LLD's schema and multi-entity example.
 - Ledger entries map one-to-one to business events, making the audit trail readable when it is eventually surfaced.
 
 ### Negative
@@ -78,13 +78,13 @@ This is event sourcing with a projection — the ledger is the event stream, the
 - Requires new collections and a cutover path. Readers must handle both v1 and v2 during transition.
 - PRN write paths move onto the shared append mechanism rather than writing their own transactions directly. They already emit one transaction per action so the shape change is minor, but the mechanism change is not a no-op — the work isn't purely additive on top of v1.
 - Anyone reading a v2 transaction in isolation no longer sees the version history on the entity — they must consult the waste-records document to trace prior versions. This is a move from duplicated state to a single source of truth, but any tooling or UI that relied on `previousVersionIds[]` on the ledger must now follow the reference.
-- `summary-log-data-flow.md` needs correction to match the restored design — the "Prior transactions per rowId" and "delta mechanism" descriptions will no longer apply.
+- `summary-log-data-flow.md` needs rewriting to match the chosen design — the "Prior transactions per rowId" and "delta mechanism" descriptions will no longer apply. The LLD's worked example would also benefit from a comment noting that each transaction represents one business event, to close the ambiguity that allowed the drift in the first place.
 
 ## Related
 
-- [Waste balance LLD](../defined/pepr-lld.md#waste-balance) — per-event design this ADR restores
-- [Summary log data flow](../defined/summary-log-data-flow.md) — currently describes the per-row as-built; needs updating alongside this decision
+- [Waste balance LLD](../defined/pepr-lld.md#waste-balance) — schema and multi-entity example this ADR is consistent with
+- [Summary log data flow](../defined/summary-log-data-flow.md) — currently describes the per-row as-built; needs rewriting alongside this decision
 - [DEFRA/epr-backend#490](https://github.com/DEFRA/epr-backend/pull/490) (PAE-659) — initial calculator
-- [DEFRA/epr-backend#526](https://github.com/DEFRA/epr-backend/pull/526) (PAE-659) — introduced per-row `creditedAmountMap`, where the divergence entered the codebase
-- [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) — correctness bug caused by the divergence
-- [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — scale bug caused by the divergence
+- [DEFRA/epr-backend#526](https://github.com/DEFRA/epr-backend/pull/526) (PAE-659) — introduced per-row `creditedAmountMap`; the per-row as-built originated here
+- [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) — correctness bug caused by the per-row as-built
+- [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — scale bug caused by the per-row as-built
