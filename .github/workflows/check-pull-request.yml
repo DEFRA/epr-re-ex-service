@@ -91,7 +91,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Upgrade npm
+        run: npm install -g npm@11.12.1
+
       - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install otel dependencies
+        working-directory: otel
         run: npm ci --ignore-scripts
 
       - name: Lint types
