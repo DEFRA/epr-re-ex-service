@@ -106,7 +106,7 @@ jobs:
           OUTPUT=$(npm run lint:types 2>&1) && STATUS=0 || STATUS=$?
           echo "$OUTPUT"
 
-          ERRORS=$(echo "$OUTPUT" | grep -c "^otel/" || true)
+          ERRORS=$(echo "$OUTPUT" | grep -cE "error TS[0-9]+" || true)
 
           {
             if [ "$STATUS" -eq 0 ]; then
@@ -121,7 +121,7 @@ jobs:
               echo "<details><summary>Errors by file</summary>"
               echo ""
               echo '```'
-              echo "$OUTPUT" | grep "^otel/" | sed 's/(.*/:/' | sort | uniq -c | sort -rn
+              echo "$OUTPUT" | grep -E "error TS[0-9]+" | sed 's/(.*/:/' | sort | uniq -c | sort -rn
               echo '```'
               echo "</details>"
             fi

@@ -17,6 +17,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["otel/**/*.js", "otel/**/*.mjs"],
-  "exclude": ["node_modules"]
+  "include": ["**/*.js", "**/*.mjs", "**/*.cjs"],
+  "exclude": ["node_modules", "**/node_modules", "lib"]
 }
