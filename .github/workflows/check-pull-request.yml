@@ -97,7 +97,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Install otel dependencies
+      - name: Install nested package dependencies
         working-directory: otel
         run: npm ci --ignore-scripts
 
