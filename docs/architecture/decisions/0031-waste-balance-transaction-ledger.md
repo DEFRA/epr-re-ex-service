@@ -68,6 +68,20 @@ Every write follows the same steps:
 
 The unique index on `(accreditationId, number)` is the only enforcement point for concurrency. There is no second document to update and no second optimistic-lock surface.
 
+### Per-row delta reconciliation
+
+Summary-log-row writes carry a per-row idempotency invariant — the read-before-emit rule — that makes operator re-upload the recovery path for any partial prior submission. For each row in an incoming summary log:
+
+1. Compute `targetAmount` from the waste record's current data (the value the latest waste-record version carries after this upload).
+2. Compute `alreadyCredited` as the signed sum of every prior ledger transaction whose `source.summaryLogRow.wasteRecordId` matches this row (credits positive, debits negative). This is a single indexed aggregation per batch, not a per-row round-trip.
+3. Compute `delta = targetAmount - alreadyCredited`.
+4. If `delta = 0`, emit nothing — the row is already correctly credited.
+5. Otherwise append one ledger transaction for the signed delta.
+
+Every submission is self-converging under this invariant: whatever state a partial prior run left behind — no prior transactions, some prior transactions, a full prior contribution — a re-upload ends with the ledger at the correct totals for each row. This is the mechanism the embedded-array implementation uses today (`calculator.js`'s `creditedAmountMap`, keyed by `rowId`), lifted into the new shape and re-keyed onto `wasteRecordId` so the PAE-1380 rowId-collision class cannot recur.
+
+PRN operations and manual adjustments key on `prnId` and `userId` respectively and carry their deltas directly; the read-before-emit invariant applies only to summary-log-row writes.
+
 ### Reading the current balance
 
 The current balance for an accreditation is the `closingAmount` and `closingAvailableAmount` on its highest-numbered transaction — a single indexed read. If no transactions exist, the balance is zero.
@@ -98,7 +112,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - **No cached state to maintain.** There is no separate projection document that can go stale, get corrupted, or need repair — so the failure modes associated with maintaining one simply do not exist.
 - **Single write mechanism.** Summary-log row writes and PRN operations both append to the same ledger through the same optimistic-append path — no separate code to update a projection, no second concurrency surface.
 - **Constant-cost balance reads.** The current balance for an accreditation is a single indexed read on the latest transaction — O(1) via the `(accreditationId, number)` index. Organisation-level and registration-level queries resolve with a single-pass aggregation against denormalised `organisationId` / `registrationId` fields on each transaction.
-- **Provenance queries are direct — both for causes and for entity history.** The nested `source` object means "which transactions did summary log S produce?", "which transactions did PRN P cause?", and "how did waste record W evolve?" all resolve with a single indexed query on the ledger. The chain of transactions referencing the same `wasteRecordId`, sorted by `number`, is the full version progression in chronological order with balance context at each step — the ledger is authoritative for both balance state *and* entity version history, with no traversal through waste-records needed. This is also what the PAE-1364 long-term fix needs for summary-log → transaction reconciliation.
+- **Provenance queries are direct — both for causes and for entity history.** The nested `source` object means "which transactions did summary log S produce?", "which transactions did PRN P cause?", and "how did waste record W evolve?" all resolve with a single indexed query on the ledger. The chain of transactions referencing the same `wasteRecordId`, sorted by `number`, is the full version progression in chronological order with balance context at each step — the ledger is authoritative for both balance state _and_ entity version history, with no traversal through waste-records needed. This is also what the PAE-1364 long-term fix needs for summary-log → transaction reconciliation.
 
 ### Negative
 
@@ -108,6 +122,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - The LLD needs updating to match: `entities[]` → single entity identifiers folded into `source`, and the worked example that shows a multi-entity transaction needs revising to reflect the per-row, single-entity invariant.
 - Organisation-level and registration-level balance queries rely on `organisationId` and `registrationId` being denormalised onto every transaction. These values are immutable for the lifetime of an accreditation, so the denormalisation is safe, but each transaction document is a few dozen bytes larger than strictly necessary.
 - `summary-log-data-flow.md` needs updating to describe the new storage shape.
+- Summary-log submission writes a batch of ledger transactions — one per balance-affecting row — via per-transaction optimistic appends. Under the embedded-array shape the equivalent step was a single `$set` + `$push $each` on the waste-balance document, atomic at the document level; the ledger shape replaces that with N independent writes and a crash mid-batch can leave K of N committed. Partial ledger contributions are individually self-consistent (each row still carries valid opening/closing totals against its predecessor), but the batch can be incomplete. Recovery relies on the operator-re-upload path and the per-row delta reconciliation invariant above: on re-upload, already-credited rows produce zero deltas and emit nothing, missing rows emit their full credits, and the end state converges regardless of how much of the prior submission landed. The single-document atomicity the embedded-array shape provided for free is replaced by a caller-level invariant that every summary-log-row writer must preserve.
 
 ## Related
 
