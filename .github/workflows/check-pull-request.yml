@@ -75,3 +75,31 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  type-check:
+    name: Lint Types
+    runs-on: ubuntu-latest
+    needs: [pr-prep, detect-changes]
+    if: needs.detect-changes.outputs.docs-only != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Upgrade npm
+        run: npm install -g npm@11.12.1
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install nested package dependencies
+        working-directory: otel
+        run: npm ci --ignore-scripts
+
+      - name: Lint types
+        run: npm run lint:types
