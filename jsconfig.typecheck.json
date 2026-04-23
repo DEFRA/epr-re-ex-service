@@ -17,6 +17,16 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["**/*.js", "**/*.mjs", "**/*.cjs"],
+  "include": [
+    "**/*.js",
+    "**/*.mjs",
+    "**/*.cjs",
+    ".github/**/*.mjs",
+    ".github/**/*.js",
+    ".github/**/*.cjs",
+    ".*.js",
+    ".*.mjs",
+    ".*.cjs"
+  ],
   "exclude": ["node_modules", "**/node_modules", "lib"]
 }
