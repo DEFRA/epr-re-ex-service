@@ -278,7 +278,7 @@ erDiagram
 
   SUMMARY-LOG-ROW-SOURCE {
     ObjectId summaryLogId FK
-    string rowId
+    string rowId "unique within type+org+reg only, not globally"
     enum rowType "received, processed, sentOn, exported"
     ObjectId wasteRecordId FK
     ObjectId wasteRecordVersionId FK "WASTE-RECORD-VERSION"
@@ -313,7 +313,7 @@ erDiagram
   TRANSACTION-SOURCE ||--o| SUMMARY-LOG-ROW-SOURCE : contains
   TRANSACTION-SOURCE ||--o| PRN-OPERATION-SOURCE : contains
   TRANSACTION-SOURCE ||--o| MANUAL-ADJUSTMENT-SOURCE : contains
-  SUMMARY-LOG-ROW-SOURCE ||--|| WASTE-RECORD : references
+  SUMMARY-LOG-ROW-SOURCE }|--|| WASTE-RECORD : references
 ```
 
 #### Waste Record Type: Received
@@ -658,7 +658,7 @@ Example ledger transactions for a single accreditation, in insertion order (by `
 ]
 ```
 
-The current balance for this accreditation is the closing totals on transaction `#5` — `amount: 48.99`, `availableAmount: 23.99`.
+The current balance for this accreditation is the closing totals on transaction `#5` — `amount: 48.99`, `availableAmount: 23.99`. `_id` is the MongoDB-assigned storage key; the business identifier for a transaction is `(accreditationId, number)`.
 
 ### PRN
 
