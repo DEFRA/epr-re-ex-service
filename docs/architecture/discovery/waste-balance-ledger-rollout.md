@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — sign-off required before the rollout and cutover bead is scoped.
+Proposed — sign-off required before the rollout and cutover work is scoped.
 
 ## Context
 
@@ -44,7 +44,7 @@ Each step requires signals to clear before the next flag-flip PR lands in `cdp-a
 
 ### Rollback protocol
 
-Flag flip `true → false` is safe at any point while v1 still exists (until the epic's final bead retires it):
+Flag flip `true → false` is safe at any point while v1 still exists (until v1 is retired at the end of the epic):
 
 - The dual-read helper stops reading the ledger and reverts to reading `amount` / `availableAmount` from the waste-balance document.
 - The v1 write path has remained in place throughout the epic — summary-log submissions and PRN lifecycle events go back to updating the embedded array.
@@ -118,7 +118,7 @@ The `cutover-seed` source kind is added as a fourth variant alongside `summary-l
 The seven PAE-1364-affected accreditations are being asked to re-upload under the workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091). That brings their v1 `amount` / `availableAmount` to a correct state. The cutover order is:
 
 1. PAE-1364 recovery re-uploads complete (already in flight).
-2. Flag-gated write and read paths deploy everywhere, flag OFF (the epic's `.10`, `.11`, `.12` beads).
+2. Flag-gated write and read paths deploy everywhere with the flag OFF (summary-log row writes, PRN operation writes, and balance reads all branched on `isWasteBalanceLedgerEnabled()`).
 3. Backfill runs against dev → test → ext-test → perf-test → prod, each immediately before that environment's flag flip. The backfill script is idempotent: running it twice produces no additional seeds because a seed is only written when the ledger is empty for that accreditation.
 4. Flag flips in the same environment order, following the promotion gates.
 
@@ -131,7 +131,7 @@ While the flag is OFF, no read or write path touches the ledger, but the backfil
 1. **Schedule the backfill in a low-traffic window per environment.** The script's wall-clock is proportional to accreditation count; even for prod, minutes rather than hours. Non-prod environments tolerate an announced freeze; prod schedules its backfill alongside the flag flip in the same low-traffic window already agreed for other database migrations.
 2. **Read the v1 document's current shape plus its implicit version and seed idempotently.** Re-reading and rewriting a seed if the captured `amount` disagrees with the document is feasible — the seed is at `number=1`, so correcting a drift is a delete-and-reinsert on the first ledger row. Messy but recoverable.
 
-Option 1 is simpler and cheaper. `.14` picks between them with knowledge of the actual accreditation count and the agreed maintenance window.
+Option 1 is simpler and cheaper. The implementing work picks between them with knowledge of the actual accreditation count and the agreed maintenance window.
 
 Under the per-row reconciliation invariant, a seed whose captured value is slightly stale does not break subsequent writes — new summary-log submissions reconcile row-by-row against ledger history that is wasteRecordId-scoped, independent of the seed's closing totals. The seed's accuracy only matters for read correctness at the moment of the flip. Any drift that lands in the window between "backfill captured value" and "flag flipped on" surfaces as a small balance discrepancy on first read, which is detectable via the cutover-integrity dashboard panel.
 
@@ -152,7 +152,7 @@ If this residual risk is judged unacceptable, the alternative is full-fidelity b
 
 `epr-backend` emits custom metrics via AWS Embedded Metric Format (`aws-embedded-metrics`) using the helpers in `src/common/helpers/metrics.js`. Metrics land in CloudWatch under the service's namespace and are visualised in the CDP Grafana dashboards (CDP [custom metrics](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/custom-metrics.md) and [monitoring](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/monitoring.md) guides). Metric names use dotted CamelCase and dimension values are lowercased; the existing `summaryLog.statusTransition`, `summaryLog.validation.duration`, and `summaryLog.rows.outcome` set the convention. There is no existing `wasteBalance.*` metric namespace yet — this proposal introduces one.
 
-The spike settles **what signals are needed and at what threshold**. Exact metric names, dimension keys, and stat-aggregation choices (sum vs average vs p99) are confirmed in `.14` against the `summaryLog.*` precedents; the shape below is indicative.
+The spike settles **what signals are needed and at what threshold**. Exact metric names, dimension keys, and stat-aggregation choices (sum vs average vs p99) are confirmed in the implementing work against the `summaryLog.*` precedents; the shape below is indicative.
 
 ### Signals
 
@@ -196,15 +196,15 @@ Pre-flip baselines: capture read-path p99 per primitive from the `epr-backend` d
 - Observability instrumentation is additive to the existing waste-balance routes and repository layer; adding it should not require API changes.
 - The accepted residual risk around post-cutover re-uploads of pre-cutover summary logs is monitor-and-correct rather than prevent-by-design. This is worth revisiting if the operations team reports any such case in the first six months post-cutover.
 
-## Open questions for `.14` scoping
+## Open questions for follow-up scoping
 
-These do not block sign-off of this recommendation; they are the first questions the implementing bead needs to answer.
+These do not block sign-off of this recommendation; they are the first questions the implementing work needs to answer.
 
 - Exact metric names and dimension keys against the `summaryLog.*` precedents in `src/common/helpers/metrics/`.
 - Backfill script location (standalone script in `epr-backend/scripts/`, MongoDB migration, or one-shot admin endpoint). Constraint: it must run under the same network and credentials path as the service in each environment.
 - Whether the backfill window is announced as a brief freeze (preferred) or reconciled idempotently (§Backfill concurrency). Decision depends on the agreed operational window for the prod flag flip.
-- Rollout sub-beads: whether to break `.14` into one bead per environment plus one for the backfill script, or whether a single bead with per-environment checkboxes is sufficient.
-- Whether `perf-test` gets its own bead or is folded into the prod bead's pre-flip step.
+- Whether the rollout is broken up as one piece of work per environment plus a separate backfill task, or as a single piece of work with per-environment checkpoints.
+- Whether `perf-test` is handled on its own or folded into the prod pre-flip step.
 
 ## ADR 0031 consistency follow-up
 
