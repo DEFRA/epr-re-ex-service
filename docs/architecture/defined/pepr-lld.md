@@ -251,35 +251,47 @@ erDiagram
     string[] rowIds "max 100 row IDs"
   }
 
-  WASTE-BALANCE {
-    ObjectId _id PK
-    ObjectId organistionId FK
-    ObjectId accreditationId FK, UK
-    int schemaVersion
-    int version
-    Decimal128 amount "transactions of type:credit minus transactions of type:debit"
-    Decimal128 availableAmount "amount minus transactions of type:pending_debit"
-    WASTE-BALANCE-TRANSACTION[] transactions
-  }
-
   WASTE-BALANCE-TRANSACTION {
     ObjectId _id PK
+    ObjectId accreditationId FK "partition key"
+    ObjectId organisationId FK "denormalised; immutable for accreditation lifetime"
+    ObjectId registrationId FK "denormalised; immutable for accreditation lifetime"
+    int number "sequential per accreditationId, starting at 1; unique per (accreditationId, number)"
+    int schemaVersion
     enum type "credit, debit, pending_debit"
     ISO8601 createdAt
     USER-SUMMARY createdBy
-    Decimal128 amount
+    Decimal128 amount "the signed delta this transaction applied"
     Decimal128 openingAmount
     Decimal128 closingAmount
     Decimal128 openingAvailableAmount
     Decimal128 closingAvailableAmount
-    WASTE-BALANCE-TRANSACTION-ENTITY[] entities "entities related to this transaction"
+    TRANSACTION-SOURCE source "discriminated by source.kind"
   }
 
-  WASTE-BALANCE-TRANSACTION-ENTITY {
-    ObjectId id FK "WASTE-RECORD or PRN"
-    ObjectId currentVersionId FK "WASTE-RECORD-VERSION"
-    ObjectId[] previousVersionIds FK "WASTE-RECORD-VERSION"
-    enum type "waste_record, prn"
+  TRANSACTION-SOURCE {
+    enum kind "summary-log-row, prn-operation, manual-adjustment"
+    SUMMARY-LOG-ROW-SOURCE summaryLogRow "present when kind is summary-log-row"
+    PRN-OPERATION-SOURCE prnOperation "present when kind is prn-operation"
+    MANUAL-ADJUSTMENT-SOURCE manualAdjustment "present when kind is manual-adjustment"
+  }
+
+  SUMMARY-LOG-ROW-SOURCE {
+    ObjectId summaryLogId FK
+    string rowId
+    enum rowType "received, processed, sentOn, exported"
+    ObjectId wasteRecordId FK
+    ObjectId wasteRecordVersionId FK "WASTE-RECORD-VERSION"
+  }
+
+  PRN-OPERATION-SOURCE {
+    ObjectId prnId FK
+    enum operationType "created, issued, accepted, cancelled"
+  }
+
+  MANUAL-ADJUSTMENT-SOURCE {
+    ObjectId userId FK
+    string reason
   }
 
   WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
@@ -296,10 +308,12 @@ erDiagram
   SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "adjusted"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "valid"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "invalid"
-  WASTE-BALANCE ||--|{ WASTE-BALANCE-TRANSACTION : contains
   WASTE-BALANCE-TRANSACTION ||--|{ USER-SUMMARY : contains
-  WASTE-BALANCE-TRANSACTION ||--|{ WASTE-BALANCE-TRANSACTION-ENTITY : contains
-  WASTE-BALANCE-TRANSACTION-ENTITY ||--|| WASTE-RECORD : references
+  WASTE-BALANCE-TRANSACTION ||--|| TRANSACTION-SOURCE : contains
+  TRANSACTION-SOURCE ||--o| SUMMARY-LOG-ROW-SOURCE : contains
+  TRANSACTION-SOURCE ||--o| PRN-OPERATION-SOURCE : contains
+  TRANSACTION-SOURCE ||--o| MANUAL-ADJUSTMENT-SOURCE : contains
+  SUMMARY-LOG-ROW-SOURCE ||--|| WASTE-RECORD : references
 ```
 
 #### Waste Record Type: Received
@@ -491,107 +505,160 @@ In this example Alice has created a `sentOn` waste record
 
 #### Waste Balance
 
-An example of an object in the Waste Balance collection
+The waste balance for an accreditation is an append-only ledger of transactions, one document per balance-affecting event. Each transaction carries the running totals it produced (`closingAmount`, `closingAvailableAmount`), so the current balance for an accreditation is the closing totals on its highest-numbered transaction — a single indexed read. No separate balance document exists; the ledger is the authoritative and sole store of balance state. See [ADR 0031](../decisions/0031-waste-balance-transaction-ledger.md) for the full design rationale.
+
+One balance-affecting event produces exactly one transaction, referring to exactly one affected entity. A summary-log row produces one transaction referencing one waste record; a PRN operation (creation, issuance, acceptance, cancellation) produces one transaction referencing one PRN; a manual adjustment produces one transaction. The affected entity is identified within the transaction's `source` object, discriminated by `source.kind`.
+
+Example ledger transactions for a single accreditation, in insertion order (by `number`):
 
 ```json5
-{
-  _id: 'a1234567890a12345a03',
-  accreditationId: 'b1234567890a12345a01',
-  organisationId: 'e1234567890a12345a01',
-  amount: 48.99,
-  availableAmount: 23.99,
-  transactions: [
-    // Alice creates a prn, decreasing the available balance
-    {
-      id: 'K7mP9xQ2vL4nR8wF6tY3',
-      type: 'pending_debit',
-      createdAt: '2026-01-04T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      amount: 25.0,
-      openingAmount: 48.99,
-      closingAmount: 48.99,
-      openingAvailableAmount: 48.99,
-      closingAvailableAmount: 23.99,
-      entities: [
-        {
-          id: 'd1234567890a12345a05',
-          type: 'prn:created'
-        }
-      ]
+[
+  // #1: Alice adds a received waste record, increasing the balance
+  {
+    _id: 'a1234567890a12345a01',
+    accreditationId: 'b1234567890a12345a01',
+    organisationId: 'e1234567890a12345a01',
+    registrationId: 'f1234567890a12345a01',
+    number: 1,
+    type: 'credit',
+    createdAt: '2026-01-01T09:00:00.000Z',
+    createdBy: {
+      _id: 'c1234567890a12345a01',
+      name: 'Alice'
     },
-    // Charlie adds waste sent_on, decreasing the balance
-    {
-      id: 'Zh5Bn2Qx8Wj4Lp7Ck9Vm',
-      type: 'debit',
-      createdAt: '2026-01-03T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a03',
-        name: 'Charlie'
-      },
-      amount: 1.01,
-      openingAmount: 50.0,
-      closingAmount: 48.99,
-      openingAvailableAmount: 50.0,
-      closingAvailableAmount: 48.99,
-      entities: [
-        {
-          id: 'd1234567890a12345a04',
-          type: 'waste_record:sent_on'
-        }
-      ]
-    },
-    // Bob adds waste received, increasing the balance
-    {
-      id: 'Fd3Rt6Gy9Mn1Zx4Hk8Qw',
-      type: 'credit',
-      createdAt: '2026-01-02T09:00:00.000Z',
-      createdBy: {
-        _id: 'd1234567890a12345a04',
-        name: 'Bob'
-      },
-      amount: 40.0,
-      openingAmount: 10.0,
-      closingAmount: 50.0,
-      openingAvailableAmount: 10.0,
-      closingAvailableAmount: 50.0,
-      entities: [
-        {
-          id: 'd1234567890a12345a03',
-          type: 'waste_record:received'
-        },
-        {
-          id: 'd1234567890a12345a02',
-          type: 'waste_record:received'
-        }
-      ]
-    },
-    // Alice adds waste received, increasing the balance
-    {
-      id: 'Np2Vb7Xc5Jm9Rt4Lw6Fq',
-      type: 'credit',
-      createdAt: '2026-01-01T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      amount: 10.0,
-      openingAmount: 0,
-      closingAmount: 10.0,
-      openingAvailableAmount: 0,
-      closingAvailableAmount: 10.0,
-      entities: [
-        {
-          id: 'd1234567890a12345a01',
-          type: 'waste_record:received'
-        }
-      ]
+    amount: 10.0,
+    openingAmount: 0,
+    closingAmount: 10.0,
+    openingAvailableAmount: 0,
+    closingAvailableAmount: 10.0,
+    source: {
+      kind: 'summary-log-row',
+      summaryLogRow: {
+        summaryLogId: 's1234567890a12345a01',
+        rowId: '10000000001',
+        rowType: 'received',
+        wasteRecordId: 'd1234567890a12345a01',
+        wasteRecordVersionId: 'v1234567890a12345a01'
+      }
     }
-  ]
-}
+  },
+  // #2: Bob adds a received waste record, increasing the balance
+  {
+    _id: 'a1234567890a12345a02',
+    accreditationId: 'b1234567890a12345a01',
+    organisationId: 'e1234567890a12345a01',
+    registrationId: 'f1234567890a12345a01',
+    number: 2,
+    type: 'credit',
+    createdAt: '2026-01-02T09:00:00.000Z',
+    createdBy: {
+      _id: 'c1234567890a12345a04',
+      name: 'Bob'
+    },
+    amount: 20.0,
+    openingAmount: 10.0,
+    closingAmount: 30.0,
+    openingAvailableAmount: 10.0,
+    closingAvailableAmount: 30.0,
+    source: {
+      kind: 'summary-log-row',
+      summaryLogRow: {
+        summaryLogId: 's1234567890a12345a02',
+        rowId: '10000000002',
+        rowType: 'received',
+        wasteRecordId: 'd1234567890a12345a02',
+        wasteRecordVersionId: 'v1234567890a12345a02'
+      }
+    }
+  },
+  // #3: Bob adds a second received waste record in the same summary log
+  {
+    _id: 'a1234567890a12345a03',
+    accreditationId: 'b1234567890a12345a01',
+    organisationId: 'e1234567890a12345a01',
+    registrationId: 'f1234567890a12345a01',
+    number: 3,
+    type: 'credit',
+    createdAt: '2026-01-02T09:00:00.000Z',
+    createdBy: {
+      _id: 'c1234567890a12345a04',
+      name: 'Bob'
+    },
+    amount: 20.0,
+    openingAmount: 30.0,
+    closingAmount: 50.0,
+    openingAvailableAmount: 30.0,
+    closingAvailableAmount: 50.0,
+    source: {
+      kind: 'summary-log-row',
+      summaryLogRow: {
+        summaryLogId: 's1234567890a12345a02',
+        rowId: '10000000003',
+        rowType: 'received',
+        wasteRecordId: 'd1234567890a12345a03',
+        wasteRecordVersionId: 'v1234567890a12345a03'
+      }
+    }
+  },
+  // #4: Charlie adds a sent_on waste record, decreasing the balance
+  {
+    _id: 'a1234567890a12345a04',
+    accreditationId: 'b1234567890a12345a01',
+    organisationId: 'e1234567890a12345a01',
+    registrationId: 'f1234567890a12345a01',
+    number: 4,
+    type: 'debit',
+    createdAt: '2026-01-03T09:00:00.000Z',
+    createdBy: {
+      _id: 'c1234567890a12345a03',
+      name: 'Charlie'
+    },
+    amount: 1.01,
+    openingAmount: 50.0,
+    closingAmount: 48.99,
+    openingAvailableAmount: 50.0,
+    closingAvailableAmount: 48.99,
+    source: {
+      kind: 'summary-log-row',
+      summaryLogRow: {
+        summaryLogId: 's1234567890a12345a03',
+        rowId: '10000000004',
+        rowType: 'sentOn',
+        wasteRecordId: 'd1234567890a12345a04',
+        wasteRecordVersionId: 'v1234567890a12345a04'
+      }
+    }
+  },
+  // #5: Alice creates a PRN, decreasing the available balance
+  {
+    _id: 'a1234567890a12345a05',
+    accreditationId: 'b1234567890a12345a01',
+    organisationId: 'e1234567890a12345a01',
+    registrationId: 'f1234567890a12345a01',
+    number: 5,
+    type: 'pending_debit',
+    createdAt: '2026-01-04T09:00:00.000Z',
+    createdBy: {
+      _id: 'c1234567890a12345a01',
+      name: 'Alice'
+    },
+    amount: 25.0,
+    openingAmount: 48.99,
+    closingAmount: 48.99,
+    openingAvailableAmount: 48.99,
+    closingAvailableAmount: 23.99,
+    source: {
+      kind: 'prn-operation',
+      prnOperation: {
+        prnId: 'p1234567890a12345a01',
+        operationType: 'created'
+      }
+    }
+  }
+]
 ```
+
+The current balance for this accreditation is the closing totals on transaction `#5` — `amount: 48.99`, `availableAmount: 23.99`.
 
 ### PRN
 
@@ -933,7 +1000,7 @@ sequenceDiagram
   Note over Backend: lookup SUMMARY-LOG entity
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitting' }
   Note over Backend: sync WASTE-RECORD entities from SUMMARY-LOG
-  Note over Backend: update WASTE-BALANCE
+  Note over Backend: append waste balance ledger transactions per row
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitted' }
   Backend-->>Frontend: 202: { status: 'submitting' }
   Frontend-->>Op: <html>Submission in progress...</html>
