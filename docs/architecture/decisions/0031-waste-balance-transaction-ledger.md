@@ -6,6 +6,8 @@ Date: 2026-04-21
 
 Accepted
 
+**Amended 2026-04-29:** denormalise the running per-`wasteRecordId` credited total onto summary-log-row transactions (`closingCreditedAmount`), so per-row delta reconciliation reads via `find-latest` rather than signed-sum aggregation. No production data exists under this ADR yet, so the change is amend-in-place rather than superseding.
+
 ## Context
 
 The waste balance document embeds a `transactions[]` array recording every credit, debit, and pending debit that moves the accreditation's balance. Each transaction is around 400-600 bytes of BSON, so a daily-uploading reprocessor approaches MongoDB's 16MB document ceiling within a year ([PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382)) — at current emission rates the ceiling lands at roughly 30,000 transactions. Failure is per-accreditation and silent. A hidden multiplier compounds this: each transaction's entity carries `previousVersionIds[]`, which grows by a UUID per re-submit of the same row.
@@ -42,6 +44,7 @@ Each transaction document keeps almost the same field set as today. The only cha
   - `manual-adjustment` → `source.manualAdjustment: { userId, reason }`
 
   Exactly one sub-object is populated per transaction. Because one summary-log row produces exactly one waste-record update, and one PRN operation affects exactly one PRN, the source uniquely identifies both the cause and the affected entity — there is no need for a separate entity array. Queries resolve directly: "which transactions did summary log S produce?" is a single indexed lookup on `source.summaryLogRow.summaryLogId`; "which transactions touched waste record W?" is `source.summaryLogRow.wasteRecordId`; "which transactions did a specific row cause?" is a compound lookup on `(summaryLogId, rowId, rowType)`. No traversal through waste-records.
+- `closingCreditedAmount` (`Decimal128`) — **summary-log-row transactions only**. The closing net credit total for the affected `wasteRecordId` after this transaction is applied: `previousClosingCreditedFor(wasteRecordId) + amount(signed) = closingCreditedAmount`. PRN operations and manual adjustments do not carry this field; their reconciliation keys (`prnId`, `userId`) live in different namespaces.
 
 **Removed fields:**
 
@@ -58,13 +61,15 @@ Each transaction document keeps almost the same field set as today. The only cha
 
 Uniqueness of `(accreditationId, number)` is enforced by a compound unique index. That single index also serves the read patterns — "find transactions for this accreditation", "find transaction N", "sort by number" — so one index covers both the optimistic-append lock and the query path. The MongoDB-assigned `_id` remains an auto-generated `ObjectId` used only inside the storage layer.
 
+A second compound index `(accreditationId, source.summaryLogRow.wasteRecordId, number)` (descending on `number`) serves the per-row delta reconciliation read — find-latest-summary-log-row-transaction-per-`wasteRecordId`. Only summary-log-row transactions populate `source.summaryLogRow.wasteRecordId`, so PRN operations, PRN pending debits, and manual adjustments do not appear in the index — the per-row reconciliation needs no pending-debit filter.
+
 ### Writing a transaction
 
 Every write follows the same steps:
 
 1. Read the latest transaction for the accreditation — one indexed read (`find({accreditationId}).sort({number: -1}).limit(1)`). You get its `number` and its closing totals. If no transactions exist yet, start from `number = 0` and zero totals.
 2. Compute the change the business event produces.
-3. Insert a new transaction at `number = latestNumber + 1` with the updated closing totals. If the database rejects the insert because another writer has already claimed that number, go back to step 1 and retry.
+3. Insert a new transaction at `number = latestNumber + 1` with the updated global closing totals (and, for summary-log-row transactions, with `closingCreditedAmount = previousClosingCreditedFor(wasteRecordId) + amount`, where the previous value comes from the latest prior summary-log-row transaction matching the same `wasteRecordId` or zero if none exists). If the database rejects the insert because another writer has already claimed that number, go back to step 1 and retry.
 
 The unique index on `(accreditationId, number)` is the only enforcement point for concurrency. There is no second document to update and no second optimistic-lock surface.
 
@@ -73,12 +78,12 @@ The unique index on `(accreditationId, number)` is the only enforcement point fo
 Summary-log-row writes carry a per-row idempotency invariant — the read-before-emit rule — that makes operator re-upload the recovery path for any partial prior submission. For each row in an incoming summary log:
 
 1. Compute `targetAmount` from the waste record's current data (the value the latest waste-record version carries after this upload).
-2. Compute `alreadyCredited` as the signed sum of every prior ledger transaction whose `source.summaryLogRow.wasteRecordId` matches this row (credits positive, debits negative). This is a single indexed aggregation per batch, not a per-row round-trip.
+2. Read `alreadyCredited` from the `closingCreditedAmount` on the latest prior summary-log-row transaction whose `source.summaryLogRow.wasteRecordId` matches this row — one indexed seek per row, served by the secondary index above. If no prior transaction exists for this `wasteRecordId`, `alreadyCredited` is zero.
 3. Compute `delta = targetAmount - alreadyCredited`.
 4. If `delta = 0`, emit nothing — the row is already correctly credited.
 5. Otherwise append one ledger transaction for the signed delta.
 
-Every submission is self-converging under this invariant: whatever state a partial prior run left behind — no prior transactions, some prior transactions, a full prior contribution — a re-upload ends with the ledger at the correct totals for each row. This is the mechanism the embedded-array implementation uses today (`calculator.js`'s `creditedAmountMap`, keyed by `rowId`), lifted into the new shape and re-keyed onto `wasteRecordId` so the PAE-1380 rowId-collision class cannot recur.
+Every submission is self-converging under this invariant: whatever state a partial prior run left behind — no prior transactions, some prior transactions, a full prior contribution — a re-upload ends with the ledger at the correct totals for each row. The mechanism is the same idea as the embedded-array implementation's in-memory `creditedAmountMap` (`calculator.js`, keyed by `rowId`), but persisted: every summary-log-row transaction stamps the running per-`wasteRecordId` total it produced (`closingCreditedAmount`) onto itself, so reconciliation reads it via `find-latest` rather than recomputing it from history. Re-keying onto `wasteRecordId` rules out the PAE-1380 rowId-collision class, and persisting the running total extends the closing-totals self-audit (`opening + delta = closing`) from the global balance to per-`wasteRecordId` tracking.
 
 PRN operations and manual adjustments key on `prnId` and `userId` respectively and carry their deltas directly; the read-before-emit invariant applies only to summary-log-row writes.
 
@@ -102,6 +107,8 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 
 **Keep `entities[]` (plural array) on transactions for forward flexibility.** The LLD currently specifies `entities: WASTE-BALANCE-TRANSACTION-ENTITY[]` and one worked example bundles two entities in a single transaction. Rejected because no production code path has ever populated the array with more than one element: five construction sites (`buildTransaction`, `buildPrnCreationTransaction`, `buildPrnIssuedTransaction`, `buildPrnCancellationTransaction`, `buildIssuedPrnCancellationTransaction`) each hardcode a single-element literal, and per-row emission guarantees this will remain the case. Every caller reads `entities[0]`. Collapsing the entity identifiers into `source` removes the plural-with-guaranteed-length-one lie without losing any capability; if a multi-entity transaction is ever genuinely required, the shape can be evolved at that point rather than reserved speculatively today.
 
+**Compute `alreadyCredited` via signed-sum aggregation over prior matching transactions, without persisting a per-`wasteRecordId` running total.** The original shape of this ADR before the 2026-04-29 amendment. Rejected because the closing-totals discipline (`opening + delta = closing` carried on every transaction) was applied only to the global running totals, not to per-`wasteRecordId` tracking. The aggregation primitive carries signed-sum semantics, sign handling, pending-debit filtering, and `accreditationId` scoping — discipline that lives outside the ledger and leaks into both the contract surface and the consumer's reasoning. Persisting `closingCreditedAmount` on each summary-log-row transaction makes the per-row read primitive symmetrical with the balance read primitive (`find-latest-by-key`), and the pending-debit filter disappears because PRN pending debits do not carry a `wasteRecordId` source path. Cost is one `Decimal128` field per summary-log-row transaction.
+
 ## Consequences
 
 ### Positive
@@ -112,6 +119,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - **No cached state to maintain.** There is no separate projection document that can go stale, get corrupted, or need repair — so the failure modes associated with maintaining one simply do not exist.
 - **Single write mechanism.** Summary-log row writes and PRN operations both append to the same ledger through the same optimistic-append path — no separate code to update a projection, no second concurrency surface.
 - **Constant-cost balance reads.** The current balance for an accreditation is a single indexed read on the latest transaction — O(1) via the `(accreditationId, number)` index. Organisation-level and registration-level queries resolve with a single-pass aggregation against denormalised `organisationId` / `registrationId` fields on each transaction.
+- **Per-row reconciliation matches the global balance discipline.** Each summary-log-row transaction is self-auditing per `wasteRecordId` (`previousClosingCreditedFor + delta = closingCreditedFor`), and the read primitive is a single indexed seek on the secondary index. Pending-debit filtering and signed-sum reasoning live inside the ledger's own discipline rather than at the consumer.
 - **Provenance queries are direct — both for causes and for entity history.** The nested `source` object means "which transactions did summary log S produce?", "which transactions did PRN P cause?", and "how did waste record W evolve?" all resolve with a single indexed query on the ledger. The chain of transactions referencing the same `wasteRecordId`, sorted by `number`, is the full version progression in chronological order with balance context at each step — the ledger is authoritative for both balance state _and_ entity version history, with no traversal through waste-records needed. This is also what the PAE-1364 long-term fix needs for summary-log → transaction reconciliation.
 
 ### Negative
@@ -121,6 +129,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - Anyone reading a single v2 transaction no longer sees the full version history of the affected entity inline — only the current version id (via `source`). The information is still ledger-native: consumers reconstruct the history by querying for all transactions referencing the same `wasteRecordId` and sorting by `number`. The access pattern changes from an in-place array read to a per-record indexed query.
 - The LLD needs updating to match: `entities[]` → single entity identifiers folded into `source`, and the worked example that shows a multi-entity transaction needs revising to reflect the per-row, single-entity invariant.
 - Organisation-level and registration-level balance queries rely on `organisationId` and `registrationId` being denormalised onto every transaction. These values are immutable for the lifetime of an accreditation, so the denormalisation is safe, but each transaction document is a few dozen bytes larger than strictly necessary.
+- Summary-log-row transactions also carry `closingCreditedAmount` — one extra `Decimal128` per row transaction (~16 bytes) on top of the four global running totals. Modest per-document, but explicit, and confined to summary-log-row transactions only.
 - `summary-log-data-flow.md` needs updating to describe the new storage shape.
 - Summary-log submission writes a batch of ledger transactions — one per balance-affecting row — via per-transaction optimistic appends. Under the embedded-array shape the equivalent step was a single `$set` + `$push $each` on the waste-balance document, atomic at the document level; the ledger shape replaces that with N independent writes and a crash mid-batch can leave K of N committed. Partial ledger contributions are individually self-consistent (each row still carries valid opening/closing totals against its predecessor), but the batch can be incomplete. Because the authoritative balance is read from the closing totals on the latest ledger entry, those totals reflect only the K rows that landed — the balance is inaccurate with respect to the submitted summary log, and nothing in the ledger distinguishes this interim state from a fully-committed submission, until the operator re-uploads. Recovery relies on the operator-re-upload path and the per-row delta reconciliation invariant above: on re-upload, already-credited rows produce zero deltas and emit nothing, missing rows emit their full credits, and the end state converges regardless of how much of the prior submission landed. The single-document atomicity the embedded-array shape provided for free is replaced by a caller-level invariant that every summary-log-row writer must preserve.
 
