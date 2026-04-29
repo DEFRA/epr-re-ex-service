@@ -88,6 +88,12 @@ The current balance for an accreditation is the `closingAmount` and `closingAvai
 
 No cached projection exists, so there is no staleness to check and no reconciliation path to maintain. The ledger is the authoritative and sole store of balance state.
 
+### Decimal arithmetic
+
+Every amount on a ledger transaction (`amount`, `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount`) is stored as MongoDB `Decimal128` and arithmetic over those amounts goes through `decimal.js` via the helpers in `src/common/helpers/decimal-utils.js` (precision 34 to match the Decimal128 spec, `ROUND_HALF_UP`). Storing as BSON Double would silently introduce IEEE 754 drift over the cumulative transaction history — at the scale this ADR migrates for (tens of thousands of transactions per accreditation), that drift becomes material against operator-entered tonnages, and the per-row delta-zero-skip invariant in particular relies on exact arithmetic to recognise re-uploads as no-ops.
+
+The application boundary stays in JS-number shape: schemas validate amounts as `Joi.number()`, and the storage adapter converts to `Decimal128.fromString(toDecimalString(value))` on write and back via `toNumber` on read. Aggregation pipelines that touch amount fields must keep their literal numeric operands in Decimal128 — `{ $toDecimal: -1 }` rather than the bare integer — so `$sum`, `$multiply`, and `$switch` outputs preserve the type instead of widening back to Double.
+
 ## Considered alternatives
 
 **Keep transactions embedded, manage growth via archival or pruning.** Defers the size problem rather than removing it. The projection stays coupled to a bounded-capacity document, and the ledger cannot safely be the authoritative source of truth under concurrent writes. Rejected — we'd be revisiting the same decision when the ceiling returns, and it doesn't unlock a return to ledger-derived balance calculation.
