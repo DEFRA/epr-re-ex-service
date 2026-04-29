@@ -44,7 +44,7 @@ Each transaction document keeps almost the same field set as today. The only cha
   - `manual-adjustment` → `source.manualAdjustment: { userId, reason }`
 
   Exactly one sub-object is populated per transaction. Because one summary-log row produces exactly one waste-record update, and one PRN operation affects exactly one PRN, the source uniquely identifies both the cause and the affected entity — there is no need for a separate entity array. Queries resolve directly: "which transactions did summary log S produce?" is a single indexed lookup on `source.summaryLogRow.summaryLogId`; "which transactions touched waste record W?" is `source.summaryLogRow.wasteRecordId`; "which transactions did a specific row cause?" is a compound lookup on `(summaryLogId, rowId, rowType)`. No traversal through waste-records.
-- `closingCreditedAmount` (`Decimal128`) — **summary-log-row transactions only**. The closing net credit total for the affected `wasteRecordId` after this transaction is applied: `previousClosingCreditedFor(wasteRecordId) + amount(signed) = closingCreditedAmount`. PRN operations and manual adjustments do not carry this field; their reconciliation keys (`prnId`, `userId`) live in different namespaces.
+- `closingCreditedAmount` (`Decimal128`) — **summary-log-row transactions only**. The closing net credit total for the affected `wasteRecordId` after this transaction is applied. Self-audits against its predecessor in the same way the global totals do: this transaction's `closingCreditedAmount` equals the previous matching transaction's `closingCreditedAmount` (for the same `wasteRecordId`, zero if none) plus the signed `amount`. PRN operations and manual adjustments do not carry this field; their reconciliation keys (`prnId`, `userId`) live in different namespaces.
 
 **Removed fields:**
 
@@ -69,7 +69,7 @@ Every write follows the same steps:
 
 1. Read the latest transaction for the accreditation — one indexed read (`find({accreditationId}).sort({number: -1}).limit(1)`). You get its `number` and its closing totals. If no transactions exist yet, start from `number = 0` and zero totals.
 2. Compute the change the business event produces.
-3. Insert a new transaction at `number = latestNumber + 1` with the updated global closing totals (and, for summary-log-row transactions, with `closingCreditedAmount = previousClosingCreditedFor(wasteRecordId) + amount`, where the previous value comes from the latest prior summary-log-row transaction matching the same `wasteRecordId` or zero if none exists). If the database rejects the insert because another writer has already claimed that number, go back to step 1 and retry.
+3. Insert a new transaction at `number = latestNumber + 1` with the updated global closing totals. For summary-log-row transactions, also stamp `closingCreditedAmount` — the latest prior matching transaction's `closingCreditedAmount` for the same `wasteRecordId` (zero if none) plus this transaction's signed `amount`. If the database rejects the insert because another writer has already claimed that number, go back to step 1 and retry.
 
 The unique index on `(accreditationId, number)` is the only enforcement point for concurrency. There is no second document to update and no second optimistic-lock surface.
 
@@ -87,9 +87,11 @@ Every submission is self-converging under this invariant: whatever state a parti
 
 PRN operations and manual adjustments key on `prnId` and `userId` respectively and carry their deltas directly; the read-before-emit invariant applies only to summary-log-row writes.
 
-### Reading the current balance
+### Reading balance state
 
-The current balance for an accreditation is the `closingAmount` and `closingAvailableAmount` on its highest-numbered transaction — a single indexed read. If no transactions exist, the balance is zero.
+**Current accreditation balance.** The `closingAmount` and `closingAvailableAmount` on the highest-numbered transaction for the accreditation — a single indexed read served by the `(accreditationId, number)` unique index. If no transactions exist, the balance is zero.
+
+**Per-`wasteRecordId` credited total.** The `closingCreditedAmount` on the latest prior summary-log-row transaction matching the `wasteRecordId` — a single indexed seek served by the secondary `(accreditationId, source.summaryLogRow.wasteRecordId, number)` index (descending on `number`). If no prior transaction exists for this `wasteRecordId`, the credited total is zero. This is the read the per-row delta reconciliation invariant uses; PRN pending debits do not appear in the index because they do not carry a `wasteRecordId` source path, so the seek needs no pending-debit filter.
 
 No cached projection exists, so there is no staleness to check and no reconciliation path to maintain. The ledger is the authoritative and sole store of balance state.
 
@@ -119,7 +121,7 @@ No cached projection exists, so there is no staleness to check and no reconcilia
 - **No cached state to maintain.** There is no separate projection document that can go stale, get corrupted, or need repair — so the failure modes associated with maintaining one simply do not exist.
 - **Single write mechanism.** Summary-log row writes and PRN operations both append to the same ledger through the same optimistic-append path — no separate code to update a projection, no second concurrency surface.
 - **Constant-cost balance reads.** The current balance for an accreditation is a single indexed read on the latest transaction — O(1) via the `(accreditationId, number)` index. Organisation-level and registration-level queries resolve with a single-pass aggregation against denormalised `organisationId` / `registrationId` fields on each transaction.
-- **Per-row reconciliation matches the global balance discipline.** Each summary-log-row transaction is self-auditing per `wasteRecordId` (`previousClosingCreditedFor + delta = closingCreditedFor`), and the read primitive is a single indexed seek on the secondary index. Pending-debit filtering and signed-sum reasoning live inside the ledger's own discipline rather than at the consumer.
+- **Per-row reconciliation matches the global balance discipline.** Each summary-log-row transaction is self-auditing per `wasteRecordId` (`previousClosingCreditedAmount + delta = closingCreditedAmount`, both fields read from the latest prior matching transaction and stamped onto this one), and the read primitive is a single indexed seek on the secondary index. Pending-debit filtering and signed-sum reasoning live inside the ledger's own discipline rather than at the consumer.
 - **Provenance queries are direct — both for causes and for entity history.** The nested `source` object means "which transactions did summary log S produce?", "which transactions did PRN P cause?", and "how did waste record W evolve?" all resolve with a single indexed query on the ledger. The chain of transactions referencing the same `wasteRecordId`, sorted by `number`, is the full version progression in chronological order with balance context at each step — the ledger is authoritative for both balance state _and_ entity version history, with no traversal through waste-records needed. This is also what the PAE-1364 long-term fix needs for summary-log → transaction reconciliation.
 
 ### Negative
