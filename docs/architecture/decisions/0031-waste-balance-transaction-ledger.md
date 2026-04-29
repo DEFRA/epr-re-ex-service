@@ -62,7 +62,7 @@ Each transaction document keeps almost the same field set as today. The only cha
 
 Uniqueness of `(accreditationId, number)` is enforced by a compound unique index. That single index also serves the read patterns — "find transactions for this accreditation", "find transaction N", "sort by number" — so one index covers both the optimistic-append lock and the query path. The MongoDB-assigned `_id` remains an auto-generated `ObjectId` used only inside the storage layer.
 
-A second compound index `(accreditationId, source.summaryLogRow.wasteRecord.type, source.summaryLogRow.wasteRecord.rowId, number)` (descending on `number`) serves the per-row delta reconciliation read — find-latest-summary-log-row-transaction-per-waste-record. Only summary-log-row transactions carry `source.summaryLogRow`, so PRN operations, PRN pending debits, and manual adjustments do not appear in the index — the per-row reconciliation needs no pending-debit filter.
+A second compound index `(accreditationId, source.summaryLogRow.wasteRecord.type, source.summaryLogRow.wasteRecord.rowId, number)` (descending on `number`, so the find-latest read is a direct index scan) serves the per-row delta reconciliation read — find-latest-summary-log-row-transaction-per-waste-record. Only summary-log-row transactions carry `source.summaryLogRow`, so PRN operations, PRN pending debits, and manual adjustments do not appear in the index — the per-row reconciliation needs no pending-debit filter.
 
 ### Writing a transaction
 
