@@ -231,6 +231,7 @@ services:
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-tenantId}
       EPR_BACKEND_URL: http://epr-backend:3001
+      LOG_FORMAT: ${LOG_FORMAT:-ecs}
       NODE_ENV: development
       OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-http://entra-stub:3010/.well-known/openid-configuration}
       PORT: 3002
@@ -286,6 +287,7 @@ services:
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://epr-backend:3001
       FEATURE_FLAG_REPORTS: ${FEATURE_FLAG_REPORTS:-false}
+      LOG_FORMAT: ${LOG_FORMAT:-ecs}
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
