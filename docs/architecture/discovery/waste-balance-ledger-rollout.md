@@ -130,27 +130,6 @@ Pre-flip baselines: capture read-path p99 per primitive from the `epr-backend` d
 - The long-tail sweep is a prerequisite of v1 retirement — it is sequenced into the rollout/cutover execution chain.
 - Observability instrumentation is additive to the existing waste-balance routes and repository layer; adding it should not require API changes.
 
-## Open questions for follow-up scoping
-
-These do not block sign-off of this recommendation; they are the first questions the implementing work needs to answer.
-
-- Exact metric names and dimension keys against the `summaryLog.*` precedents in `src/common/helpers/metrics/`.
-- Canonicality marker field shape — boolean, enum string, presence-of-marker, or version number — matched against existing repo conventions.
-- Whether rebuild and marker flip run inside one MongoDB session (transactional rollback on flip failure) or use detect-and-clean on retry. Both shapes preserve correctness; the choice depends on transaction-boundary cost.
-- Audit-suppression API surface — explicit parameter on `appendToLedger`, separate primitive, or middleware bypass. Implementing work picks against the existing repository-layer conventions.
-- Long-tail sweep mechanism — scheduled job, admin endpoint, or one-shot script. Constraint: it must run under the same network and credentials path as the service in each environment.
-- Whether the rollout is broken up as one piece of work per environment, or as a single piece of work with per-environment checkpoints.
-- Whether `perf-test` is handled on its own or folded into the prod pre-flip step.
-
-## ADR 0031 consistency follow-up
-
-Two amendments to ADR 0031 fall out of this recommendation, and they should land together as a single update-in-place (or a single superseding ADR, whichever the team prefers):
-
-1. **Transition mechanism.** ADR 0031's Decision section currently implies bare-on-next-write. Amend it to reference this doc as the transition mechanism (lazy per-accreditation rebuild from authoritative sources, etag-conditional canonicality flip on the v1 document).
-2. **Source-kind enum.** ADR 0031 lists `manual-adjustment` as a third source kind alongside `summary-log-row` and `prn-operation`. The implementation drops it on YAGNI grounds (no admin caller exists) and this design does not reintroduce it — the rebuild draws on real per-row history and has no inflation to correct, so the escape hatch is unused. The amendment formally drops `manual-adjustment` from the source-kind enum, leaving a clean two-variant set. If admin adjustments materialise later, they are reintroduced by a successor ADR with their real caller.
-
-Without these amendments the ADR stays inconsistent with its own operationalisation and with the implementation already in flight.
-
 ## Related
 
 - [ADR 0031 — Waste balance transaction ledger](../decisions/0031-waste-balance-transaction-ledger.md)
