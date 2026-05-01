@@ -44,31 +44,31 @@ Each step requires signals to clear before the next flag-flip PR lands in `cdp-a
 
 ### Rollback protocol
 
-Flag flip `true → false` is safe at any point while v1 still exists (until v1 is retired at the end of the epic):
+Read/write routing for each accreditation is governed by its canonicality marker on the v1 waste-balance document, not by the global feature flag. The flag governs only whether new migrations trigger; the marker governs routing for each accreditation. Two rollback shapes apply.
 
-- The dual-read helper stops reading the ledger and reverts to reading `amount` / `availableAmount` from the waste-balance document.
-- The v1 write path has remained in place throughout the epic — summary-log submissions and PRN lifecycle events go back to updating the embedded array.
-- Ledger transactions written during the flag-ON window are durable but inert — they are not read and they are not deleted. If the flag is later flipped back on, they pick up where they left off.
+**Pause the rollout.** Flip `FEATURE_FLAG_WASTE_BALANCE_LEDGER` from `true` back to `false`. New summary-log submissions skip the migration trigger, so no further accreditations move to v2. Already-migrated accreditations continue on v2 because their marker still reads "v2"; they remain readable and writable through the ledger. Accreditations still on "v1" stay there. This is safe at any point.
 
-The **side-effect worth naming**: during the flag-ON window the v1 `amount` / `availableAmount` fields are not updated, because the v2 write path replaces the v1 write path rather than running both. So a rollback after any v2 writes have happened reverts reads to the pre-flip v1 balance. Data is not lost (the ledger keeps every transaction), but recent state is not reflected in read paths until either (a) the flag flips back on, or (b) the operator re-uploads under v1 and rebuilds v1 from current waste-records state.
+**Roll a specific accreditation back to v1.** Flip its marker from "v2" back to "v1". Reads return to v1's `amount` / `availableAmount`, writes return to v1's embedded array. The ledger entries for that accreditation become durable but inert. Because the v1 document was never mutated by v2 traffic — v2 writes go to the ledger, not back into v1's `transactions[]` — its `amount` / `availableAmount` reflect state as of the migration moment. A rollback after broad v2 activity recovers via the same operator-re-upload path that any v1-first scenario uses; the dual-read helper sees the marker, routes to v1, and the operator re-establishes current totals there.
 
-In practice: short rollbacks (minutes to hours) before many accreditations have written v2 transactions have essentially no customer-visible impact. Longer rollbacks after broad v2 adoption need a communications step and the operator-re-upload path as recovery. The flag-flip itself is not zero-downtime-fast — `cdp-app-config` changes trigger a redeploy of the service, so the rollback latency is 5–10 minutes, not seconds.
+**Operational rule: do not delete ledger entries on rollback.** The entries are correct per-row history for that accreditation. If an accreditation is later re-migrated, the rebuild path is responsible for clearing or superseding the prior attempt's entries; "wipe and redo" between rollback and re-migration leaves a window where the ledger and v1 disagree on history.
 
-**Operational rule: do not wipe the ledger between a rollback and a re-flip.** Seed transactions and any real v2 transactions written during the flag-ON window are the correct opening state for any subsequent re-flip. A "clean slate" instinct here is actively dangerous: re-running the backfill after a wipe would re-seed from v1 balances that may now lag the real ledger contributions during the brief v2 window, and the accreditations that did write v2 would lose their opening context. If a re-flip is desired, leave the ledger exactly as-is — seeds still point at the correct v1 baseline, partial-v2 entries chain off them, and normal operation resumes.
+`cdp-app-config` flag flips trigger a service redeploy, so pausing the rollout has 5–10 minute latency. Per-accreditation marker flips are a database operation and are effectively instant.
 
 ## Part B — Per-accreditation cutover
 
 ### Recommendation
 
-**Bulk seed-only backfill, run against each environment while the flag is still OFF, before the flag flips on in that environment.**
+**Lazy per-accreditation migration, triggered by the next summary-log submission for each accreditation, rebuilding the ledger from authoritative sources (waste records + PRN history).**
 
-For each accreditation with a non-zero v1 balance or any v1 transactions, write one or two **cutover-seed** ledger transactions carrying the v1 closing totals forward as the ledger's opening state. From the flag flip onward, every new write appends to an already-correctly-totalled ledger.
+Each accreditation carries a canonicality marker on its v1 waste-balance document. While the marker reads "v1", the existing v1 write path runs as today and reads come from v1 `amount` / `availableAmount`. The first summary-log submission for that accreditation under flag-ON triggers a post-commit rebuild: the ledger is populated by replaying the accreditation's waste-records history and PRN operation history, then the marker flips to "v2" via an etag-conditional update on the v1 document. Subsequent reads and writes for that accreditation route to the ledger.
 
-### Why seed-only, not full-fidelity backfill
+### Why rebuild from authoritative sources, not v1-transaction replay
 
-Full-fidelity backfill — one ledger transaction per historical v1 embedded transaction — would be the textbook answer. It is rejected because v1 transaction entities carry the naked `rowId` plus waste-record version ids (`currentVersionId`, `previousVersionIds[]`), but no direct `wasteRecordId` or `summaryLogId`. An accreditation's historical v1 transactions cannot be deterministically mapped back to waste records without a join that is ambiguous for any accreditation where the same `rowId` appears across multiple summary logs — which is the normal case for monthly uploads of the same supplier row.
+Full-fidelity replay of the v1 embedded `transactions[]` array would be the textbook answer. It is rejected because v1 transaction entities carry the naked `rowId` plus waste-record version ids (`currentVersionId`, `previousVersionIds[]`), but no direct `wasteRecordId` or `summaryLogId`. An accreditation's historical v1 transactions cannot be deterministically mapped back to waste records without an ambiguous join — the same `rowId` recurs across monthly summary logs for the same supplier row. The PAE-1364 incident is the live demonstration of that ambiguity.
 
-The version-id fields could narrow the join via the waste-records collection's version history, but the complexity of that migration is disproportionate to the value. A seed-only backfill achieves the same correctness for current balance with a one-line-per-accreditation script.
+The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) sidesteps that ambiguity by deriving balance directly from the waste records collection. That makes waste records the current source of truth for balance, and PRN history the source of truth for PRN-driven contributions. Rebuilding the ledger from those two collections is unambiguous, preserves real `wasteRecordId` / `summaryLogId` / `prnId` linkage on each replayed transaction, and preserves real `createdBy` user attribution rather than a synthetic system actor.
+
+This dissolves three problems a seed-forward design would have carried: there is no PRN lifecycle continuity gap, no `manual-adjustment` reintroduction needed as an inflation-correction escape hatch, and no post-cutover-of-pre-cutover-row inflation risk because the ledger already carries each row's original contribution. Reinstating the ledger as the authoritative source of truth — not a forward-only ledger seeded from v1 closing totals — is the goal of PAE-1382 itself; rebuilding from authoritative sources delivers it directly.
 
 ### Why not bare on-next-write (the ADR's literal wording)
 
@@ -80,73 +80,59 @@ The ADR says "reads fall back to v1 until each accreditation has been transition
 | Accreditation B, new summary log with new rows                                 | 500 (built up over prior months/logs) | Three new rows × 100, reconciliation delta = 100 each       | 300                 | 300      | 800             | ✗         |
 | Accreditation C, PRN operation                                                 | 500                                   | Issuance emits pending-debit of 50                          | opens 0, closes -50 | -50      | 450             | ✗         |
 
-Scenario A only passes because the operator happens to re-upload every single row that contributed to v1 — a coincidence, not a property of bare-on-next-write. If the v1 balance was built over several months' uploads and the operator re-uploads only the current month, the ledger closes well short of 500 and the read is wrong, exactly like scenario B. Bare-on-next-write is 0 of 3 as a cutover mechanism; scenario A is there to show the near-miss, not a partial success.
+Scenario A only passes because the operator happens to re-upload every row that contributed to v1 — a coincidence, not a property of bare-on-next-write. If the v1 balance was built over several months' uploads and the operator re-uploads only the current month, the ledger closes well short of 500 and the read is wrong, exactly like scenario B. Bare-on-next-write is 0 of 3 as a cutover mechanism.
 
-The write path computes `delta` per row against the ledger's own history (per ADR §Per-row delta reconciliation) or, for PRN operations, uses the delta directly. In both cases the ledger's opening totals default to zero for a newly-transitioned accreditation, so the closing totals reflect only what happened post-transition — they ignore the v1 history the dual-read fallback would have surfaced.
+The write path computes `delta` per row against the ledger's own history (per ADR §Per-row delta reconciliation) or, for PRN operations, uses the delta directly. In both cases the ledger's opening totals default to zero for a newly-transitioned accreditation, so the closing totals reflect only what happened post-transition. An active rebuild is required to seat the ledger with real history before reads route to it; the lazy migration below performs that rebuild before the marker flips.
 
 The reconciliation invariant's "re-upload is the recovery path" framing in the ADR is about **partial-submission recovery mid-write**, not about cutover. Cutover is a different problem and needs a different mechanism.
 
-### Seed shape
+### Migration shape
 
-One seed transaction per accreditation where `amount = availableAmount` on v1:
+When the flag is ON and an accreditation's marker reads "v1", the next summary-log submission for that accreditation triggers a post-commit rebuild:
 
-```
-{
-  accreditationId, organisationId, registrationId,
-  number: 1,
-  type: 'credit',
-  amount: v1.amount,
-  openingAmount: 0, closingAmount: v1.amount,
-  openingAvailableAmount: 0, closingAvailableAmount: v1.amount,
-  source: {
-    kind: 'cutover-seed',
-    cutoverSeed: { carriedFromV1At: <iso-ts>, v1BalanceId: <mongo-oid> }
-  },
-  createdAt: <iso-ts>, createdBy: 'system:cutover'
-}
-```
+1. **Submit to v1.** The existing summary-log write path runs unchanged. The user's submission succeeds or fails on its own merits, independent of migration outcome. If migration subsequently fails, v1 stays canonical and the rebuild retries on the next submission.
+2. **Capture the v1 etag.** Read the v1 waste-balance document and record its etag (or `_v` field equivalent — whichever the repository layer exposes for optimistic concurrency).
+3. **Replay history into the ledger.** Walk the waste records collection in order and append a `summary-log-row` ledger transaction per row with real `wasteRecordId` / `summaryLogId` / `createdBy`. Walk the PRN history in order and append a `prn-operation` ledger transaction per operation with real `prnId` / `operationType` / `createdBy`. Each append uses the existing `appendToLedger` primitive with audit emission suppressed (§Audit emission suppression).
+4. **Flip the marker conditionally.** Update the v1 document setting the canonicality marker to "v2", with the etag captured at step 2 as the conditional predicate. If the predicate matches, the flip lands and reads/writes for that accreditation route to v2 from this point. If it does not match — a concurrent PRN write or summary-log write incremented the etag during the rebuild — the flip no-ops, the ledger entries from this attempt are cleared, and the rebuild retries on the next summary-log submission.
 
-Two seed transactions where `availableAmount < amount` (pending PRN debits present on v1):
+Migration runs after the user's submission has committed. It is a best-effort post-commit step. A failure (transient infrastructure error, etag conflict, anything else) leaves v1 canonical and the rebuild retries next time. The user never sees a migration failure surfaced as a submission failure.
 
-1. A `credit` transaction as above, closing at `(amount, amount)`.
-2. A `pending_debit` at `number: 2`, opening `(amount, amount)`, closing `(amount, availableAmount)`. `source.kind = 'cutover-seed'`.
+### Triggering and serialisation
 
-The `cutover-seed` source kind is added as a fourth variant alongside `summary-log-row`, `prn-operation`, and `manual-adjustment`. It is distinct from `manual-adjustment` because there is no admin actor — a reason-for-audit query that looks for `manual-adjustment` should not pick these up, and the operations team needs a stable predicate to count "how many accreditations have been seeded" as cutover progresses.
+The summary-log submission flow already serialises submissions per accreditation via the diff-preview check that gates write-on-confirm. No additional per-accreditation mutex is required; two concurrent summary-log submissions for the same accreditation cannot both reach the migration step.
 
-### Sequencing with the PAE-1364 recovery uploads
+PRN write paths read the per-accreditation marker and route accordingly: marker "v1" → write to v1 embedded array; marker "v2" → append to ledger. PRN writes do not themselves trigger migration. An accreditation that only sees PRN traffic during the rollout window stays on v1 until either (a) a summary-log submission arrives to trigger migration, or (b) the long-tail sweep migrates it as part of v1 retirement preparation (§Long-tail sweep).
 
-The seven PAE-1364-affected accreditations are being asked to re-upload under the workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091). That brings their v1 `amount` / `availableAmount` to a correct state. The cutover order is:
+### PRN concurrency during migration
 
-1. PAE-1364 recovery re-uploads complete (already in flight).
-2. Flag-gated write and read paths deploy everywhere with the flag OFF (summary-log row writes, PRN operation writes, and balance reads all branched on `isWasteBalanceLedgerEnabled()`).
-3. Backfill runs against dev → test → ext-test → perf-test → prod, each immediately before that environment's flag flip. The backfill script is idempotent: running it twice produces no additional seeds because a seed is only written when the ledger is empty for that accreditation.
-4. Flag flips in the same environment order, following the promotion gates.
+The rebuild reads PRN history at step 3 and flips the marker at step 4. A PRN write that lands between those two steps is a real concurrency hazard: it would mutate the v1 document (appending to `transactions[]`, decrementing `availableAmount`) without the rebuild seeing it, and the marker flip would commit a ledger that's already stale.
 
-Running the backfill once per environment (rather than once globally against prod-only) is deliberate: each environment gets a correctness check before its flag flips, and `perf-test` in particular gets a realistically-populated ledger to measure against.
+The etag-conditional flip handles this without needing a lock or a snapshot-and-tail. The PRN write path mutates the v1 document; that mutation increments the etag. At step 4, the rebuild's conditional update tests the etag captured at step 2 against the document's current etag. A concurrent PRN write makes them diverge, the conditional update no-ops, and migration retries on the next summary-log submission. The PRN write itself is unaffected — it lands on v1 as designed because the marker is still "v1" at that moment.
 
-### Backfill concurrency with live v1 traffic
+Ledger entries written during a failed-flip rebuild attempt are cleared as part of the retry path. The implementing work decides whether the cleanup is a transactional rollback (rebuild and flip in one MongoDB session) or a delete-by-prefix on next-attempt detection; both shapes preserve correctness.
 
-While the flag is OFF, no read or write path touches the ledger, but the backfill script reads `amount` / `availableAmount` off each v1 waste-balance document — and those values can still mutate from live summary-log submissions and PRN operations while the script runs. Options, in preferred order:
+### Audit emission suppression
 
-1. **Schedule the backfill in a low-traffic window per environment.** The script's wall-clock is proportional to accreditation count; even for prod, minutes rather than hours. Non-prod environments tolerate an announced freeze; prod schedules its backfill alongside the flag flip in the same low-traffic window already agreed for other database migrations.
-2. **Read the v1 document's current shape plus its implicit version and seed idempotently.** Re-reading and rewriting a seed if the captured `amount` disagrees with the document is feasible — the seed is at `number=1`, so correcting a drift is a delete-and-reinsert on the first ledger row. Messy but recoverable.
+`appendToLedger` currently emits two side effects per call: a `safeAudit` entry and a `systemLogsRepository.insert`. Each replayed transaction during migration represents an event that was already audited at the time of its original submission — emitting fresh audit entries during the rebuild would produce duplicate audit history with timestamps that don't match the originals.
 
-Option 1 is simpler and cheaper. The implementing work picks between them with knowledge of the actual accreditation count and the agreed maintenance window.
+The migration path passes a flag to `appendToLedger` that suppresses both side effects. The flag is gated to the rebuild caller only; ordinary write paths cannot pass it. The signal that migration occurred is carried by the dedicated migration-outcome metric (§Observability), not by audit entries.
 
-Under the per-row reconciliation invariant, a seed whose captured value is slightly stale does not break subsequent writes — new summary-log submissions reconcile row-by-row against ledger history that is wasteRecordId-scoped, independent of the seed's closing totals. The seed's accuracy only matters for read correctness at the moment of the flip. Any drift that lands in the window between "backfill captured value" and "flag flipped on" surfaces as a small balance discrepancy on first read, which is detectable via the cutover-integrity dashboard panel.
+### Long-tail sweep
 
-### Accepted residual risk
+Some accreditations never submit a summary log post-flag-flip — for example, accreditations that have wound down or expect to issue PRNs against already-recorded waste without further submissions. The lazy mechanism never reaches them.
 
-Post-cutover, if an operator re-uploads a summary log that was originally submitted **pre-cutover**, the reconciliation invariant inflates the ledger because the row has no prior ledger history (the seed doesn't count for row-keyed reconciliation). Concretely: a row with `targetAmount = 100` that contributed 100 to v1 pre-cutover produces a fresh +100 ledger transaction on re-upload post-cutover. The seed already carries the original 100, so the ledger closing becomes 600 instead of 500.
+A long-tail sweep migrates those as a prerequisite for v1 retirement (tracked separately). The sweep iterates accreditations whose canonicality marker is still "v1" after the broad-population rollout has saturated, and runs the same rebuild-and-flip process administratively. It is required before the flag and v1 collection can be retired; the implementing work scopes it as its own piece under the rollout/cutover execution chain.
 
-This is acceptable because:
+### Sequencing with the PAE-1364 workaround
 
-- PAE-1364 recovery (the known pre-cutover re-upload driver) completes before cutover per the sequence above.
-- Regular operator behaviour is to re-upload within the current reporting month, not to revise historic summary logs. Post-cutover re-uploads of pre-cutover data are rare.
-- The inflation is detectable: an accreditation whose ledger closing exceeds its summed waste-records target is a red flag. A dashboard panel for this ratio (§Observability) catches it.
-- Correction exists: the operations team can post a `manual-adjustment` debit to restore correctness when a case is reported. This is the same escape hatch the ADR already reserves for any out-of-band balance correction.
+The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) made waste records the current source of truth for balance. This design's rebuild reads from that same source, so PAE-1364 recovery does not need to complete before cutover — the rebuild is itself the recovery path, applied uniformly across all accreditations rather than only the seven flagged by PAE-1364. Reinstating the ledger as authoritative supersedes the workaround at the same time.
 
-If this residual risk is judged unacceptable, the alternative is full-fidelity backfill with the ambiguity handling costs above. The recommendation is to accept the risk and keep the backfill script simple.
+The cutover order is:
+
+1. Flag-gated read and write paths deploy everywhere with the flag OFF — including the canonicality marker on the v1 schema, the dual-read helper that consults the marker, the PRN write path that routes on the marker, and the lazy-rebuild trigger on summary-log submission.
+2. Flag flips on per-environment (`dev → test → ext-test → perf-test → prod`) following the promotion gates in §Part A. Each environment's first summary-log submission per accreditation post-flip triggers that accreditation's migration.
+3. Long-tail sweep runs after the broad-population window has saturated in each environment, migrating accreditations that never submitted again.
+4. v1 retirement (tracked separately) follows once monitoring confirms zero v1-fallback reads and zero v1 writes.
 
 ## Observability
 
@@ -156,14 +142,13 @@ The spike settles **what signals are needed and at what threshold**. Exact metri
 
 ### Signals
 
-| Signal                                  | Proposed metric                          | Dimensions                                                                                                              | Purpose                                                                                                                                                 |
-| --------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ledger write throughput and retry shape | `wasteBalance.ledger.write`              | `sourceKind` (`summary-log-row` / `prn-operation` / `manual-adjustment`), `outcome` (`success` / `retry` / `exhausted`) | Per-source-kind counts; retry and exhausted outcomes expose contention behaviour under load.                                                            |
-| Ledger write latency                    | `wasteBalance.ledger.write.duration`     | `sourceKind`                                                                                                            | Duration in ms. Grafana surfaces avg/p95/p99 via CloudWatch stats.                                                                                      |
-| Ledger read distribution                | `wasteBalance.ledger.read`               | `primitive`, `outcome` (`ledgerHit` / `v1Fallback` / `error`)                                                           | `v1Fallback` count trends to zero as cutover completes per environment.                                                                                 |
-| Ledger read latency                     | `wasteBalance.ledger.read.duration`      | `primitive` (`getCurrentBalance`, `getCreditedAmountByWasteRecordId`, …)                                                | Duration in ms per primitive. Baseline captured pre-flip; post-flip should be equal or better.                                                          |
-| Cutover progress                        | `wasteBalance.cutover.seed`              | `seedShape` (`single` / `split`)                                                                                        | Incremented by the backfill script per seed written. Paired with a known total accreditation count gives % progress.                                    |
-| Ledger inflation guard                  | `wasteBalance.ledger.inflationSuspected` | —                                                                                                                       | Emitted when a read surfaces a closing amount materially different from the sum of its waste-records targets (heuristic — see §Accepted residual risk). |
+| Signal                                  | Proposed metric                      | Dimensions                                                                                        | Purpose                                                                                                                           |
+| --------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Ledger write throughput and retry shape | `wasteBalance.ledger.write`          | `sourceKind` (`summary-log-row` / `prn-operation`), `outcome` (`success` / `retry` / `exhausted`) | Per-source-kind counts; retry and exhausted outcomes expose contention behaviour under load.                                      |
+| Ledger write latency                    | `wasteBalance.ledger.write.duration` | `sourceKind`                                                                                      | Duration in ms. Grafana surfaces avg/p95/p99 via CloudWatch stats.                                                                |
+| Ledger read distribution                | `wasteBalance.ledger.read`           | `primitive`, `outcome` (`ledgerHit` / `v1Fallback` / `error`)                                     | `v1Fallback` count trends to zero as marker flips saturate per environment.                                                       |
+| Ledger read latency                     | `wasteBalance.ledger.read.duration`  | `primitive` (`getCurrentBalance`, `getCreditedAmountByWasteRecordId`, …)                          | Duration in ms per primitive. Baseline captured pre-flip; post-flip should be equal or better.                                    |
+| Migration outcome                       | `wasteBalance.cutover.migration`     | `outcome` (`success` / `etagRetry` / `failed`)                                                    | One count per rebuild attempt. Cumulative `success` paired with known total accreditation count gives % progress per environment. |
 
 ### Dashboards
 
@@ -171,7 +156,7 @@ The service already has a platform-provisioned dashboard per CDP convention. For
 
 1. **Rollout progress.** `wasteBalance.ledger.read` split by `outcome`, per environment. `v1Fallback` fraction trending to zero is the cutover-complete signal.
 2. **Write health.** `wasteBalance.ledger.write.duration` p99 per `sourceKind`; `wasteBalance.ledger.write` with `outcome=retry` rate and `outcome=exhausted` rate. Exhausted panel has a "should always be zero" annotation.
-3. **Cutover integrity.** `wasteBalance.ledger.inflationSuspected` rate alongside `wasteBalance.cutover.seed` cumulative totals per environment.
+3. **Migration progress and health.** `wasteBalance.cutover.migration` split by `outcome`, per environment. `success` cumulative against the known total accreditation count gives % progress; sustained `etagRetry` flags PRN traffic outpacing the rebuild; `failed` should trend to zero.
 
 Dashboards are created in the `Playground/` folder first (dev only — non-Terraform-managed), and promoted to `CDP_Tenants/epr-backend/` via #cdp-support. The promotion needs to happen before the flag flips in test or higher — otherwise we're watching a lagging view.
 
@@ -183,7 +168,7 @@ Alerts are created as Grafana advanced alerts in the `epr-backend-advanced-alert
 - `wasteBalance.ledger.write.duration` p99 > 2× the pre-flip baseline, sustained 10 min → warn.
 - `wasteBalance.ledger.read.duration` p99 > 2× the pre-flip baseline, sustained 10 min → warn.
 - `wasteBalance.ledger.read` with `outcome=error` rate > 0.1/s sustained 5 min → page.
-- `wasteBalance.ledger.inflationSuspected` rate > 0 over 24h → warn. Not a page — the heuristic will false-positive occasionally and corrections are manual.
+- `wasteBalance.cutover.migration` with `outcome=failed` rate > threshold sustained 10 min → warn. `etagRetry` is expected during PRN-heavy windows; sustained `failed` means the rebuild path itself is breaking.
 
 The platform-default alerts (CPU, memory, HTTP-status, response time) continue to apply. This rollout adds the ledger-specific set on top of that default floor.
 
@@ -191,24 +176,32 @@ Pre-flip baselines: capture read-path p99 per primitive from the `epr-backend` d
 
 ## Consequences
 
-- The cutover-seed `source.kind` is a new fourth variant in the ledger schema. Joi validation for the ledger document needs to accept it alongside `summary-log-row`, `prn-operation`, and `manual-adjustment`. Writers other than the backfill script do not emit this kind.
-- The backfill script is operationally non-trivial to run against prod: it touches every accreditation's waste-balance document once. Running it while the flag is OFF means no live read or write path touches the ledger during the run, which keeps it simple.
+- The v1 waste-balance document gains a canonicality marker field. Existing v1 reads must consult it before returning balance; existing v1 writes must check it before falling through to the embedded array; the dual-read helper routes on it.
+- The summary-log submission flow gains a post-commit rebuild step, gated on flag-ON and marker "v1". The user's submission is not gated on the rebuild's outcome; failures retry on the next submission.
+- `appendToLedger` gains an audit-suppression flag, gated to the rebuild caller only. Ordinary write paths cannot opt in.
+- The long-tail sweep is a prerequisite of v1 retirement — it is sequenced into the rollout/cutover execution chain.
 - Observability instrumentation is additive to the existing waste-balance routes and repository layer; adding it should not require API changes.
-- The accepted residual risk around post-cutover re-uploads of pre-cutover summary logs is monitor-and-correct rather than prevent-by-design. This is worth revisiting if the operations team reports any such case in the first six months post-cutover.
 
 ## Open questions for follow-up scoping
 
 These do not block sign-off of this recommendation; they are the first questions the implementing work needs to answer.
 
 - Exact metric names and dimension keys against the `summaryLog.*` precedents in `src/common/helpers/metrics/`.
-- Backfill script location (standalone script in `epr-backend/scripts/`, MongoDB migration, or one-shot admin endpoint). Constraint: it must run under the same network and credentials path as the service in each environment.
-- Whether the backfill window is announced as a brief freeze (preferred) or reconciled idempotently (§Backfill concurrency). Decision depends on the agreed operational window for the prod flag flip.
-- Whether the rollout is broken up as one piece of work per environment plus a separate backfill task, or as a single piece of work with per-environment checkpoints.
+- Canonicality marker field shape — boolean, enum string, presence-of-marker, or version number — matched against existing repo conventions.
+- Whether rebuild and marker flip run inside one MongoDB session (transactional rollback on flip failure) or use detect-and-clean on retry. Both shapes preserve correctness; the choice depends on transaction-boundary cost.
+- Audit-suppression API surface — explicit parameter on `appendToLedger`, separate primitive, or middleware bypass. Implementing work picks against the existing repository-layer conventions.
+- Long-tail sweep mechanism — scheduled job, admin endpoint, or one-shot script. Constraint: it must run under the same network and credentials path as the service in each environment.
+- Whether the rollout is broken up as one piece of work per environment, or as a single piece of work with per-environment checkpoints.
 - Whether `perf-test` is handled on its own or folded into the prod pre-flip step.
 
 ## ADR 0031 consistency follow-up
 
-ADR 0031's Decision section says "reads fall back to it [the v1 collection] until each accreditation has been transitioned to the ledger". As §Part B of this doc shows, bare-on-next-write cannot deliver "transitioned" correctly. Once this recommendation is signed off, ADR 0031 should be amended (as an update-in-place or a superseding ADR, whichever the team prefers) to reference seed-only backfill as the transition mechanism and to describe `cutover-seed` as a source kind. Otherwise the ADR stays inconsistent with its own operationalisation.
+Two amendments to ADR 0031 fall out of this recommendation, and they should land together as a single update-in-place (or a single superseding ADR, whichever the team prefers):
+
+1. **Transition mechanism.** ADR 0031's Decision section says "reads fall back to it [the v1 collection] until each accreditation has been transitioned to the ledger". As §Part B shows, bare-on-next-write does not deliver "transitioned" correctly. The amendment describes the transition mechanism as lazy per-accreditation rebuild from authoritative sources (waste records + PRN history), triggered by the next summary-log submission, with an etag-conditional canonicality flip on the v1 document.
+2. **Source-kind enum.** ADR 0031 lists `manual-adjustment` as a third source kind alongside `summary-log-row` and `prn-operation`. The implementation drops it on YAGNI grounds (no admin caller exists) and this design does not reintroduce it — the rebuild draws on real per-row history and has no inflation to correct, so the escape hatch is unused. The amendment formally drops `manual-adjustment` from the source-kind enum, leaving a clean two-variant set. If admin adjustments materialise later, they are reintroduced by a successor ADR with their real caller.
+
+Without these amendments the ADR stays inconsistent with its own operationalisation and with the implementation already in flight.
 
 ## Related
 
