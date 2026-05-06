@@ -18,9 +18,11 @@ The rest of this doc covers how each accreditation's data moves from the embedde
 
 ### Recommendation
 
-**Lazy per-accreditation migration, triggered by the next summary-log submission for each accreditation, rebuilding the ledger from authoritative sources (waste records + PRN history).**
+**Sweep-driven per-accreditation migration at flag-flip time, rebuilding the ledger from authoritative sources (waste records + PRN history), using a tri-state canonicality marker (`embedded | migrating | ledger`) per accreditation to exclude in-flight summary-log submissions during rebuild.**
 
-Each accreditation carries a canonicality marker on its waste-balance document. While the marker reads "embedded", the existing embedded write path runs as today and reads come from the document's `amount` / `availableAmount`. The first summary-log submission for that accreditation under flag-ON rebuilds the ledger as part of the submission, while the submission is still in submitting state: the ledger is populated by replaying the accreditation's waste-records history and PRN operation history, then the marker flips to "ledger" via a `version`-conditional update on the waste-balance document. The submission transitions out of submitting only once the marker flip has landed or failed. Subsequent reads and writes for that accreditation route to the ledger.
+Each accreditation carries the canonicality marker on its waste-balance document. While the marker reads `embedded`, the existing embedded write path runs as today and reads come from the document's `amount` / `availableAmount`. At flag-flip per environment a sweep iterates accreditations and rebuilds the ledger for each: a conditional flip moves the marker into `migrating`, the ledger is populated by replaying the accreditation's waste-records history and PRN operation history, then a second conditional flip moves the marker to `ledger`. Subsequent reads and writes for that accreditation route to the ledger.
+
+Summary-log submissions for a registration whose accreditation is currently in `migrating` are rejected with the existing 409 conflict response from `summaryLogsRepository.transitionToSubmittingExclusive`, which clients already retry. PRN writes remain concurrent with the rebuild and are handled by the version-conditional flip (§PRN concurrency during migration).
 
 ### Why rebuild from authoritative sources, not embedded-transaction replay
 
@@ -30,29 +32,36 @@ The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backe
 
 This dissolves three problems a seed-forward design would have carried: there is no PRN lifecycle continuity gap, no `manual-adjustment` reintroduction needed as an inflation-correction escape hatch, and no post-cutover-of-pre-cutover-row inflation risk because the ledger already carries each row's original contribution. Reinstating the ledger as the authoritative source of truth is the goal of PAE-1382 itself; rebuilding from authoritative sources delivers it directly.
 
+### Why upfront sweep, not lazy-on-submission
+
+A lazy alternative — rebuild triggered by the next summary-log submission per accreditation, running while the submission is in SUBMITTING state — would amortise the rebuild cost onto user-visible submission latency and would inherit submission-vs-rebuild serialisation directly from `transitionToSubmittingExclusive`. It is rejected because it spreads migration out over operators' upload cadence and never reaches accreditations that have wound down. A second sweep mechanism would be needed before the embedded path could be retired, and that second sweep would face exactly the cross-collection race the tri-state marker solves below; designing and shipping it as a follow-up is more work than just sweeping upfront.
+
+Upfront sweep makes the rollout deterministic: flag flip starts migration, the embedded count on the per-marker startup metric decays predictably, one mechanism handles fresh and dormant accreditations, and embedded-path retirement is gated only on `embedded` reaching zero. The cost is 409 retries for users whose summary-log submission arrives during their registration's sweep window. The window per accreditation should be short, and operators don't upload very frequently anyway, so few submissions are likely to coincide with an active sweep.
+
 ### Migration shape
 
-The rebuild runs as part of the submission flow, while the summary log is in SUBMITTING state. `summaryLogsRepository.transitionToSubmittingExclusive` permits only one summary log per `(organisationId, registrationId)` to be in SUBMITTING at a time; because each accreditation is a child of a single registration, that transitively serialises rebuild attempts per accreditation. PRN write paths are not gated by this primitive — they remain concurrent with the rebuild and are handled by the `version`-conditional flip in step 5 (§PRN concurrency during migration).
+A sweep job iterates accreditations whose marker is still `embedded`, running these steps per accreditation. The exact orchestration mechanism (queue-driven, single-runner, sharded by registration) is deferred to the implementing work.
 
-1. **Clear stale ledger entries for this accreditation.** Delete any ledger transactions for the accreditation whose marker is still "embedded". A previous rebuild attempt for this accreditation may have written entries before failing (version conflict, process death, transient error); the marker only flips to "ledger" on a successful rebuild, so any embedded-marker accreditation with non-empty ledger entries is by definition the residue of an interrupted attempt. The operation is unconditional and idempotent — if there is nothing to clear, it is a no-op.
-2. **Submit via the embedded write path.** The existing summary-log write path runs unchanged.
-3. **Capture the document version.** Read the waste-balance document and record its `version` field. The collection already maintains `version` as a monotonically increasing integer that every write path increments; the conditional flip at step 5 uses the captured value to detect concurrent writes.
-4. **Replay history into the ledger.** Load the accreditation's PRN history, sort it by event time, and interleave it with the waste records walked in submission order — producing a single time-ordered stream of replay events. Each waste record becomes a `summary-log-row` ledger transaction with real `wasteRecordId` / `summaryLogId` / `createdBy`; each PRN operation becomes a `prn-operation` ledger transaction with real `prnId` / `operationType` / `createdBy`. The rebuild calls `appendToLedger` directly, bypassing `recordWasteBalanceUpdateAudit` so no fresh audit entries are emitted (§Audit emission suppression).
-5. **Flip the marker conditionally.** Update the waste-balance document setting the canonicality marker to "ledger", filtered on `{ accreditationId, version: capturedVersion }` so the update only lands if `version` is unchanged from step 3. If the filter matches, the flip lands and reads/writes for that accreditation route to the ledger from this point. If it does not — a concurrent PRN write incremented `version` during the rebuild — the flip no-ops and the rebuild retries on the next summary-log submission. The ledger entries from this attempt remain in place; step 1 of the next submission clears them.
+1. **Conditional flip `embedded → migrating`.** Atomic update on the waste-balance document, filtered on `{ accreditationId, marker: 'embedded', version: V }` where V is the version read in the same operation. The update sets `marker: 'migrating'` and stamps `migratingSince: now()`. If the filter fails — a concurrent embedded write incremented `version` between the read and the update — skip this accreditation and retry on the next sweep pass.
+2. **Clear any stale ledger entries.** Delete ledger transactions for this accreditation. A previous failed sweep attempt may have written entries before crashing or hitting a flip conflict; any entries that exist while marker is `migrating` are by definition the residue of an interrupted attempt and invisible to readers (which route by marker). The operation is unconditional and idempotent.
+3. **Replay history into the ledger.** Capture the document version V' at the start of this step. Load the accreditation's PRN history and waste records, sort the combined event stream by event time, and append each event to the ledger. Each waste record becomes a `summary-log-row` ledger transaction with real `wasteRecordId` / `summaryLogId` / `createdBy`; each PRN operation becomes a `prn-operation` ledger transaction with real `prnId` / `operationType` / `createdBy`. The rebuild calls `appendToLedger` directly, bypassing `recordWasteBalanceUpdateAudit` so no fresh audit entries are emitted (§Audit emission suppression).
+4. **Conditional flip `migrating → ledger`.** Atomic update filtered on `{ accreditationId, marker: 'migrating', version: V' }`. If the filter matches, the flip lands and reads/writes for that accreditation route to the ledger. If it does not — a concurrent PRN write incremented `version` during step 3 — return to step 2 and re-replay; the marker stays at `migrating` across the retry so submission exclusion holds throughout.
 
-The summary log transitions out of SUBMITTING only after step 5 lands or fails. If migration fails at any step (transient infrastructure error, version conflict, anything else), the submission still completes — the user's embedded write was valid on its own terms — but the marker stays on "embedded" and the next summary-log submission retries the rebuild from step 1.
+### Submission exclusion
 
-### PRN write routing
+`summaryLogsRepository.transitionToSubmittingExclusive` is extended to reject when any waste-balance document for an accreditation under the same `(organisationId, registrationId)` has `marker: 'migrating'`. The submit handler at `src/routes/v1/organisations/registrations/summary-logs/submit/post.js` already maps a non-success result to a 409 Conflict with a retry-friendly message — no caller-side changes.
 
-PRN write paths read the per-accreditation marker and route accordingly: marker "embedded" → write to the embedded array; marker "ledger" → append to ledger. PRN writes do not themselves trigger migration. An accreditation that only sees PRN traffic during the rollout window stays on "embedded" until either a summary-log submission arrives to trigger migration, or the long-tail sweep migrates it as part of embedded-path retirement preparation (§Long-tail sweep).
+The exclusion is needed because the live submission write path is two separate writes against two collections: `wasteRecordRepository.appendVersions` followed by `wasteBalancesRepository.updateWasteBalanceTransactions`. A version-conditional flip alone cannot serialise the rebuild against this path: a sweep that captures the waste-balance version between those two writes, walks the (already-written) waste records, and flips before the second write would observe a stale version V at flip time and succeed, leaving the submission's eventual waste-balance write to land under the wrong marker. Holding `marker: 'migrating'` across the rebuild closes that window by routing the submission to a 409 retry before its first collection write.
+
+The exclusion holds only for the per-accreditation `migrating` window, which should be short. A registration with multiple accreditations may see sporadic 409s across the sweep of all its accreditations; the sweep should order accreditations under a single registration consecutively so the user-visible exclusion window is contiguous rather than scattered.
 
 ### PRN concurrency during migration
 
-PRN write paths run concurrently with the rebuild. A PRN write that lands between step 3 (capture `version`) and step 5 (flip) would mutate the waste-balance document — appending to `transactions[]`, decrementing `availableAmount` — without the rebuild seeing it, leaving the just-written ledger stale. Step 5's filter on the captured `version` is what catches this: the concurrent PRN write incremented `version`, so the flip no-ops and the rebuild retries on the next submission. The PRN write itself lands on the embedded path as designed because the marker is still "embedded" at that moment.
+PRN writes are not gated by the submission exclusion. A PRN write that lands while marker is `migrating` treats it as `embedded` — appends to `transactions[]`, increments `version`. Step 4's filter on the version captured at step 3 catches this: the concurrent PRN write incremented `version`, so the flip no-ops and the rebuild restarts at step 2. The replayed PRN history at the next step 3 picks up the new PRN operation.
 
-Two waste-balance repository operations are new in this design: a delete-by-`accreditationId` for step 1, and a `version`-conditional update for step 5. Existing waste-balance writes maintain `version` as a monotonically increasing field but do not currently use it as a filter predicate; the `version`-conditional flip introduces that pattern on this collection.
+PRN's waste-balance update is a single-document atomic write — there is no waste-records / waste-balance two-step write to slip through, so the version filter is sufficient. The cross-collection race the submission exclusion exists to handle is specific to the summary-log path.
 
-Ledger entries written during a failed-flip rebuild attempt are not cleared at flip-failure time. They are cleared at the start of the next rebuild attempt (step 1 of §Migration shape), which is unconditional and idempotent. This avoids relying on a failure handler running to completion — process death between step 4 and step 5 still leaves the ledger in a recoverable state for the next submission to clean up.
+Two waste-balance repository operations are new in this design beyond what the sweep itself requires: the conditional `embedded → migrating` flip at step 1 and the conditional `migrating → ledger` flip at step 4. Existing waste-balance writes maintain `version` as a monotonically increasing field but do not currently use it as a filter predicate; the conditional flips introduce that pattern on this collection.
 
 ### Audit emission suppression
 
@@ -60,15 +69,21 @@ The live summary-log write path emits one audit entry per submission via `record
 
 `appendToLedger` itself has no audit side effects — suppression is achieved by code structure, not by a flag on the primitive.
 
-### Long-tail sweep
+### Stuck-migrating recovery
 
-Some accreditations never submit a summary log post-flag-flip — for example, accreditations that have wound down or expect to issue PRNs against already-recorded waste without further submissions. The lazy mechanism never reaches them.
+If the sweep process dies between step 1 (flip to `migrating`) and step 4 (flip to `ledger`), the document remains in `migrating` and blocks submissions for that registration indefinitely. Recovery: the sweep runner's startup pass finds documents whose `migratingSince` is older than a threshold (10 minutes — comfortably above expected per-accreditation sweep duration), resets `marker` to `embedded`, clears `migratingSince`, and re-enqueues the accreditation. Step 2 of the subsequent sweep clears any residual ledger entries so the re-attempt starts clean.
 
-A long-tail sweep migrates those as a prerequisite for embedded-path retirement (tracked separately). The sweep iterates accreditations whose marker is still "embedded" once the broad-population rollout has saturated — saturation gauged by the embedded/ledger accreditation counts logged at service start-up.
+The same mechanism recovers state if the flag is flipped back to OFF mid-sweep — accreditations stuck in `migrating` are returned to `embedded` on the next runner start regardless of flag state.
 
-The likely shape is queueing one migration command per affected accreditation, where each command runs the rebuild-and-flip steps without an actual summary-log submission. The exact mechanism is deferred to the implementing work.
+### Dry run
 
-Live traffic during the sweep is handled by the same version-conditional flip — if the lazy path or a PRN write lands first, the sweep's flip no-ops for that accreditation and the residue clears at step 1 of the next attempt. The sweep is required before the flag and the embedded path can be retired.
+Before flipping the flag in an environment, the sweep runner is run in dry-run mode: the same rebuild code path as the live sweep, with the persist and flip steps elided. The output is:
+
+- A per-accreditation discrepancy report comparing rebuilt balance against the current embedded balance. For PAE-1364-affected accreditations divergence is expected and tracked separately; for all others, persistent divergence across multiple dry-run passes indicates rebuild-logic bugs or data oddities to investigate before flipping the flag.
+- Per-accreditation rebuild duration, which calibrates the stuck-marker threshold and lets us estimate total sweep wall-clock per environment.
+- Surfacing of accreditations whose rebuild errors out, before the flag flip rather than at it.
+
+Nothing is persisted, so dry runs are harmless to run with live traffic ongoing. Transient discrepancies caused by writes landing during the dry run wash out on a subsequent pass; persistent discrepancies are the real signal. Dry runs are re-run as often as needed and are a precondition for flipping the flag in each environment.
 
 ### Sequencing with the PAE-1364 workaround
 
@@ -76,20 +91,20 @@ The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backe
 
 The cutover order is:
 
-1. Flag-gated read and write paths deploy everywhere with the flag OFF — including the canonicality marker on the waste-balance document, the marker-aware read path, the PRN write path that routes on the marker, and the lazy-rebuild trigger on summary-log submission.
-2. Flag flips on per-environment along the promotion path. Each environment's first summary-log submission per accreditation post-flip triggers that accreditation's migration.
-3. Long-tail sweep runs after the broad-population window has saturated in each environment, migrating accreditations that never submitted again.
-4. Embedded-path retirement (tracked separately) follows once monitoring confirms every accreditation's marker has flipped to "ledger".
+1. Flag-gated read and write paths deploy everywhere with the flag OFF — including the tri-state marker on the waste-balance document, the marker-aware read path, the PRN write path that treats `migrating` as `embedded`, the extended `transitionToSubmittingExclusive`, and the sweep runner with stuck-migrating recovery and dry-run mode. Without the flag set, no accreditation enters `migrating`, so the extension is a no-op in practice and behaviour is identical to today.
+2. Dry runs are executed in each environment along the promotion path until the discrepancy report is clean for that environment.
+3. Flag flips per environment. The sweep runs and migrates each accreditation through `embedded → migrating → ledger`.
+4. Embedded-path retirement (tracked separately) follows once the per-marker startup metric confirms every accreditation has reached `ledger` in every environment.
 
 ## Rollback
 
-Flipping `FEATURE_FLAG_WASTE_BALANCE_LEDGER` back to `false` stops new migrations being triggered; already-migrated accreditations remain on the ledger. Per-accreditation ledger → embedded retreat is possible but tricky and is not built by this design — if a ledger issue surfaces we fix forward and re-migrate.
+Flipping `FEATURE_FLAG_WASTE_BALANCE_LEDGER` back to `false` stops new accreditations from being swept; already-migrated accreditations remain on the ledger, and accreditations stuck in `migrating` are returned to `embedded` by the stuck-marker recovery on the next runner start. Per-accreditation `ledger → embedded` retreat is possible but tricky and is not built by this design — if a ledger issue surfaces we fix forward and re-migrate.
 
 ## Observability
 
-The rebuild path logs each migration attempt — accreditation ID, outcome, and stats about the work done. Failures additionally log the error.
+The sweep logs each migration attempt — accreditation ID, outcome, and stats about the work done. Failures additionally log the error.
 
-On service start-up, a query counts accreditations grouped by canonicality marker and logs the result. The embedded count trending to zero across deploys is the rollout-progress signal.
+On service start-up, a query counts accreditations grouped by canonicality marker (`embedded`, `migrating`, `ledger`) and logs the result. The `embedded` count trending to zero across deploys is the rollout-progress signal; a non-zero `migrating` count at startup is the trigger for stuck-marker recovery.
 
 ## Related
 
