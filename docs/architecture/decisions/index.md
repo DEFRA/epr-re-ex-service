@@ -32,3 +32,4 @@
 * [30. Registered-only operator edge cases](0030-registered-only-edge-cases.md)
 * [31. Waste balance transaction ledger](0031-waste-balance-transaction-ledger.md)
 * [32. Waste balance commit marker (considered alternative to ADR 0031)](0032-waste-balance-commit-marker-alternative.md)
+* [33. Admin UI scope-based RBAC](0033-admin-ui-scope-based-rbac.md)
