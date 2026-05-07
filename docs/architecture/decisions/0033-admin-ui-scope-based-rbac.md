@@ -45,12 +45,12 @@ We will introduce three scopes, three email-list-driven tiers, a backend self-in
 
 Report-generation endpoints sit under `admin.read`. They produce output but do not mutate authoritative state, so a read-tier user can run them.
 
-### 2. Roles (bundles of scopes) and resolution from email lists
+### 2. Admin roles (bundles of scopes) and resolution from email lists
 
-A new `ROLES` map bundles scopes by tier:
+A new `ADMIN_ROLES` map bundles scopes by tier:
 
 ```js
-export const ROLES = {
+export const ADMIN_ROLES = {
   service_maintainer_write: [SCOPES.adminRead, SCOPES.adminWrite, SCOPES.adminDlqPurge],
   service_maintainer:       [SCOPES.adminRead, SCOPES.adminDlqPurge],
   support:                  [SCOPES.adminRead]
@@ -76,19 +76,25 @@ if (supportList.includes(email))    return 'support'
 return null
 ```
 
-The user's scopes are then derived from their role: `ROLES[role] ?? []`. First-match-wins on the role lookup means a user appearing in multiple lists silently takes the highest tier they qualify for; no list-membership consistency check is required.
+The user's scopes are then derived from their role: `ADMIN_ROLES[role] ?? []`. First-match-wins on the role lookup means a user appearing in multiple lists silently takes the highest tier they qualify for; no list-membership consistency check is required.
 
-Routes never declare a role; they declare the scope they need. The role concept exists purely as the named bundle for assignment and for human-readable tier labelling on the frontend.
+Routes never declare a role; they declare the scope they need. The admin role concept exists purely as the named bundle for assignment and for human-readable tier labelling on the frontend.
 
-### 3. Rename existing `ROLES` → `SCOPES`; reborn `ROLES` is the new bundling map
+### 3. New `SCOPES` and `ADMIN_ROLES` constants alongside the existing `ROLES`
 
-The existing constant `ROLES` in `epr-backend/src/common/helpers/auth/constants.js` is used as a flat list of Hapi scopes — that's a misnomer. We rename it to `SCOPES`. All four existing entries (`standard_user`, `inquirer`, `linker`, plus the about-to-be-removed `service_maintainer`) are functionally scopes — they appear in `auth.scope: [...]` declarations and are matched against `request.auth.credentials.scope`.
+The existing `ROLES` constant in `epr-backend/src/common/helpers/auth/constants.js` is technically a misnomer — its entries are Hapi scopes, not roles. The clean change would be to rename it to `SCOPES`. We deliberately don't, because the rename would touch every operator-side route that references `standard_user`, `inquirer`, or `linker` — code this ticket otherwise leaves untouched — and force regression testing of operator behaviour that has no real reason to be in the blast radius of an admin-RBAC change.
 
-The freed-up `ROLES` name is taken by the new bundling map described in section 2. Both constants live in `auth/constants.js` (or split across `auth/scopes.js` + `auth/roles.js` — implementation choice; they're tightly related and the file isn't large).
+Instead:
 
-Note that `standard_user`, `inquirer`, and `linker` are *per-request context gates* (issued by `getDefraUserRoles` based on the request itself) rather than *durable permissions* on the user, while the new `admin.*` scopes are durable. They share the Hapi scope mechanism, so a single `SCOPES` constant covers both. The new `ROLES` bundling layer applies only to durable scopes — it makes no sense to bundle per-request gates like `linker`.
+- The existing `ROLES` enum stays in place, with the single change of removing the `service_maintainer` entry. Operator-side route declarations (`auth.scope: [ROLES.standardUser, ROLES.inquirer, …]`) are untouched.
+- A new `SCOPES` enum holds the admin scopes — `admin.read`, `admin.write`, `admin.dlq.purge`. Admin-side route declarations use `auth.scope: [SCOPES.adminRead]` etc.
+- A new `ADMIN_ROLES` map (per section 2) bundles `SCOPES` values into the three admin tiers.
 
-The rename ships in the same PR as the route re-scoping; every file touched for the latter is already a re-edit, so the rename is incremental churn rather than a precursor PR.
+Routes that previously combined an operator role with `service_maintainer` (e.g. `[ROLES.standardUser, ROLES.serviceMaintainer]`) now combine across the two enums (e.g. `[ROLES.standardUser, SCOPES.adminRead]`). Hapi treats both as plain string scopes, so the mix is mechanical, not semantic.
+
+The trade-off accepted is that two separately-named scope constants (`ROLES` and `SCOPES`) is a minor naming oddity. It's bounded — operator-side routes only see `ROLES`, admin-side routes only see `SCOPES` — and a future rename of `ROLES` → `OPERATOR_SCOPES` (or similar) is still possible as a standalone tidy-up if it ever earns its keep.
+
+Note that `standard_user`, `inquirer`, and `linker` are *per-request context gates* (issued by `getDefraUserRoles` based on the request itself) rather than *durable permissions* on the user, while the new `admin.*` scopes are durable. The new `ADMIN_ROLES` bundling layer applies only to the durable admin scopes — it makes no sense to bundle per-request gates like `linker`.
 
 ### 4. New endpoint: `GET /v1/admin/me`
 
@@ -163,12 +169,12 @@ sequenceDiagram
 
 - **Backend integration tests** (per AC): every admin route gets a four-tier matrix — support, maintainer, write, unscoped — with per-tier expected status. A small test helper generates the four token variants.
 - **Admin UI journey tests** (per AC): existing test users are upgraded to the write tier so existing journeys keep passing. New journey: a read-only test user attempts a mutating action and is denied.
-- **Backend unit tests**: `getEntraUserRole` first-match-wins behaviour across all four list-membership combinations; `ROLES` map produces the expected scope arrays for each role.
+- **Backend unit tests**: `getEntraUserRole` first-match-wins behaviour across all four list-membership combinations; `ADMIN_ROLES` map produces the expected scope arrays for each role.
 
 ### 9. Rollout order
 
 1. `cdp-app-config`: add `SERVICE_MAINTAINER_WRITE_EMAILS` (empty in prod; populated for dev/test) and `SUPPORT_EMAILS`. Leave `SERVICE_MAINTAINER_EMAILS` untouched.
-2. `epr-backend`: rename `ROLES` → `SCOPES`, replace `service_maintainer` with the three new scopes, re-scope every admin route, add `/v1/admin/me`, add integration tests.
+2. `epr-backend`: remove `service_maintainer` from the existing `ROLES` enum, add new `SCOPES` and `ADMIN_ROLES` constants, re-scope every admin route to the new `SCOPES.*` values, add `/v1/admin/me`, add integration tests. Operator-side `ROLES` references are left untouched.
 3. `epr-re-ex-admin-frontend`: extend session shape, fetch `/v1/admin/me`, add view-context plumbing, add template hide-guards, add tier label.
 4. `epr-re-ex-admin-frontend-tests`: update existing journeys to the write tier; add a read-only journey.
 
@@ -184,17 +190,19 @@ PRs 2 and 3 can ship together or 2-then-3 (3 with no prod write users is harmles
 - Admin UI hides write controls from users who can't use them, instead of relying on backend 403s as the only signal.
 - Closes the "auth-based not scope-based" gap on admin endpoints.
 - Establishes the option-2 pattern from ADR 0016, making future fine-grained scopes (e.g. `admin.cache.invalidate`, `admin.feature-flag.toggle`) cheap to add.
-- The `ROLES` bundling layer means adding a new admin tier is a one-line addition to the `ROLES` map plus a new email list — routes don't need to know about new tiers, only about the scopes they require.
+- The `ADMIN_ROLES` bundling layer means adding a new admin tier is a one-line addition to the `ADMIN_ROLES` map plus a new email list — routes don't need to know about new tiers, only about the scopes they require.
+- Operator-side routes (and the `standard_user` / `inquirer` / `linker` references they carry) are untouched, keeping the regression surface of this change confined to admin behaviour.
 
 ### Costs
 
-- ~33 files in `epr-backend` import the renamed constant; mechanical churn but a large diff.
+- Two separately-named scope constants (`ROLES` for operator-side, `SCOPES` for admin-side) coexist. Mild naming oddity; a future tidy-up rename remains possible.
+- Every admin route declaration changes (from the existing `serviceMaintainer` reference to one of the three `SCOPES.*` values). Mechanical churn confined to admin routes.
 - A new endpoint, a new session field, and a new view-context channel on the admin frontend.
 - Configuration changes don't take effect until a user signs out and in (or their session refreshes). Acceptable: RBAC changes are infrequent and "sign in again" is a fine answer.
 
 ### Not solved
 
-- Operator-side scopes (`standard_user`, `inquirer`, `linker`) are unchanged. The operator frontend still infers authorisation from API responses (ADR 0016 option 3 still applies on the Defra side). These per-request gates are not bundled by the new `ROLES` map.
+- Operator-side scopes (`standard_user`, `inquirer`, `linker`) are unchanged. The operator frontend still infers authorisation from API responses (ADR 0016 option 3 still applies on the Defra side). These per-request gates are not bundled by the new `ADMIN_ROLES` map.
 - Email-list-as-source-of-truth still doesn't scale beyond the single-team admin use case. Group-based assignment via Entra is a future concern.
 - The `admin.dlq.purge` carve-out is deliberate but does mean the conceptual line between "write" and "ops" needs thought as new admin actions are added. We expect this to remain a per-action judgement rather than a general principle.
 
