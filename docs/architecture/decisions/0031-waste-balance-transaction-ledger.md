@@ -25,7 +25,7 @@ Shape:
 - Each transaction carries the running totals (`closingAmount`, `closingAvailableAmount`) it produced. The current balance for an accreditation is the closing totals on its highest-numbered transaction — one indexed read.
 - **One balance-affecting event produces exactly one transaction, referring to exactly one affected entity.** A summary-log row produces one transaction referring to one waste record; a PRN operation (creation, issuance, acceptance, cancellation) produces one transaction referring to one PRN. The affected entity is identified within the transaction's `source` object — there is no multi-entity shape.
 
-Implemented as a new MongoDB ledger collection. The existing `waste-balances` collection remains in place during cutover; reads fall back to it until each accreditation has been transitioned to the ledger.
+Implemented as a new MongoDB ledger collection. The existing `waste-balances` collection remains in place during cutover, with each waste-balance document carrying a tri-state canonicality marker (`embedded | migrating | ledger`) per accreditation that routes reads and writes between the two stores. At feature-flag-flip time a sweep migrates each accreditation: it flips the marker to `migrating`, rebuilds the ledger from authoritative sources (the accreditation's waste-records history and PRN operation history), then flips to `ledger`. Rebuilding from authoritative sources rather than replaying the embedded `transactions[]` array preserves real `wasteRecordId` / `summaryLogId` / `prnId` linkage on each replayed transaction and avoids the rowId ambiguity that motivated [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364). Full mechanics — submission exclusion during rebuild, PRN concurrency handling, stuck-marker recovery, dry-run validation — are specified in the [waste balance ledger rollout](../discovery/waste-balance-ledger-rollout.md).
 
 ### Transaction shape
 
@@ -136,9 +136,9 @@ The application boundary stays in JS-number shape: schemas validate amounts as `
 
 ### Negative
 
-- Requires a new collection and a cutover path. Readers must handle both v1 (balance on the waste-balance document) and v2 (balance derived from the ledger's latest transaction) during the transition.
-- PRN write paths move from updating the embedded transactions array to appending to the ledger collection via the shared optimistic-write mechanism. The transaction shape itself is nearly unchanged but the mechanism is, so the migration is not purely additive on top of v1.
-- Anyone reading a single v2 transaction no longer sees the full version history of the affected entity inline — only the current version id (via `source.summaryLogRow.wasteRecord.versionId`). The information is still ledger-native: consumers reconstruct the history by querying for all transactions referencing the same `wasteRecord.(type, rowId)` and sorting by `number`. The access pattern changes from an in-place array read to a per-record indexed query.
+- Requires a new collection and a cutover path. Readers must handle both `embedded` (balance on the waste-balance document) and `ledger` (balance derived from the ledger's latest transaction) sources during the transition, routed by the per-accreditation canonicality marker.
+- PRN write paths move from updating the embedded transactions array to appending to the ledger collection via the shared optimistic-write mechanism. The transaction shape itself is nearly unchanged but the mechanism is, so the migration is not purely additive on top of the embedded shape.
+- Anyone reading a single ledger transaction no longer sees the full version history of the affected entity inline — only the current version id (via `source.summaryLogRow.wasteRecord.versionId`). The information is still ledger-native: consumers reconstruct the history by querying for all transactions referencing the same `wasteRecord.(type, rowId)` and sorting by `number`. The access pattern changes from an in-place array read to a per-record indexed query.
 - The LLD needs updating to match: `entities[]` → single entity identifiers folded into `source`, and the worked example that shows a multi-entity transaction needs revising to reflect the per-row, single-entity invariant.
 - Organisation-level and registration-level balance queries rely on `organisationId` and `registrationId` being denormalised onto every transaction. These values are immutable for the lifetime of an accreditation, so the denormalisation is safe, but each transaction document is a few dozen bytes larger than strictly necessary.
 - Summary-log-row transactions also carry `wasteRecord.creditedAmount` — one extra `Decimal128` per row transaction (~16 bytes) on top of the four global running totals. Modest per-document, but explicit, and confined to summary-log-row transactions only.
@@ -149,5 +149,6 @@ The application boundary stays in JS-number shape: schemas validate amounts as `
 
 - [Waste balance LLD](../defined/pepr-lld.md#waste-balance) — the `amount = sum(credits) - sum(debits)` projection this ADR makes operationally reliable
 - [Summary log data flow](../defined/summary-log-data-flow.md) — needs updating alongside this decision
+- [Waste balance ledger rollout](../discovery/waste-balance-ledger-rollout.md) — per-accreditation cutover mechanics referenced by this ADR
 - [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — driver for this ADR
 - [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) — separate correctness fix, currently workaround-fixed in [DEFRA/epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091); returning to ledger-derived balance calculation (which this ADR enables) is the longer-term fix
