@@ -352,6 +352,8 @@ services:
       PORT: 3001
       S3_ENDPOINT: http://floci:4566
       SERVICE_MAINTAINER_EMAILS: ${SERVICE_MAINTAINER_EMAILS:-["customer.test.user.2@defradev.onmicrosoft.com", "ea@test.gov.uk", "nrw@test.gov.uk", "niea@test.gov.uk"]}
+      SERVICE_MAINTAINER_WRITE_EMAILS: ${SERVICE_MAINTAINER_WRITE_EMAILS:-[]}
+      SUPPORT_EMAILS: ${SUPPORT_EMAILS:-[]}
       SQS_ENDPOINT: http://floci:4566
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
     secrets:
