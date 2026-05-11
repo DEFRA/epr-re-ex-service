@@ -56,20 +56,20 @@ Five kinds. The discriminated payload makes additions (`manual-adjustment`, `acc
 
 ### `summary-log-submitted` and the frozen snapshot
 
-`creditTotal` is a frozen snapshot of the absolute credit contribution this submission produced, computed at submission time with all then-current contextual factors — the rows in the upload, the accreditation date range in effect, and anything else that shapes the total.
+`creditTotal` is a frozen snapshot of the absolute credit contribution this submission produced, computed at submission time with all then-current contextual factors — the merged row state of the registration under this submission (the previous stream-committed baseline plus this submission's deltas), the accreditation date range in effect, and anything else that shapes the total.
 
 The snapshot decouples balance computation from the waste-records storage shape: prior contributions are read from prior events, not reconstructed by walking the sparse-versioned waste-records collection. If a contextual factor changes later (e.g. the accreditation date range is amended), prior submissions' snapshots remain as they were — events are immutable facts at their point in time. When such factors become first-class on the stream (a future extension), they slot in alongside `summary-log-submitted` and the balance is whatever the latest event's closing says.
 
 When a `summary-log-submitted` event is written:
 
-1. Compute `creditTotal` from the live upload + current contextual factors.
+1. Compute `creditTotal` from the merged row state under this submission (baseline + deltas, stream-filter applied) and current contextual factors.
 2. Read the previous `summary-log-submitted` event on this stream (single indexed query). If none exists, `previousCreditTotal = 0`.
 3. `delta = creditTotal - previousCreditTotal`.
 4. Read the latest event (any kind) for `openingAmount`, `openingAvailableAmount`.
 5. `closingAmount = openingAmount + delta`; `closingAvailableAmount = openingAvailableAmount + delta`.
 6. Append the event.
 
-Per-row audit — what row R contributed to submission S — remains answerable from the waste-records collection's version chain (versions tagged with `summaryLog.id`, sparse `data` merged through the chain). It's not on the balance hot path.
+Per-row audit — what row R contributed to submission S — remains answerable from the waste-records collection's version chain (versions tagged with `summaryLog.id`, sparse `data` merged through the chain). It's not on the balance hot path. Row-state reads filter the version chain by "`summaryLogId` referenced in the stream", so versions from failed-mid-flight submissions are invisible to callers asking for current row state, even though they remain in storage as an immutable record of every write attempted.
 
 ### PRN state transitions
 
@@ -128,26 +128,37 @@ A retry of a stalled operation that already landed fails on the duplicate-key ch
 
 **Write ordering.** Different operations order their writes to keep the event append as the commit:
 
-| Operation                        | Step 1                                                                        | Step 2                                                                                                             | If step 1 fails                                                                 | If step 2 fails                                                                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Summary log submission           | Stage row versions to waste-records (under a `SUBMITTING` document, as today) | Append `summary-log-submitted` event computed from the staged data                                                 | Balance unchanged; staged rows expire via the existing TTL; operator re-submits | Balance unchanged; staged rows expire; operator re-submits — retry would compute the same `creditTotal` and idempotency-key on `summaryLogId` |
-| PRN balance-affecting transition | Append PRN event                                                              | Update PRN document projection (status, dates) and advance the `eventNumber` watermark to the new event's `number` | Balance unchanged; PRN doc unchanged; retry safe                                | Balance correctly updated; PRN doc projection stale, but reads remain correct via the watermark catch-up (see "Reading PRN state")            |
+| Operation                        | Step 1                                                                                                                                        | Step 2                                                                                                             | If step 1 fails                                                                                                                                             | If step 2 fails                                                                                                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Summary log submission           | Write row versions to waste-records (each tagged with this submission's `summaryLogId`), with a SUBMITTING session document tracking progress | Append `summary-log-submitted` event computed from rows tagged with this `summaryLogId`                            | Balance unchanged; partially-written row versions persist as inert orphans (their `summaryLogId` never enters the stream); SUBMITTING session document TTLs | Balance unchanged; the written row versions persist tagged with this `summaryLogId` but are inert because no event references them; operator re-submits with a fresh `summaryLogId` |
+| PRN balance-affecting transition | Append PRN event                                                                                                                              | Update PRN document projection (status, dates) and advance the `eventNumber` watermark to the new event's `number` | Balance unchanged; PRN doc unchanged; retry safe                                                                                                            | Balance correctly updated; PRN doc projection stale, but reads remain correct via the watermark catch-up (see "Reading PRN state")                                                  |
 
-The summary-log ordering means an interrupted submission leaves no balance trace at all — the historical TTL-on-`SUBMITTING` footgun is neutralised because the balance was never moved off the previous event.
+The summary-log ordering means an interrupted submission leaves no balance trace at all — the historical TTL-on-`SUBMITTING` footgun is neutralised because the balance was never moved off the previous event. Row versions written during the failed attempt persist in waste-records (the version chain is a permanent audit trail), but reads only consider versions whose `summaryLogId` appears in the stream, so partial writes are invisible to balance, calculator, and consumer code alike.
 
 The PRN ordering inverts: the event lands first because it is the source of truth for balance, and the PRN document's status field becomes a projection. This depends on the open decision below (Option A vs Option B for lifecycle transitions). Either way, the principle is the same — if there's both an event and a doc write, the event goes first and the doc is recoverable from it.
 
 **What stays consistent in all cases.**
 
 - The balance is correct given the events that landed. No reconciliation is needed to compute it — the closing totals on the latest event are authoritative.
-- A `summary-log-submitted` event implies a complete `creditTotal` snapshot — the snapshot is computed once, at write time, from the staged data; it cannot be partially computed.
+- A `summary-log-submitted` event implies a complete `creditTotal` snapshot — the snapshot is computed once, at write time, from the merged row state under this submission (the previous stream-committed baseline plus this submission's deltas); it cannot be partially computed.
 - A PRN event implies the balance has already been moved for that PRN transition.
 
 **What may be temporarily stale, and how it recovers.**
 
 - **PRN document projection** (status field, lifecycle timestamps) — if a PRN event landed but the doc update didn't, the doc's `eventNumber` watermark is behind the stream. Reads remain correct because the read path folds in any events with `number > doc.eventNumber` (see "Reading PRN state"). A subsequent successful write for the same PRN advances the watermark and the tail shrinks back to empty; no separate reconciliation job is required.
-- **Waste-records `SUBMITTING` staging from an abandoned submission** — TTL collects it. Identical to today.
-- **Orphan waste-records row versions** stamped with a `summaryLogId` whose event never landed are theoretically possible if staging "commits" partway through writing versions but the event then fails. They are harmless to balance (only events count) and can be detected by `summaryLogId` not appearing in the stream. The current `SUBMITTING` staging pattern already avoids exposing partially-staged versions; the new design inherits that.
+- **`SUBMITTING` session document for an abandoned submission** — TTL collects it. Its role is session tracking for the in-flight submission process, not protection of row versions; the TTL never touches waste-records.
+- **Row versions tagged with a `summaryLogId` whose event never landed** are the expected outcome of a failed submission. They persist in waste-records as part of the immutable version chain. They are inert only because both the read path **and the write path** apply the stream-filter — see the invariant below. Read-side filtering alone is not sufficient if subsequent submissions compute sparse deltas against the latest stored version, because an orphan version would silently contaminate the canonical state of every following submission.
+
+**The stream-filter invariant (write side).** Sparse deltas for a new submission must be computed against the **previous stream-committed state**, not the latest stored version. Concrete failure mode if violated:
+
+- Row R has v1 tagged A (in stream): `col_x = 5`.
+- Submission B writes v2 tagged B (`col_x = 7`), then fails before its event lands.
+- Submission C's workbook has `col_x = 7`. If C's sparse delta is computed against the latest stored version (v2), no change is detected and v3 has no `col_x`.
+- At read time, the stream-filter drops v2; the merge of v1 + v3 yields `col_x = 5` — wrong, by silent contamination.
+
+The fix is the SUBMITTING session anchoring its baseline at session start: the latest stream-committed `summaryLogId` at the moment the session opens defines the canonical state against which all of the session's row deltas are diffed. The baseline is stable for the session's lifetime and the resolution is once-per-row up front (walking the version chain with the stream-filter applied). No per-row metadata is required.
+
+This invariant generalises: any operation that materialises row state from the version chain — calculator output, `creditTotal` computation, per-row audit, sparse-delta writes — applies the stream-filter. The event stream is the canonical set of `summaryLogId`s that "happened".
 
 **Concurrent retries.** Two concurrent attempts of the same operation race on the partial unique index. Exactly one wins; the loser's append fails with a duplicate-key error. The loser treats the operation as already completed and proceeds to (or re-attempts) the projection write if applicable.
 
