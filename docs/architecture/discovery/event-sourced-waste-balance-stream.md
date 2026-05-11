@@ -85,6 +85,30 @@ The PRN lifecycle is genuinely two-phase, which is why `amount` and `availableAm
 | `AWAITING_ACCEPTANCE → AWAITING_CANCELLATION`     | (see open decision)         | None — lifecycle only                                                                      |
 | `DRAFT → DISCARDED`                               | (see open decision)         | None — pre-ringfence                                                                       |
 
+### Worked example
+
+A registration moves through a registered-only submission, gets accredited, then accumulates submissions and PRN activity on its accredited stream.
+
+**Stream 1 — `(regId, null)`** (registered-only). The taxonomy admits `summary-log-submitted` here for audit purposes; closing totals stay at zero by definition.
+
+| #   | `kind`                  | `payload`                                   | closing (amount / available) |
+| --- | ----------------------- | ------------------------------------------- | ---------------------------- |
+| 1   | `summary-log-submitted` | `{ summaryLogId: SL-1, creditTotal: 1500 }` | 0 / 0                        |
+
+The accreditation is granted. Stream 1 is sealed (nothing further is written to it) and **Stream 2 — `(regId, accId)`** becomes the active partition:
+
+| #   | `kind`                      | `payload`                                   | closing (amount / available) | Notes                                                                |
+| --- | --------------------------- | ------------------------------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| 1   | `summary-log-submitted`     | `{ summaryLogId: SL-2, creditTotal: 2000 }` | 2000 / 2000                  | First on this stream; `previousCreditTotal = 0`, delta = 2000        |
+| 2   | `summary-log-submitted`     | `{ summaryLogId: SL-3, creditTotal: 3500 }` | 3500 / 3500                  | `previousCreditTotal = 2000`, delta = 1500                           |
+| 3   | `prn-created`               | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 2700                  | Ringfence on availableAmount                                         |
+| 4   | `prn-creation-cancelled`    | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 3500                  | Ringfence released                                                   |
+| 5   | `prn-created`               | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 2900                  | Ringfence on availableAmount                                         |
+| 6   | `prn-issued`                | `{ prnId: PRN-2, amount: 600 }`             | 2900 / 2900                  | Debit confirmed on amount; availableAmount already counted at create |
+| 7   | `prn-cancelled-after-issue` | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 3500                  | Reverses both fields                                                 |
+
+Current balance after event 7 is `3500 / 3500`, read directly from the latest event. A subsequent `summary-log-submitted` with `creditTotal = 4000` would compute its delta against event 2 — the latest `summary-log-submitted` on the stream — giving `delta = 4000 − 3500 = 500`, and close at `4000 / 4000`.
+
 ### Reading the balance
 
 The current balance for an accredited stream is the `closingAmount` and `closingAvailableAmount` on its highest-numbered event — a single indexed read, same as ADR-0031. No cached projection; no second source of truth to drift.
