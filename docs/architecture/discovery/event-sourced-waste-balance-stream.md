@@ -31,7 +31,7 @@ Each event carries:
 
 - **Stream identity:** `registrationId`, `accreditationId` (nullable), `organisationId` (denormalised, same trick ADR-0031 uses for org-level queries), `number` (sequential per stream from 1).
 - **Event identity:** `kind` (discriminator), `payload` (kind-specific).
-- **Running balance:** `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount`. Always present for schema uniformity; zero throughout the registered-only phase.
+- **Running balance:** `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount`. Always present for schema uniformity.
 - **Provenance:** `createdAt`, `createdBy`.
 
 Uniqueness of `(registrationId, accreditationId, number)` is enforced by a compound unique index — the same optimistic-append mechanism as ADR-0031, just with the partition broadened to cover registered-only phases.
@@ -46,13 +46,13 @@ A registration may have multiple streams over its lifetime (one per accreditatio
 
 Five kinds. The discriminated payload makes additions (`manual-adjustment`, `accreditation-granted`, `accreditation-date-range-changed`, etc.) backwards-compatible — new `kind` value, new payload shape, no schema migration.
 
-| `kind`                      | `payload`                       | Valid in registered-only?       | Effect on `closingAmount` | Effect on `closingAvailableAmount` |
-| --------------------------- | ------------------------------- | ------------------------------- | ------------------------- | ---------------------------------- |
-| `summary-log-submitted`     | `{ summaryLogId, creditTotal }` | ✅ recorded; balance stays at 0 | += delta (see below)      | += delta                           |
-| `prn-created`               | `{ prnId, amount }`             | ❌                              | —                         | −amount (ringfence)                |
-| `prn-issued`                | `{ prnId, amount }`             | ❌                              | −amount                   | — (ringfence already counted it)   |
-| `prn-creation-cancelled`    | `{ prnId, amount }`             | ❌                              | —                         | +amount (release ringfence)        |
-| `prn-cancelled-after-issue` | `{ prnId, amount }`             | ❌                              | +amount                   | +amount (reverse both)             |
+| `kind`                      | `payload`                       | Valid in registered-only? | Effect on `closingAmount` | Effect on `closingAvailableAmount` |
+| --------------------------- | ------------------------------- | ------------------------- | ------------------------- | ---------------------------------- |
+| `summary-log-submitted`     | `{ summaryLogId, creditTotal }` | ✅                        | += delta (see below)      | += delta                           |
+| `prn-created`               | `{ prnId, amount }`             | ❌                        | —                         | −amount (ringfence)                |
+| `prn-issued`                | `{ prnId, amount }`             | ❌                        | −amount                   | — (ringfence already counted it)   |
+| `prn-creation-cancelled`    | `{ prnId, amount }`             | ❌                        | —                         | +amount (release ringfence)        |
+| `prn-cancelled-after-issue` | `{ prnId, amount }`             | ❌                        | +amount                   | +amount (reverse both)             |
 
 ### `summary-log-submitted` and the frozen snapshot
 
@@ -89,7 +89,7 @@ The PRN lifecycle is genuinely two-phase, which is why `amount` and `availableAm
 
 A registration moves through a registered-only submission, gets accredited, then accumulates submissions and PRN activity on its accredited stream.
 
-**Stream 1 — `(regId, null)`** (registered-only). The taxonomy admits `summary-log-submitted` here for audit purposes; closing totals stay at zero by definition.
+**Stream 1 — `(regId, null)`** (registered-only). Whether registered-only streams carry a running balance is a product decision; the schema and delta arithmetic don't require it either way. This example assumes the product choice is not to maintain a balance pre-accreditation, so closing totals stay at zero.
 
 | #   | `kind`                  | `payload`                                   | closing (amount / available) |
 | --- | ----------------------- | ------------------------------------------- | ---------------------------- |
@@ -113,7 +113,7 @@ Current balance after event 7 is `3500 / 3500`, read directly from the latest ev
 
 The current balance for an accredited stream is the `closingAmount` and `closingAvailableAmount` on its highest-numbered event — a single indexed read, same as ADR-0031. No cached projection; no second source of truth to drift.
 
-Registered-only streams have a trivial balance of zero; closing fields stay zero on every event for schema uniformity.
+Whether registered-only streams maintain a running balance is a product decision; the schema supports either choice without change. If the product choice is not to maintain a pre-accreditation balance, closing fields stay at zero on every event for schema uniformity.
 
 ### Reading PRN state
 
