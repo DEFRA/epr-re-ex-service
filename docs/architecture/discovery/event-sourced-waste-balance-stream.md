@@ -132,7 +132,15 @@ The watermark closes the gap left by a failed projection write. Reads are always
 
 ### Concurrency
 
-Identical mechanism to ADR-0031. The compound unique index on `(registrationId, accreditationId, number)` enforces the slot. Writers read the latest event, compute the next number, attempt insert; retry on conflict. There is no second optimistic-lock surface for the balance itself — no separate document to update for closing totals.
+The application layer enforces a single-active-session-per-registration lease (the SUBMITTING document), so concurrent submissions for the same `(registrationId, accreditationId)` are precluded in normal operation. The data layer carries two defence-in-depth mechanisms that surface a conflict to the caller if the lease ever fails:
+
+**Optimistic concurrency on the waste-record document.** A waste-record write asserts that the record's `versions[]` length is unchanged since the read that produced the diff. If another writer has appended a version in between, the assertion fails and the write fails. The caller decides the response — recompute and retry, surface an error to the operator, or any other policy — the data layer's contract is only that the conflict is detected, not silently absorbed.
+
+**Compound unique index on event slots.** `(registrationId, accreditationId, number)` enforces sequential numbering, identical to ADR-0031. Two sessions racing for the same slot fail with a duplicate-key error. As above, the data layer guarantees detection but not response. A session that observed the slot from a now-stale view of the stream tip cannot silently retry at the next number, because its `creditTotal` was computed against state that the winning session has since advanced — any retry needs to be a fresh computation against current state, which is a decision for the caller, not the data layer.
+
+The load-bearing rule is detection over absorption: every conflict surfaces as a write failure that the caller must handle. The stream's `creditTotal` arithmetic is correct only when every successful append corresponds to a `creditTotal` computed against the state immediately following the previous event, so any uncertainty about which event was previous must be exposed, not hidden.
+
+There is no second optimistic-lock surface for the balance itself — no separate document to update for closing totals.
 
 ### Partial failure and recovery
 
@@ -177,6 +185,8 @@ The PRN ordering inverts: the event lands first because it is the source of trut
 
 ### Row-version canonicity
 
+**Row monotonicity premise.** Submission validation forbids row deletion — a submission whose workbook drops a previously-submitted row fails validation at the application boundary. Every committed submission's workbook is therefore a superset of every prior committed submission's. This makes the chain a complete witness for per-row contribution to every submission: a row exists in submission S iff its first-committed version's `summaryLog` event is at or before S on the stream, and its state at S is the merge of all committed versions on its chain up to S. No per-event manifest of workbook contents is needed because absence-from-workbook is structurally impossible for a committed submission.
+
 Row versions land in waste-records during a SUBMITTING session, but they are not committed until that session's stream event lands. Between write and commit a version is uncommitted — visible in storage, but not part of the canonical chain.
 
 There is no general read path that materialises row state from the version chain: balance and totals come from the event stream's `creditTotal` snapshots, and aggregation across rows happens at submission write-time when the session is producing the new `creditTotal`. The version chain is internal infrastructure — consulted at the next submission's write-time and by rare audit queries, not by routine operator-facing reads.
@@ -185,8 +195,8 @@ The canonicity invariant is maintained at write time:
 
 1. When the session writes a row, resolve the row's latest **committed** version — the latest version in the chain whose `summaryLogId` is in the stream — and merge from start up to (and including) that version to produce the committed state.
 2. Diff the workbook value against the committed state.
-3. Drop any uncommitted versions for this row from the chain.
-4. Append the new version (tagged with this submission's `summaryLogId`) as a sparse diff against the committed predecessor.
+3. Drop any uncommitted versions for this row from the chain. The application-level lease guarantees no peer session is in flight, so any uncommitted version is by construction the residue of a failed prior session.
+4. Append the new version (tagged with this submission's `summaryLogId`) as a sparse diff against the committed predecessor. The write asserts via optimistic concurrency that the row document's `versions[]` length is unchanged since step 1's read; if it has changed, the write fails and the caller is responsible for the response (see "Concurrency").
 
 Every committed version is therefore self-sufficient against earlier committed versions. Anywhere the chain is consulted, the operation `keep versions whose summaryLogId is in the stream, sparse-merge them` produces the right state — no special handling for blessed orphans, because the write side has prevented them from existing.
 
@@ -233,6 +243,10 @@ Neither is decided yet.
 **Timestamp comparison for canonicity.** Versions carry `writtenAt`, events carry `committedAt`; the canonical chain is versions with `writtenAt ≤ latestEvent.committedAt`. Rejected — relies on non-interleaved sessions and a monotonic database clock, neither of which the design wants to depend on for correctness when a structural alternative exists.
 
 **Stage uncommitted versions outside waste-records.** A SUBMITTING-scoped staging area holds in-flight row versions; commit moves them into the canonical `versions[]` arrays idempotently. Rejected — solves the same problem at the cost of a larger schema/storage shift and an extra round of writes at commit time. The write-side diff-against-committed mechanism achieves the same separation of uncommitted from canonical within the existing collection.
+
+**Stored `previousSummaryLog.id` pointer on each version.** Each new version carries an explicit reference to the summary log of its predecessor state, making each delta's "from" state self-describing without consulting the stream. Rejected as redundant — the stream is already the canonical list of committed summary log IDs, so the predecessor is reconstructible at any time as "R's latest version whose `summaryLogId` is in the stream". A stored pointer would denormalise information that's already authoritative on the stream, with no integrity gain and a maintenance hazard if the pointer ever diverged from the stream's truth.
+
+**Per-event row manifest of workbook contents.** Each `summary-log-submitted` event carries an explicit list of `(type, rowId)` pairs representing the rows in the workbook at submission time, so the `creditTotal` snapshot is self-witnessing for which rows contributed. Rejected because the row-monotonicity premise (rows cannot be deleted from a workbook — validation rejects any submission that drops a previously-submitted row) makes presence-in-the-registration's-row-set equivalent to presence-in-every-subsequent-submission's-workbook. The chain alone witnesses every row's contribution to every submission, so the manifest would be redundant. At 60K rows × daily submissions × year-long accreditations, the storage savings from omitting the manifest are material (hundreds of MB per accreditation per year).
 
 ## Consequences
 
