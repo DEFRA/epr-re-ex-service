@@ -8,12 +8,11 @@ Proposed — for discussion. Supersedes [ADR-0031](../decisions/0031-waste-balan
 
 The waste balance has accumulated overlapping consistency problems:
 
-1. **Design drift.** The per-row delta mechanism shipped in December 2025 diverged from the original per-event ledger design in the LLD. The tactical fix in [DEFRA/epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) derives balance from waste records, leaving the ledger as an underused artefact.
-2. **Coupled writes without concurrency control.** `saveBalance` has no version predicate; concurrent PRN operations against the same PRN produce staggered double-debits when the PRN status CAS rejects the loser but the balance write has already landed ([PAE-1439](https://eaflood.atlassian.net/browse/PAE-1439)).
-3. **Statutory row-removal rule (VAL009).** Anchored in SI 2024/1332, Sch 8, para 32 (7-year retention). Already enforced at the validation layer; surfaced here only because the audit trail design must support it.
-4. **Summary-log submission TTL footgun.** The 20-minute SUBMITTING document TTL creates an edge case in submission semantics. Audit-corrected on 2026-05-08 — the current calculator's delta is naturally idempotent, but the underlying design fragility remains.
+1. **Coupled writes without concurrency control.** `saveBalance` has no version predicate; concurrent PRN operations against the same PRN produce staggered double-debits when the PRN status CAS rejects the loser but the balance write has already landed ([PAE-1439](https://eaflood.atlassian.net/browse/PAE-1439)).
+2. **Statutory row-removal rule (VAL009).** Anchored in SI 2024/1332, Sch 8, para 32 (7-year retention). Already enforced at the validation layer; surfaced here only because the audit trail design must support it.
+3. **Summary-log submission TTL footgun.** The 20-minute SUBMITTING document TTL creates an edge case in submission semantics. Audit-corrected on 2026-05-08 — the current calculator's delta is naturally idempotent, but the underlying design fragility remains.
 
-[ADR-0031](../decisions/0031-waste-balance-transaction-ledger.md) addresses points 1 and 2 by moving transactions out of the embedded array into a per-accreditation append-only ledger, with running totals on each entry. Implementation is in-flight (PRs #1130, #1137, #1148, #1158, #1161; rollout discovery [PR #202](https://github.com/DEFRA/epr-re-ex-service/pull/202)).
+[ADR-0031](../decisions/0031-waste-balance-transaction-ledger.md) addresses point 1 by moving transactions out of the embedded array into a per-accreditation append-only ledger, with running totals on each entry. Implementation is in-flight (PRs #1130, #1137, #1148, #1158, #1161; rollout discovery [PR #202](https://github.com/DEFRA/epr-re-ex-service/pull/202)).
 
 This document proposes a redesign that supersedes ADR-0031 at the conceptual level. The storage shape and concurrency mechanics carry forward; the model shifts from per-row transactions to **business events** at the granularity the domain actually operates on — one event per summary log submission, one per balance-affecting PRN transition.
 
