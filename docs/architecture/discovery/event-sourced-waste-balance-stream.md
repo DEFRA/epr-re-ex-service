@@ -39,7 +39,7 @@ Uniqueness of `(registrationId, accreditationId, number)` is enforced by a compo
 
 The system reads the registration's current accreditation status from the registration document. That determines the partition: `(registrationId, currentAccreditationId)` if accredited, `(registrationId, null)` if registered-only. No stream metadata is stored in the ledger itself — the events collection is the stream.
 
-A registration may have multiple streams over its lifetime (one per accreditation period, plus one registered-only stream); at most one is active at any moment. Old partitions are sealed by virtue of nothing further being written.
+A registration may have multiple streams over its lifetime (one per accreditation period, plus one registered-only stream); at most one is active at any moment. Inactive streams are not modified or marked — nothing happens to a stream when it stops being active; it simply receives no further writes.
 
 ### Event taxonomy (v1)
 
@@ -94,7 +94,7 @@ A registration moves through a registered-only submission, gets accredited, then
 | --- | ----------------------- | ------------------------------------------- | ----------------------------------------- |
 | 1   | `summary-log-submitted` | `{ summaryLogId: SL-1, creditTotal: 1500 }` | 0 / 0                                     |
 
-The accreditation is granted. Stream 1 is sealed (nothing further is written to it) and **Stream 2 — `(regId, accId)`** becomes the active partition:
+The accreditation is granted. The partition selector now resolves to `(regId, accId)`, so subsequent writes land on **Stream 2 — `(regId, accId)`**. Stream 1 stays exactly as it is; no document is touched to mark the change.
 
 | #   | `kind`                      | `payload`                                   | closingBalance (amount / availableAmount) | Notes                                                                |
 | --- | --------------------------- | ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
