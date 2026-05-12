@@ -1,10 +1,10 @@
 # 34. Multi-year accreditation model
 
-Date: 2026-05-07
+Date: 2026-05-12
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
