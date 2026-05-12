@@ -30,8 +30,8 @@ Each event carries:
 
 - **Stream identity:** `registrationId`, `accreditationId` (nullable), `organisationId` (denormalised, same trick ADR-0031 uses for org-level queries), `number` (sequential per stream from 1).
 - **Event identity:** `kind` (discriminator), `payload` (kind-specific).
-- **Running balance:** `openingAmount`, `closingAmount`, `openingAvailableAmount`, `closingAvailableAmount`. Always present for schema uniformity.
-- **Provenance:** `createdAt`, `createdBy`.
+- **Running balance:** `openingBalance` and `closingBalance`, each `{ amount, availableAmount }`. Mirrors the ledger snapshot shape from ADR-0031. Always present for schema uniformity.
+- **Provenance:** `createdAt`, `createdBy: { id, name }`.
 
 Uniqueness of `(registrationId, accreditationId, number)` is enforced by a compound unique index — the same optimistic-append mechanism as ADR-0031, just with the partition broadened to cover registered-only phases.
 
@@ -45,13 +45,13 @@ A registration may have multiple streams over its lifetime (one per accreditatio
 
 Five kinds. The discriminated payload makes additions (`manual-adjustment`, `accreditation-granted`, `accreditation-date-range-changed`, etc.) backwards-compatible — new `kind` value, new payload shape, no schema migration.
 
-| `kind`                      | `payload`                       | Valid in registered-only? | Effect on `closingAmount` | Effect on `closingAvailableAmount` |
-| --------------------------- | ------------------------------- | ------------------------- | ------------------------- | ---------------------------------- |
-| `summary-log-submitted`     | `{ summaryLogId, creditTotal }` | ✅                        | += delta (see below)      | += delta                           |
-| `prn-created`               | `{ prnId, amount }`             | ❌                        | —                         | −amount (ringfence)                |
-| `prn-issued`                | `{ prnId, amount }`             | ❌                        | −amount                   | — (ringfence already counted it)   |
-| `prn-creation-cancelled`    | `{ prnId, amount }`             | ❌                        | —                         | +amount (release ringfence)        |
-| `prn-cancelled-after-issue` | `{ prnId, amount }`             | ❌                        | +amount                   | +amount (reverse both)             |
+| `kind`                      | `payload`                       | Valid in registered-only? | Effect on `closingBalance.amount` | Effect on `closingBalance.availableAmount` |
+| --------------------------- | ------------------------------- | ------------------------- | --------------------------------- | ------------------------------------------ |
+| `summary-log-submitted`     | `{ summaryLogId, creditTotal }` | ✅                        | += delta (see below)              | += delta                                   |
+| `prn-created`               | `{ prnId, amount }`             | ❌                        | —                                 | −amount (ringfence)                        |
+| `prn-issued`                | `{ prnId, amount }`             | ❌                        | −amount                           | — (ringfence already counted it)           |
+| `prn-creation-cancelled`    | `{ prnId, amount }`             | ❌                        | —                                 | +amount (release ringfence)                |
+| `prn-cancelled-after-issue` | `{ prnId, amount }`             | ❌                        | +amount                           | +amount (reverse both)                     |
 
 ### `summary-log-submitted` and the frozen snapshot
 
@@ -64,8 +64,8 @@ When a `summary-log-submitted` event is written:
 1. Compute `creditTotal` from the merged row state of the registration at submission time and current contextual factors.
 2. Read the previous `summary-log-submitted` event on this stream (single indexed query). If none exists, `previousCreditTotal = 0`.
 3. `delta = creditTotal - previousCreditTotal`.
-4. Read the latest event (any kind) for `openingAmount`, `openingAvailableAmount`.
-5. `closingAmount = openingAmount + delta`; `closingAvailableAmount = openingAvailableAmount + delta`.
+4. Read the latest event (any kind) for its `closingBalance`; that becomes this event's `openingBalance`.
+5. `closingBalance.amount = openingBalance.amount + delta`; `closingBalance.availableAmount = openingBalance.availableAmount + delta`.
 6. Append the event.
 
 Per-row audit — what row R contributed to submission S — remains answerable from the waste-records collection's version chain (versions tagged with `summaryLog.id`, sparse `data` merged through the chain). It's not on the balance hot path. Reads filter the chain by stream-tagged `summaryLogId` — see "Row-version canonicity" for the write-side mechanism that makes this filter sound.
@@ -74,15 +74,15 @@ Per-row audit — what row R contributed to submission S — remains answerable 
 
 The PRN lifecycle is genuinely two-phase, which is why `amount` and `availableAmount` exist as separate fields. The mapping between PRN state transitions and stream events:
 
-| PRN transition                                    | Stream event                | Balance effect                                                                             |
-| ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
-| `DRAFT → AWAITING_AUTHORISATION`                  | `prn-created`               | Ringfence: `closingAvailableAmount -= amount`                                              |
-| `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `closingAmount -= amount` (availableAmount already down from the ringfence) |
-| `AWAITING_AUTHORISATION → CANCELLED` or `DELETED` | `prn-creation-cancelled`    | Release ringfence: `closingAvailableAmount += amount`                                      |
-| `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `closingAmount += amount`, `closingAvailableAmount += amount`                |
-| `AWAITING_ACCEPTANCE → ACCEPTED`                  | (see open decision)         | None — lifecycle only                                                                      |
-| `AWAITING_ACCEPTANCE → AWAITING_CANCELLATION`     | (see open decision)         | None — lifecycle only                                                                      |
-| `DRAFT → DISCARDED`                               | (see open decision)         | None — pre-ringfence                                                                       |
+| PRN transition                                    | Stream event                | Balance effect                                                                                       |
+| ------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `DRAFT → AWAITING_AUTHORISATION`                  | `prn-created`               | Ringfence: `closingBalance.availableAmount -= amount`                                                |
+| `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `closingBalance.amount -= amount` (`availableAmount` already down from the ringfence) |
+| `AWAITING_AUTHORISATION → CANCELLED` or `DELETED` | `prn-creation-cancelled`    | Release ringfence: `closingBalance.availableAmount += amount`                                        |
+| `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `closingBalance.amount += amount`, `closingBalance.availableAmount += amount`          |
+| `AWAITING_ACCEPTANCE → ACCEPTED`                  | (see open decision)         | None — lifecycle only                                                                                |
+| `AWAITING_ACCEPTANCE → AWAITING_CANCELLATION`     | (see open decision)         | None — lifecycle only                                                                                |
+| `DRAFT → DISCARDED`                               | (see open decision)         | None — pre-ringfence                                                                                 |
 
 ### Worked example
 
@@ -90,29 +90,29 @@ A registration moves through a registered-only submission, gets accredited, then
 
 **Stream 1 — `(regId, null)`** (registered-only). Whether registered-only streams carry a running balance is a product decision; the schema and delta arithmetic don't require it either way. This example assumes the product choice is not to maintain a balance pre-accreditation, so closing totals stay at zero.
 
-| #   | `kind`                  | `payload`                                   | closing (amount / available) |
-| --- | ----------------------- | ------------------------------------------- | ---------------------------- |
-| 1   | `summary-log-submitted` | `{ summaryLogId: SL-1, creditTotal: 1500 }` | 0 / 0                        |
+| #   | `kind`                  | `payload`                                   | closingBalance (amount / availableAmount) |
+| --- | ----------------------- | ------------------------------------------- | ----------------------------------------- |
+| 1   | `summary-log-submitted` | `{ summaryLogId: SL-1, creditTotal: 1500 }` | 0 / 0                                     |
 
 The accreditation is granted. Stream 1 is sealed (nothing further is written to it) and **Stream 2 — `(regId, accId)`** becomes the active partition:
 
-| #   | `kind`                      | `payload`                                   | closing (amount / available) | Notes                                                                |
-| --- | --------------------------- | ------------------------------------------- | ---------------------------- | -------------------------------------------------------------------- |
-| 1   | `summary-log-submitted`     | `{ summaryLogId: SL-2, creditTotal: 2000 }` | 2000 / 2000                  | First on this stream; `previousCreditTotal = 0`, delta = 2000        |
-| 2   | `summary-log-submitted`     | `{ summaryLogId: SL-3, creditTotal: 3500 }` | 3500 / 3500                  | `previousCreditTotal = 2000`, delta = 1500                           |
-| 3   | `prn-created`               | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 2700                  | Ringfence on availableAmount                                         |
-| 4   | `prn-creation-cancelled`    | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 3500                  | Ringfence released                                                   |
-| 5   | `prn-created`               | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 2900                  | Ringfence on availableAmount                                         |
-| 6   | `prn-issued`                | `{ prnId: PRN-2, amount: 600 }`             | 2900 / 2900                  | Debit confirmed on amount; availableAmount already counted at create |
-| 7   | `prn-cancelled-after-issue` | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 3500                  | Reverses both fields                                                 |
+| #   | `kind`                      | `payload`                                   | closingBalance (amount / availableAmount) | Notes                                                                |
+| --- | --------------------------- | ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| 1   | `summary-log-submitted`     | `{ summaryLogId: SL-2, creditTotal: 2000 }` | 2000 / 2000                               | First on this stream; `previousCreditTotal = 0`, delta = 2000        |
+| 2   | `summary-log-submitted`     | `{ summaryLogId: SL-3, creditTotal: 3500 }` | 3500 / 3500                               | `previousCreditTotal = 2000`, delta = 1500                           |
+| 3   | `prn-created`               | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 2700                               | Ringfence on availableAmount                                         |
+| 4   | `prn-creation-cancelled`    | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 3500                               | Ringfence released                                                   |
+| 5   | `prn-created`               | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 2900                               | Ringfence on availableAmount                                         |
+| 6   | `prn-issued`                | `{ prnId: PRN-2, amount: 600 }`             | 2900 / 2900                               | Debit confirmed on amount; availableAmount already counted at create |
+| 7   | `prn-cancelled-after-issue` | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 3500                               | Reverses both fields                                                 |
 
 Current balance after event 7 is `3500 / 3500`, read directly from the latest event. A subsequent `summary-log-submitted` with `creditTotal = 4000` would compute its delta against event 2 — the latest `summary-log-submitted` on the stream — giving `delta = 4000 − 3500 = 500`, and close at `4000 / 4000`.
 
 ### Reading the balance
 
-The current balance for an accredited stream is the `closingAmount` and `closingAvailableAmount` on its highest-numbered event — a single indexed read, same as ADR-0031. No cached projection; no second source of truth to drift.
+The current balance for an accredited stream is the `closingBalance` on its highest-numbered event — a single indexed read, same as ADR-0031. No cached projection; no second source of truth to drift.
 
-Whether registered-only streams maintain a running balance is a product decision; the schema supports either choice without change. If the product choice is not to maintain a pre-accreditation balance, closing fields stay at zero on every event for schema uniformity.
+Whether registered-only streams maintain a running balance is a product decision; the schema supports either choice without change. If the product choice is not to maintain a pre-accreditation balance, `closingBalance` stays at `{ amount: 0, availableAmount: 0 }` on every event for schema uniformity.
 
 ### Reading PRN state
 
@@ -264,7 +264,7 @@ Neither is decided yet.
 - **Supersedes in-flight ADR-0031 implementation.** PRs #1130, #1137, #1148, #1158, #1161 and rollout discovery #202 are either redirected or paused. Implementation timing is out of scope for this doc.
 - **Per-row provenance moves off the hot path.** "What did summary log S contribute for row R?" is still answerable via the waste-records collection's version chain, but not via a single indexed query on the stream.
 - **`creditTotal` re-computation cost at submission time.** Writers compute the full snapshot from the live upload + contextual factors. Cost is bounded by submission size, not by accreditation history.
-- **`closingAmount` and `closingAvailableAmount` shift together for `summary-log-submitted` events.** The split only matters when PRN events move them independently — reinforces ADR-0031's both-fields-per-event invariant.
+- **`closingBalance.amount` and `closingBalance.availableAmount` shift together for `summary-log-submitted` events.** The split only matters when PRN events move them independently — reinforces ADR-0031's both-fields-per-event invariant.
 - **Per-kind partial unique indexes** on natural idempotency keys (`prnId`, `summaryLogId`). Each new event kind that needs at-most-once semantics adds an index. The set is small and bounded by the event taxonomy.
 - **PRN document status becomes a projection with a watermark catch-up read pattern.** Reads carry a cost of one indexed point-query (`payload.prnId` filtered by `number > doc.eventNumber`) on top of loading the document — usually returning zero events. The doc is no longer the sole source of truth for PRN state; consumers that bypass the read helper would see a stale view.
 
