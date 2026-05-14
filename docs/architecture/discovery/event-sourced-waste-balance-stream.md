@@ -99,14 +99,14 @@ The accreditation is granted. The partition selector now resolves to `(regId, ac
 | #   | `kind`                      | `payload`                                   | closingBalance (amount / availableAmount) | Notes                                                                |
 | --- | --------------------------- | ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
 | 1   | `summary-log-submitted`     | `{ summaryLogId: SL-2, creditTotal: 2000 }` | 2000 / 2000                               | First on this stream; `previousCreditTotal = 0`, delta = 2000        |
-| 2   | `summary-log-submitted`     | `{ summaryLogId: SL-3, creditTotal: 3500 }` | 3500 / 3500                               | `previousCreditTotal = 2000`, delta = 1500                           |
-| 3   | `prn-created`               | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 2700                               | Ringfence on availableAmount                                         |
+| 2   | `prn-created`               | `{ prnId: PRN-1, amount: 800 }`             | 2000 / 1200                               | Ringfence on availableAmount                                         |
+| 3   | `summary-log-submitted`     | `{ summaryLogId: SL-3, creditTotal: 3500 }` | 3500 / 2700                               | `previousCreditTotal = 2000`, delta = 1500 applied to both fields    |
 | 4   | `prn-creation-cancelled`    | `{ prnId: PRN-1, amount: 800 }`             | 3500 / 3500                               | Ringfence released                                                   |
 | 5   | `prn-created`               | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 2900                               | Ringfence on availableAmount                                         |
 | 6   | `prn-issued`                | `{ prnId: PRN-2, amount: 600 }`             | 2900 / 2900                               | Debit confirmed on amount; availableAmount already counted at create |
 | 7   | `prn-cancelled-after-issue` | `{ prnId: PRN-2, amount: 600 }`             | 3500 / 3500                               | Reverses both fields                                                 |
 
-Current balance after event 7 is `3500 / 3500`, read directly from the latest event. A subsequent `summary-log-submitted` with `creditTotal = 4000` would compute its delta against event 2 — the latest `summary-log-submitted` on the stream — giving `delta = 4000 − 3500 = 500`, and close at `4000 / 4000`.
+Current balance after event 7 is `3500 / 3500`, read directly from the latest event. A subsequent `summary-log-submitted` with `creditTotal = 4000` would compute its delta against event 3 — the latest `summary-log-submitted` on the stream — giving `delta = 4000 − 3500 = 500`, and close at `4000 / 4000`.
 
 ### Reading the balance
 
