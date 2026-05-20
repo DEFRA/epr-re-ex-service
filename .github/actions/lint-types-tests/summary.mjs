@@ -1,8 +1,9 @@
 import { execSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { text } from 'node:stream/consumers'
+
+import ts from 'typescript'
 
 /**
  * @typedef {{ include: string[]; exclude?: string[] }} FilterGlobs
@@ -263,22 +264,16 @@ const parseLinesEnv = (value, name) => {
 const tsCodeLookupFromPackage = (() => {
   /** @type {Map<number, string>} */
   const map = new Map()
-  try {
-    const cwdRequire = createRequire(path.join(process.cwd(), 'package.json'))
-    const tsInternals =
-      /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
-        cwdRequire('typescript')
-      )
-    const diagnostics = tsInternals.Diagnostics ?? {}
-    for (const key of Object.keys(diagnostics)) {
-      const d = diagnostics[key]
-      if (d?.code && d?.message) {
-        map.set(d.code, d.message)
-      }
+  const tsInternals =
+    /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
+      /** @type {unknown} */ (ts)
+    )
+  const diagnostics = tsInternals.Diagnostics ?? {}
+  for (const key of Object.keys(diagnostics)) {
+    const d = diagnostics[key]
+    if (d?.code && d?.message) {
+      map.set(d.code, d.message)
     }
-  } catch {
-    // typescript not resolvable from cwd; fall back to noop and use the raw
-    // message from tsc output instead
   }
   return (/** @type {number} */ code) => map.get(code) ?? ''
 })()
