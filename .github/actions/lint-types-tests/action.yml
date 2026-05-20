@@ -1,0 +1,68 @@
+name: Lint Types - Tests
+description: Run typecheck against tests and post a sticky PR summary comment
+
+inputs:
+  npm-script:
+    description: npm script to run for the test typecheck (e.g. lint:types:tests, lint:types)
+    required: false
+    default: lint:types:tests
+  include-globs:
+    description: Newline-separated globs matching the test file paths covered by the typecheck
+    required: true
+  exclude-globs:
+    description: Newline-separated globs; paths matching any are dropped from the changed-files set
+    required: false
+    default: ''
+  comment-header:
+    description: Header for the sticky PR comment, used to dedupe across runs
+    required: false
+    default: lint-types-tests
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Upgrade npm
+      shell: bash
+      run: npm install -g npm@11.12.1
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Lint types (tests)
+      shell: bash
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        COMMENT_FILE: ${{ runner.temp }}/lint-types-tests-comment.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        LINT_TYPES_TESTS_INCLUDE_GLOBS: ${{ inputs.include-globs }}
+        LINT_TYPES_TESTS_EXCLUDE_GLOBS: ${{ inputs.exclude-globs }}
+        NPM_SCRIPT: ${{ inputs.npm-script }}
+      run: |
+        # disable setup-node's tsc problem matcher: we summarise via the script
+        echo "::remove-matcher owner=tsc::"
+
+        OUTPUT=$(npm run "$NPM_SCRIPT" 2>&1) || true
+        echo "$OUTPUT"
+
+        echo "$OUTPUT" \
+          | node "${{ github.action_path }}/summary.mjs" \
+          >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Post PR comment
+      if: always()
+      uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+      with:
+        header: ${{ inputs.comment-header }}
+        path: ${{ runner.temp }}/lint-types-tests-comment.md
