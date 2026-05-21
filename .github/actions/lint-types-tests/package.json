@@ -5,6 +5,6 @@
   "description": "Internal deps for the lint-types-tests composite action",
   "type": "module",
   "dependencies": {
-    "typescript": "5.9.3"
+    "typescript": "6.0.3"
   }
 }
