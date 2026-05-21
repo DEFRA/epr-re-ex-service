@@ -26,6 +26,11 @@ import ts from 'typescript'
  */
 
 const errorLineRegex = /^([^(]+)\(\d+,\d+\): error (TS\d+): (.*)$/
+const FILE_GROUP = 1
+const CODE_GROUP = 2
+const MESSAGE_GROUP = 3
+const TS_PREFIX_LENGTH = 2
+const TOP_CODES_LIMIT = 10
 
 /**
  * @param {string[]} paths
@@ -44,47 +49,35 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
  * @returns {{ errors: ParsedError[]; byFile: Map<string, ParsedError[]> }}
  */
 const parseErrors = (tscOutput) => {
-  /** @type {ParsedError[]} */
-  const errors = []
-  /** @type {Map<string, ParsedError[]>} */
-  const byFile = new Map()
-  for (const line of tscOutput.split('\n')) {
+  const errors = tscOutput.split('\n').flatMap((line) => {
     const match = line.match(errorLineRegex)
-    if (!match) {
-      continue
-    }
-    const error = { file: match[1], code: match[2], message: match[3], line }
-    errors.push(error)
-    const list = byFile.get(error.file)
-    if (list) {
-      list.push(error)
-    } else {
-      byFile.set(error.file, [error])
-    }
-  }
-  return { errors, byFile }
+    return match
+      ? [
+          {
+            file: match[FILE_GROUP],
+            code: match[CODE_GROUP],
+            message: match[MESSAGE_GROUP],
+            line
+          }
+        ]
+      : []
+  })
+  return { errors, byFile: Map.groupBy(errors, (e) => e.file) }
 }
 
 /**
  * @param {ParsedError[]} errors
  * @returns {Array<{ code: string; count: number; message: string }>}
  */
-const topCodes = (errors) => {
-  /** @type {Map<string, { count: number; message: string }>} */
-  const acc = new Map()
-  for (const { code, message } of errors) {
-    const entry = acc.get(code)
-    if (entry) {
-      entry.count += 1
-    } else {
-      acc.set(code, { count: 1, message })
-    }
-  }
-  return [...acc.entries()]
-    .map(([code, { count, message }]) => ({ code, count, message }))
+const topCodes = (errors) =>
+  [...Map.groupBy(errors, (e) => e.code).entries()]
+    .map(([code, list]) => ({
+      code,
+      count: list.length,
+      message: list[0].message
+    }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
-}
+    .slice(0, TOP_CODES_LIMIT)
 
 /**
  * @param {string[]} changedFiles
@@ -92,23 +85,27 @@ const topCodes = (errors) => {
  * @returns {{ section: string; prErrorTotal: number }}
  */
 const buildPrSection = (changedFiles, byFile) => {
-  const blocks = []
-  let prErrorTotal = 0
-  for (const file of [...changedFiles].sort()) {
-    const fileErrors = byFile.get(file) ?? []
-    if (fileErrors.length === 0) {
-      continue
-    }
-    prErrorTotal += fileErrors.length
-    blocks.push(
-      `<details><summary><code>${file}</code> (${fileErrors.length} errors)</summary>\n\n` +
+  const entries = [...changedFiles]
+    .sort()
+    .map((file) => ({ file, errors: byFile.get(file) ?? [] }))
+    .filter(({ errors }) => errors.length > 0)
+
+  const section = entries
+    .map(
+      ({ file, errors }) =>
+        `<details><summary><code>${file}</code> (${errors.length} errors)</summary>\n\n` +
         '```\n' +
-        fileErrors.map((e) => e.line).join('\n') +
+        errors.map((e) => e.line).join('\n') +
         '\n```\n\n</details>'
     )
-  }
+    .join('\n\n')
 
-  return { section: blocks.join('\n\n'), prErrorTotal }
+  const prErrorTotal = entries.reduce(
+    (sum, { errors }) => sum + errors.length,
+    0
+  )
+
+  return { section, prErrorTotal }
 }
 
 /**
@@ -127,21 +124,20 @@ const prHeader = (prErrorTotal) => {
  * @param {(code: number) => string} tsCodeLookup
  * @returns {string}
  */
-const topCodesTable = (errors, tsCodeLookup) => {
-  const rows = ['| Count | Code | Description |', '| ---: | --- | --- |']
-  for (const { code, count, message } of topCodes(errors)) {
-    const numericCode = Number(code.slice(2))
-    const description = (tsCodeLookup(numericCode) || message).replace(
-      /\|/g,
-      '\\|'
-    )
-    const slug = code.toLowerCase()
-    rows.push(
-      `| ${count} | [${code}](https://typescript.tv/errors/${slug}/) | ${description} |`
-    )
-  }
-  return rows.join('\n')
-}
+const topCodesTable = (errors, tsCodeLookup) =>
+  [
+    '| Count | Code | Description |',
+    '| ---: | --- | --- |',
+    ...topCodes(errors).map(({ code, count, message }) => {
+      const numericCode = Number(code.slice(TS_PREFIX_LENGTH))
+      const description = (tsCodeLookup(numericCode) || message).replace(
+        /\|/g,
+        '\\|'
+      )
+      const slug = code.toLowerCase()
+      return `| ${count} | [${code}](https://typescript.tv/errors/${slug}/) | ${description} |`
+    })
+  ].join('\n')
 
 /**
  * @param {Map<string, ParsedError[]>} byFile
@@ -153,6 +149,7 @@ const errorsByFileBlock = (byFile) => {
       ([file, errs]) => /** @type {[string, number]} */ ([file, errs.length])
     )
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+
   return counts.map(([file, count]) => `${count} ${file}`).join('\n')
 }
 
@@ -183,6 +180,43 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
 }
 
 /**
+ * @param {ParsedError[]} errors
+ * @param {Map<string, ParsedError[]>} byFile
+ * @param {(code: number) => string} tsCodeLookup
+ * @returns {string}
+ */
+const allErrorsSection = (errors, byFile, tsCodeLookup) => {
+  if (errors.length === 0) {
+    return '### All errors\n\n:white_check_mark: Test type check passed'
+  }
+  return [
+    '### All errors',
+    '',
+    `:warning: **${errors.length} type errors found in tests**`,
+    '',
+    '#### Top error codes',
+    '',
+    topCodesTable(errors, tsCodeLookup),
+    '',
+    '<details><summary>Errors by file (count)</summary>',
+    '',
+    '```',
+    errorsByFileBlock(byFile),
+    '```',
+    '',
+    '</details>',
+    '',
+    '<details><summary>Full error list</summary>',
+    '',
+    '```',
+    errors.map((e) => e.line).join('\n'),
+    '```',
+    '',
+    '</details>'
+  ].join('\n')
+}
+
+/**
  * @param {BuildSummaryInput} input
  * @returns {BuildSummaryResult}
  */
@@ -192,38 +226,7 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
     changedFiles,
     byFile
   )
-
-  let section2
-  if (errors.length === 0) {
-    section2 = '### All errors\n\n:white_check_mark: Test type check passed'
-  } else {
-    const fullList = errors.map((e) => e.line).join('\n')
-    section2 = [
-      '### All errors',
-      '',
-      `:warning: **${errors.length} type errors found in tests**`,
-      '',
-      '#### Top error codes',
-      '',
-      topCodesTable(errors, tsCodeLookup),
-      '',
-      '<details><summary>Errors by file (count)</summary>',
-      '',
-      '```',
-      errorsByFileBlock(byFile),
-      '```',
-      '',
-      '</details>',
-      '',
-      '<details><summary>Full error list</summary>',
-      '',
-      '```',
-      fullList,
-      '```',
-      '',
-      '</details>'
-    ].join('\n')
-  }
+  const section2 = allErrorsSection(errors, byFile, tsCodeLookup)
 
   const lines = [
     '## Lint Types - Tests',
@@ -262,19 +265,18 @@ const parseLinesEnv = (value, name) => {
 }
 
 const tsCodeLookupFromPackage = (() => {
-  /** @type {Map<number, string>} */
-  const map = new Map()
   const tsInternals =
     /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
       /** @type {unknown} */ (ts)
     )
   const diagnostics = tsInternals.Diagnostics ?? {}
-  for (const key of Object.keys(diagnostics)) {
-    const d = diagnostics[key]
-    if (d?.code && d?.message) {
-      map.set(d.code, d.message)
-    }
-  }
+  const map = new Map(
+    Object.values(diagnostics).flatMap((d) =>
+      d?.code && d?.message
+        ? [/** @type {[number, string]} */ ([d.code, d.message])]
+        : []
+    )
+  )
   return (/** @type {number} */ code) => map.get(code) ?? ''
 })()
 
