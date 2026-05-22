@@ -1,4 +1,4 @@
-# 34. Multi-year accreditation model
+# 34. Read organisation data with Basic Auth
 
 Date: 2026-05-22
 
