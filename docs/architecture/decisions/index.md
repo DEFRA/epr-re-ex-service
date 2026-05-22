@@ -34,3 +34,4 @@
 * [32. Waste balance commit marker (considered alternative to ADR 0031)](0032-waste-balance-commit-marker-alternative.md)
 * [33. Admin UI scope-based RBAC](0033-admin-ui-scope-based-rbac.md)
 * [34. Multi-year accreditation model](0034-multi-year-accreditation-model.md)
+* [35. Read organisation data with basic auth](0035-read-organisation-data-with-basic-auth.md)
