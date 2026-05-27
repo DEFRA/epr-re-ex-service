@@ -25,7 +25,7 @@ services:
       - cdp-tenant
 
   floci-init:
-    image: amazon/aws-cli:2.34.38
+    image: amazon/aws-cli:2.34.53
     entrypoint: /bin/sh
     command: /setup/init.sh
     depends_on:
@@ -44,7 +44,7 @@ services:
       - cdp-tenant
 
   mongodb:
-    image: mongo:8.2.7
+    image: mongo:8.3.2
     networks:
       - cdp-tenant
     ports:
@@ -68,7 +68,7 @@ services:
       - data-redis:/data
 
   cdp-uploader:
-    image: defradigital/cdp-uploader:1.15.0
+    image: defradigital/cdp-uploader:1.16.0
     ports:
       - '7337:7337'
     depends_on:
@@ -160,7 +160,7 @@ services:
       - cdp-tenant
 
   cognito-stub:
-    image: jagregory/cognito-local:5.2.0
+    image: jagregory/cognito-local:5.3.0
     ports:
       - '9229:9229'
     depends_on:
