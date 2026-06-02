@@ -541,7 +541,7 @@ This table is illustrative of the balance effects, not the exhaustive PRN state 
 
 ##### Reading PRN state
 
-A PRN's current status is its document projection plus a watermark catch-up read. The PRN document carries the descriptive fields, a projected `status`, and an `eventNumber` watermark — the `number` of the latest stream event already projected into it. A read loads the document, then queries the stream for events where `payload.prnId = doc.prnId` and `number > doc.eventNumber` (an indexed point query that usually returns nothing) and folds the tail in. Reads are therefore always correct even if a projection write failed; only the document's freshness varies, and the next successful write for that PRN advances the watermark.
+A PRN's current status is its document projection plus a watermark catch-up read. The PRN document carries the descriptive fields, a projected `status`, and a `lastAppliedEventNumber` watermark — the `number` of the latest stream event already projected into it. A read loads the document, then queries the stream for events in the PRN's `(registrationId, accreditationId)` partition where `payload.prnId = doc.prnId` and `number > doc.lastAppliedEventNumber` (an indexed point query that usually returns nothing) and folds the tail in. Reads are therefore always correct even if a projection write failed; only the document's freshness varies, and the next successful write for that PRN advances the watermark.
 
 ##### Example events
 
