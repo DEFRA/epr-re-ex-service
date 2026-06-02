@@ -6,21 +6,21 @@ Proposed — sign-off required before the rollout and cutover work is scoped.
 
 ## Context
 
-[ADR 0036](../decisions/0036-event-sourced-waste-balance-stream.md) replaces the embedded `transactions[]` array on each waste-balance document with a per-registration-phase append-only event stream. Each event carries its own running totals (`openingBalance` and `closingBalance`, each `{ amount, availableAmount }`) so the current balance is a single indexed read on the highest-numbered event per stream. The stream supersedes the per-row transaction ledger of [ADR 0031](../decisions/0031-waste-balance-transaction-ledger.md); the storage shape, the slot-conflict concurrency primitive, and the `canonicalSource` cutover marker carry forward.
+[ADR 0036](../decisions/0036-event-sourced-waste-balance-stream.md) replaces the embedded `transactions[]` array on each waste-balance document with a per-registration-phase append-only event ledger. Each event carries its own running totals (`openingBalance` and `closingBalance`, each `{ amount, availableAmount }`) so the current balance is a single indexed read on the highest-numbered event for that registration phase. The event ledger supersedes the per-row transaction ledger of [ADR 0031](../decisions/0031-waste-balance-transaction-ledger.md); the storage shape, the slot-conflict concurrency primitive, and the `canonicalSource` cutover marker carry forward.
 
-The stream is gated behind `FEATURE_FLAG_WASTE_BALANCE_LEDGER` (default `false` cross-environment). Per ADR 0036, writes go to a single store; reads route on the per-accreditation `canonicalSource` marker introduced below.
+The ledger is gated behind `FEATURE_FLAG_WASTE_BALANCE_LEDGER` (default `false` cross-environment). Per ADR 0036, writes go to a single store; reads route on the per-accreditation `canonicalSource` marker introduced below.
 
-The stream changes the write shape: a summary-log submission becomes a single `summary-log-submitted` event append carrying a frozen `creditTotal` snapshot, and each balance-affecting PRN transition becomes one PRN event append, rather than the embedded array's atomic document update. Event granularity is one event per submission and one per PRN transition — two to three orders of magnitude fewer events than the per-row ledger — so reads stay a constant single-document lookup. A perf-test run remains part of the rollout to confirm the append path holds at load.
+The ledger changes the write shape: a summary-log submission becomes a single `summary-log-submitted` event append carrying a frozen `creditTotal` snapshot, and each balance-affecting PRN transition becomes one PRN event append, rather than the embedded array's atomic document update. Event granularity is one event per submission and one per PRN transition — two to three orders of magnitude fewer events than the per-row ledger produced — so reads stay a constant single-document lookup. A perf-test run remains part of the rollout to confirm the append path holds at load.
 
-The rest of this doc covers how each accreditation's data moves from the embedded array onto the stream.
+The rest of this doc covers how each accreditation's data moves from the embedded array onto the ledger.
 
 ## Per-accreditation cutover
 
 ### Recommendation
 
-**Sweep-driven per-accreditation migration at flag-flip time, rebuilding the stream from authoritative sources (waste records + PRN history), using a tri-state `canonicalSource` marker (`embedded | migrating | stream`) per accreditation to exclude in-flight summary-log submissions during rebuild.**
+**Sweep-driven per-accreditation migration at flag-flip time, rebuilding the ledger from authoritative sources (waste records + PRN history), using a tri-state `canonicalSource` marker (`embedded | migrating | ledger`) per accreditation to exclude in-flight summary-log submissions during rebuild.**
 
-Each accreditation carries the `canonicalSource` marker on its waste-balance document. While the marker reads `embedded`, the existing embedded write path runs as today and reads come from the document's `amount` / `availableAmount`. At flag-flip per environment a sweep iterates accreditations and rebuilds the stream for each: a conditional flip moves the marker into `migrating`, the stream is populated by replaying the accreditation's waste-records history and PRN operation history into events, then a second conditional flip moves the marker to `stream`. Subsequent reads and writes for that accreditation route to the stream.
+Each accreditation carries the `canonicalSource` marker on its waste-balance document. While the marker reads `embedded`, the existing embedded write path runs as today and reads come from the document's `amount` / `availableAmount`. At flag-flip per environment a sweep iterates accreditations and rebuilds the ledger for each: a conditional flip moves the marker into `migrating`, the ledger is populated by replaying the accreditation's waste-records history and PRN operation history into events, then a second conditional flip moves the marker to `ledger`. Subsequent reads and writes for that accreditation route to the ledger.
 
 Summary-log submissions for a registration whose accreditation is currently in `migrating` are rejected with the existing 409 conflict response from `summaryLogsRepository.transitionToSubmittingExclusive`, which clients already retry. PRN writes remain concurrent with the rebuild and are handled by the version-conditional flip (§PRN concurrency during migration).
 
@@ -28,9 +28,9 @@ Summary-log submissions for a registration whose accreditation is currently in `
 
 Full-fidelity replay of the embedded `transactions[]` array would be the textbook answer. It is rejected because embedded transaction entities carry the naked `rowId` plus waste-record version ids (`currentVersionId`, `previousVersionIds[]`), but no direct `wasteRecordId` or `summaryLogId`. An accreditation's historical embedded transactions cannot be deterministically mapped back to waste records without an ambiguous join — the same `rowId` recurs across monthly summary logs for the same supplier row. The PAE-1364 incident is the live demonstration of that ambiguity.
 
-The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) sidesteps that ambiguity by deriving balance directly from the waste records collection. That makes waste records the current source of truth for balance, and PRN history the source of truth for PRN-driven contributions. Rebuilding the stream from those two collections is unambiguous: each historical summary log becomes one `summary-log-submitted` event carrying its real `summaryLogId` and a `creditTotal` reconstructed from the merged row state at that submission, and each PRN operation becomes the PRN event for its transition (`prn-created`, `prn-issued`, and so on) carrying its real `prnId`. Both preserve the original submitter as `createdBy` rather than a synthetic system actor. Per-row provenance does not move onto the event — it stays in the waste-records version chain, where the event-sourced design already keeps it.
+The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) sidesteps that ambiguity by deriving balance directly from the waste records collection. That makes waste records the current source of truth for balance, and PRN history the source of truth for PRN-driven contributions. Rebuilding the ledger from those two collections is unambiguous: each historical summary log becomes one `summary-log-submitted` event carrying its real `summaryLogId` and a `creditTotal` reconstructed from the merged row state at that submission, and each PRN operation becomes the PRN event for its transition (`prn-created`, `prn-issued`, and so on) carrying its real `prnId`. Both preserve the original submitter as `createdBy` rather than a synthetic system actor. Per-row provenance does not move onto the event — it stays in the waste-records version chain, where the event-sourced design already keeps it.
 
-This dissolves three problems a seed-forward design would have carried: there is no PRN lifecycle continuity gap, no `manual-adjustment` reintroduction needed as an inflation-correction escape hatch, and no post-cutover-of-pre-cutover-row inflation risk because each replayed `summary-log-submitted` event already carries that submission's own `creditTotal` snapshot. Reinstating the waste balance as an authoritative event stream is the goal of PAE-1382 itself; rebuilding from authoritative sources delivers it directly.
+This dissolves three problems a seed-forward design would have carried: there is no PRN lifecycle continuity gap, no `manual-adjustment` reintroduction needed as an inflation-correction escape hatch, and no post-cutover-of-pre-cutover-row inflation risk because each replayed `summary-log-submitted` event already carries that submission's own `creditTotal` snapshot. Reinstating the waste balance ledger as the authoritative source of truth is the goal of PAE-1382 itself; rebuilding from authoritative sources delivers it directly.
 
 The replay's internal mechanics — how each historical submission's `creditTotal` is reconstructed from the waste-records version chain, and how the original submitter is sourced for `createdBy` — are out of scope here. This doc fixes the rollout and cutover orchestration around that replay, not the replay's reconstruction logic.
 
@@ -45,9 +45,9 @@ Upfront sweep makes the rollout deterministic: flag flip starts migration, the e
 A sweep job iterates accreditations whose marker is still `embedded`, running these steps per accreditation. The exact orchestration mechanism (queue-driven, single-runner, sharded by registration) is deferred to the implementing work.
 
 1. **Conditional flip `embedded → migrating`.** Atomic update on the waste-balance document, filtered on `{ accreditationId, canonicalSource: 'embedded', version: V }` where V is the version read in the same operation. The update sets `canonicalSource: 'migrating'` and stamps `migratingSince: now()`. If the filter fails — a concurrent embedded write incremented `version` between the read and the update — skip this accreditation and retry on the next sweep pass.
-2. **Clear any stale stream events.** Delete stream events for this accreditation. A previous failed sweep attempt may have written events before crashing or hitting a flip conflict; any events that exist while the marker is `migrating` are by definition the residue of an interrupted attempt and invisible to readers (which route by marker). The operation is unconditional and idempotent.
-3. **Replay history into the stream.** Capture the document version V' at the start of this step. Load the accreditation's PRN history and waste records, sort the combined event stream by event time, and append each as a stream event: each historical summary log becomes a `summary-log-submitted` event with its real `summaryLogId`, reconstructed `creditTotal`, and original-submitter `createdBy`; each PRN operation becomes the PRN event for its transition with its real `prnId` and the operating user's `createdBy`. The rebuild appends events directly, bypassing the per-submission audit emission the live write path performs, so no fresh audit entries are emitted (§Audit emission suppression).
-4. **Conditional flip `migrating → stream`.** Atomic update filtered on `{ accreditationId, canonicalSource: 'migrating', version: V' }`. If the filter matches, the flip lands and reads/writes for that accreditation route to the stream. If it does not — a concurrent PRN write incremented `version` during step 3 — return to step 2 and re-replay; the marker stays at `migrating` across the retry so submission exclusion holds throughout.
+2. **Clear any stale ledger events.** Delete ledger events for this accreditation. A previous failed sweep attempt may have written events before crashing or hitting a flip conflict; any events that exist while the marker is `migrating` are by definition the residue of an interrupted attempt and invisible to readers (which route by marker). The operation is unconditional and idempotent.
+3. **Replay history into the ledger.** Capture the document version V' at the start of this step. Load the accreditation's PRN history and waste records, sort the combined timeline by event time, and append each as a ledger event: each historical summary log becomes a `summary-log-submitted` event with its real `summaryLogId`, reconstructed `creditTotal`, and original-submitter `createdBy`; each PRN operation becomes the PRN event for its transition with its real `prnId` and the operating user's `createdBy`. The rebuild appends events directly, bypassing the per-submission audit emission the live write path performs, so no fresh audit entries are emitted (§Audit emission suppression).
+4. **Conditional flip `migrating → ledger`.** Atomic update filtered on `{ accreditationId, canonicalSource: 'migrating', version: V' }`. If the filter matches, the flip lands and reads/writes for that accreditation route to the ledger. If it does not — a concurrent PRN write incremented `version` during step 3 — return to step 2 and re-replay; the marker stays at `migrating` across the retry so submission exclusion holds throughout.
 
 ### Submission exclusion
 
@@ -63,7 +63,7 @@ PRN writes are not gated by the submission exclusion. A PRN write that lands whi
 
 PRN's embedded waste-balance update is a single-document atomic write — there is no waste-records / waste-balance two-step write to slip through, so the version filter is sufficient. The cross-collection race the submission exclusion exists to handle is specific to the summary-log path.
 
-Two waste-balance repository operations are new in this design beyond what the sweep itself requires: the conditional `embedded → migrating` flip at step 1 and the conditional `migrating → stream` flip at step 4. Existing waste-balance writes maintain `version` as a monotonically increasing field but do not currently use it as a filter predicate; the conditional flips introduce that pattern on this collection.
+Two waste-balance repository operations are new in this design beyond what the sweep itself requires: the conditional `embedded → migrating` flip at step 1 and the conditional `migrating → ledger` flip at step 4. Existing waste-balance writes maintain `version` as a monotonically increasing field but do not currently use it as a filter predicate; the conditional flips introduce that pattern on this collection.
 
 ### Audit emission suppression
 
@@ -73,7 +73,7 @@ The event-append primitive itself has no audit side effects — suppression is a
 
 ### Stuck-migrating recovery
 
-If the sweep process dies between step 1 (flip to `migrating`) and step 4 (flip to `stream`), the document remains in `migrating` and blocks submissions for that registration indefinitely. Recovery: the sweep runner's startup pass finds documents whose `migratingSince` is older than a threshold (10 minutes — comfortably above expected per-accreditation sweep duration), resets `canonicalSource` to `embedded`, clears `migratingSince`, and re-enqueues the accreditation. Step 2 of the subsequent sweep clears any residual stream events so the re-attempt starts clean.
+If the sweep process dies between step 1 (flip to `migrating`) and step 4 (flip to `ledger`), the document remains in `migrating` and blocks submissions for that registration indefinitely. Recovery: the sweep runner's startup pass finds documents whose `migratingSince` is older than a threshold (10 minutes — comfortably above expected per-accreditation sweep duration), resets `canonicalSource` to `embedded`, clears `migratingSince`, and re-enqueues the accreditation. Step 2 of the subsequent sweep clears any residual ledger events so the re-attempt starts clean.
 
 The same mechanism recovers state if the flag is flipped back to OFF mid-sweep — accreditations stuck in `migrating` are returned to `embedded` on the next runner start regardless of flag state.
 
@@ -89,24 +89,24 @@ Nothing is persisted, so dry runs are harmless to run with live traffic ongoing.
 
 ### Sequencing with the PAE-1364 workaround
 
-The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) made waste records the current source of truth for balance. The seven accreditations affected by PAE-1364 are already operationally recovered — operator re-uploads plus the workaround give correct user-visible balances. The rebuild's job for them is to bring the stored stream back into agreement with that balance; for every other accreditation it rebuilds the stream from the same source the workaround uses. PAE-1364 recovery therefore needs no separate step before cutover, and reinstating the stream as authoritative supersedes the workaround at the same time.
+The PAE-1364 workaround in [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) made waste records the current source of truth for balance. The seven accreditations affected by PAE-1364 are already operationally recovered — operator re-uploads plus the workaround give correct user-visible balances. The rebuild's job for them is to bring the stored ledger back into agreement with that balance; for every other accreditation it rebuilds the ledger from the same source the workaround uses. PAE-1364 recovery therefore needs no separate step before cutover, and reinstating the ledger as authoritative supersedes the workaround at the same time.
 
 The cutover order is:
 
 1. Flag-gated read and write paths deploy everywhere with the flag OFF — including the tri-state `canonicalSource` marker on the waste-balance document, the marker-aware read path, the PRN write path that treats `migrating` as `embedded`, the extended `transitionToSubmittingExclusive`, and the sweep runner with stuck-migrating recovery and dry-run mode. Without the flag set, no accreditation enters `migrating`, so the extension is a no-op in practice and behaviour is identical to today.
 2. Dry runs are executed in each environment along the promotion path until the discrepancy report is clean for that environment.
-3. Flag flips per environment. The sweep runs and migrates each accreditation through `embedded → migrating → stream`.
-4. Embedded-path retirement (tracked separately) follows once the per-marker startup metric confirms every accreditation has reached `stream` in every environment.
+3. Flag flips per environment. The sweep runs and migrates each accreditation through `embedded → migrating → ledger`.
+4. Embedded-path retirement (tracked separately) follows once the per-marker startup metric confirms every accreditation has reached `ledger` in every environment.
 
 ## Rollback
 
-Flipping `FEATURE_FLAG_WASTE_BALANCE_LEDGER` back to `false` stops new accreditations from being swept; already-migrated accreditations remain on the stream, and accreditations stuck in `migrating` are returned to `embedded` by the stuck-marker recovery on the next runner start. Per-accreditation `stream → embedded` retreat is possible but tricky and is not built by this design — if a stream issue surfaces we fix forward and re-migrate.
+Flipping `FEATURE_FLAG_WASTE_BALANCE_LEDGER` back to `false` stops new accreditations from being swept; already-migrated accreditations remain on the ledger, and accreditations stuck in `migrating` are returned to `embedded` by the stuck-marker recovery on the next runner start. Per-accreditation `ledger → embedded` retreat is possible but tricky and is not built by this design — if a ledger issue surfaces we fix forward and re-migrate.
 
 ## Observability
 
 The sweep logs each migration attempt — accreditation ID, outcome, and stats about the work done. Failures additionally log the error.
 
-On service start-up, a query counts accreditations grouped by `canonicalSource` marker (`embedded`, `migrating`, `stream`) and logs the result. The `embedded` count trending to zero across deploys is the rollout-progress signal; a non-zero `migrating` count at startup is the trigger for stuck-marker recovery.
+On service start-up, a query counts accreditations grouped by `canonicalSource` marker (`embedded`, `migrating`, `ledger`) and logs the result. The `embedded` count trending to zero across deploys is the rollout-progress signal; a non-zero `migrating` count at startup is the trigger for stuck-marker recovery.
 
 ## Related
 
@@ -114,4 +114,4 @@ On service start-up, a query counts accreditations grouped by `canonicalSource` 
 - [ADR 0031 — Waste balance transaction ledger](../decisions/0031-waste-balance-transaction-ledger.md) — the superseded per-row ledger
 - [Waste balance LLD](../defined/pepr-lld.md#waste-balance)
 - [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — driver
-- [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) / [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) — workaround the stream cutover enables retiring
+- [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) / [epr-backend#1091](https://github.com/DEFRA/epr-backend/pull/1091) — workaround the ledger cutover enables retiring
