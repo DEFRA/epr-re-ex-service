@@ -487,46 +487,11 @@ In this example Alice has created a `sentOn` waste record
 
 #### Waste Balance
 
-The waste balance is an **event-sourced stream** (see [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md)). Each event is one document in a single events collection. A stream is partitioned by the composite `(registrationId, accreditationId)`, with `accreditationId: null` for the registered-only phase; events are numbered sequentially per stream from 1. There is no embedded `transactions[]` array and no separately materialised current-balance document. The current balance is the `closingBalance` on the highest-numbered event in the stream — a single indexed read.
+The waste balance is an **event-sourced stream**. The authoritative design — the event taxonomy, the on-the-wire event shape, the frozen-`creditTotal` delta arithmetic, decimal handling, concurrency, and partial-failure recovery — lives in [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) and is not restated here. In summary: each balance-affecting business operation (a summary-log submission or a PRN transition) appends one immutable event to a per-`(registrationId, accreditationId)` stream carrying `openingBalance` and `closingBalance` snapshots. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no embedded `transactions[]` array and no separately materialised total to drift.
 
-##### On-the-wire event shape
+##### PRN transition → event mapping
 
-| Field             | Type                          | Notes                                                                                                                                 |
-| ----------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `registrationId`  | `ObjectId`                    | Stream partition.                                                                                                                     |
-| `accreditationId` | `ObjectId \| null`            | Stream partition. `null` for the registered-only phase.                                                                               |
-| `organisationId`  | `ObjectId`                    | Denormalised for org-level queries.                                                                                                   |
-| `number`          | `int`                         | Sequential per stream from 1; `(registrationId, accreditationId, number)` is a compound unique index.                                 |
-| `kind`            | `enum`                        | Event discriminator — one of the seven kinds below.                                                                                   |
-| `payload`         | `object`                      | Kind-specific (see taxonomy).                                                                                                         |
-| `openingBalance`  | `{ amount, availableAmount }` | The previous event's `closingBalance`, or the zero balance for event 1.                                                               |
-| `closingBalance`  | `{ amount, availableAmount }` | The balance after this event; the latest event's value is the current balance.                                                        |
-| `createdAt`       | `ISO8601`                     | When the event was appended.                                                                                                          |
-| `createdBy`       | `{ id, name }`                | The **actor** who triggered the event, uniform across every kind. The cause is the `kind` and `payload`, never folded into the actor. |
-
-All amounts (`payload.creditTotal`, `payload.amount`, and both balance snapshots) are stored as `Decimal128`; arithmetic goes through `decimal.js` to avoid IEEE 754 drift over the cumulative closing-total chain.
-
-##### Event taxonomy
-
-Seven kinds. PRN kinds are invalid in registered-only streams (`accreditationId: null`).
-
-| `kind`                      | `payload`                       | Effect on `amount`     | Effect on `availableAmount`     |
-| --------------------------- | ------------------------------- | ---------------------- | ------------------------------- |
-| `summary-log-submitted`     | `{ summaryLogId, creditTotal }` | `+= delta` (see below) | `+= delta`                      |
-| `prn-created`               | `{ prnId, amount }`             | —                      | `−= amount` (ringfence)         |
-| `prn-issued`                | `{ prnId, amount }`             | `−= amount`            | — (already ringfenced)          |
-| `prn-creation-cancelled`    | `{ prnId, amount }`             | —                      | `+= amount` (release ringfence) |
-| `prn-cancelled-after-issue` | `{ prnId, amount }`             | `+= amount`            | `+= amount` (reverse both)      |
-| `prn-accepted`              | `{ prnId, amount }`             | — (lifecycle only)     | — (lifecycle only)              |
-| `prn-rejected`              | `{ prnId, amount }`             | — (lifecycle only)     | — (lifecycle only)              |
-
-The two PRN lifecycle kinds (`prn-accepted`, `prn-rejected`) move no money — their `closingBalance` equals their `openingBalance`. They are on the stream so that every PRN transition, balance-affecting or not, is recorded as an event and PRN status is a pure projection of the stream.
-
-##### Balance arithmetic
-
-A `summary-log-submitted` event carries `creditTotal`, a frozen snapshot of the absolute credit contribution this submission produced. On append, the previous `summary-log-submitted` event on the stream supplies `previousCreditTotal` (`0` if none), and `delta = creditTotal − previousCreditTotal` shifts **both** `amount` and `availableAmount` from the opening to the closing snapshot.
-
-The PRN kinds reflect the two-phase PRN lifecycle, which is why `amount` and `availableAmount` are separate fields:
+PRN status is a projection of the stream: each balance-affecting PRN transition appends one event, and the two-phase lifecycle is why `amount` and `availableAmount` are separate fields. The event kinds are defined in [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md#event-taxonomy-v1); their balance effects:
 
 | PRN transition                                    | Stream event                | Balance effect                                                     |
 | ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------ |
@@ -538,54 +503,6 @@ The PRN kinds reflect the two-phase PRN lifecycle, which is why `amount` and `av
 | Rejection of an issued PRN                        | `prn-rejected`              | None — lifecycle only                                              |
 
 This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend`, so it can track the PRN state machine without amending the design.
-
-##### Reading PRN state
-
-A PRN's current status is its document projection plus a watermark catch-up read. The PRN document carries the descriptive fields, a projected `status`, and a `lastAppliedEventNumber` watermark — the `number` of the latest stream event already projected into it. A read loads the document, then queries the stream for events in the PRN's `(registrationId, accreditationId)` partition where `payload.prnId = doc.prnId` and `number > doc.lastAppliedEventNumber` (an indexed point query that usually returns nothing) and folds the tail in. Reads are therefore always correct even if a projection write failed; only the document's freshness varies, and the next successful write for that PRN advances the watermark.
-
-##### Example events
-
-Two events from a `(registrationId, accreditationId)` stream — a summary log submission followed by the ringfence created when Alice creates a PRN against it.
-
-```json5
-[
-  // Bob submits a summary log; first submission on this stream, so
-  // previousCreditTotal = 0 and delta = creditTotal = 50.0
-  {
-    _id: 'a1234567890a12345a03',
-    registrationId: 'f1234567890a12345a01',
-    accreditationId: 'b1234567890a12345a01',
-    organisationId: 'e1234567890a12345a01',
-    number: 1,
-    kind: 'summary-log-submitted',
-    payload: {
-      summaryLogId: 'd1234567890a12345a04',
-      creditTotal: 50.0
-    },
-    openingBalance: { amount: 0, availableAmount: 0 },
-    closingBalance: { amount: 50.0, availableAmount: 50.0 },
-    createdAt: '2026-01-02T09:00:00.000Z',
-    createdBy: { id: 'd1234567890a12345a04', name: 'Bob' }
-  },
-  // Alice creates a PRN, ringfencing 25.0 against availableAmount
-  {
-    _id: 'a1234567890a12345a04',
-    registrationId: 'f1234567890a12345a01',
-    accreditationId: 'b1234567890a12345a01',
-    organisationId: 'e1234567890a12345a01',
-    number: 2,
-    kind: 'prn-created',
-    payload: {
-      prnId: 'd1234567890a12345a05',
-      amount: 25.0
-    },
-    openingBalance: { amount: 50.0, availableAmount: 50.0 },
-    closingBalance: { amount: 50.0, availableAmount: 25.0 },
-    createdAt: '2026-01-04T09:00:00.000Z',
-    createdBy: { id: 'c1234567890a12345a01', name: 'Alice' }
-  }
-]
-```
 
 ### PRN
 
