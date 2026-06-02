@@ -1,8 +1,10 @@
-# Event-Sourced Waste Balance Stream
+# 36. Event-sourced waste balance stream
+
+Date: 2026-06-02
 
 ## Status
 
-Proposed — for discussion. Supersedes [ADR-0031](../decisions/0031-waste-balance-transaction-ledger.md) if accepted.
+Accepted. Supersedes [ADR-0031](./0031-waste-balance-transaction-ledger.md).
 
 ## Context
 
@@ -12,13 +14,13 @@ The waste balance has accumulated overlapping consistency problems:
 2. **Statutory row-removal rule (VAL009).** Anchored in SI 2024/1332, Sch 8, para 32 (7-year retention). Already enforced at the validation layer; surfaced here only because the audit trail design must support it.
 3. **Summary-log submission TTL footgun.** The 20-minute SUBMITTING document TTL creates an edge case in submission semantics. Audit-corrected on 2026-05-08 — the current calculator's delta is naturally idempotent, but the underlying design fragility remains.
 
-[ADR-0031](../decisions/0031-waste-balance-transaction-ledger.md) addresses point 1 by moving transactions out of the embedded array into a per-accreditation append-only ledger, with running totals on each entry. Implementation is in-flight (PRs #1130, #1137, #1148, #1158, #1161; rollout discovery [PR #202](https://github.com/DEFRA/epr-re-ex-service/pull/202)).
+[ADR-0031](./0031-waste-balance-transaction-ledger.md) addresses point 1 by moving transactions out of the embedded array into a per-accreditation append-only ledger, with running totals on each entry.
 
-This document proposes a redesign that supersedes ADR-0031 at the conceptual level. The storage shape and concurrency mechanics carry forward; the model shifts from per-row transactions to **business events** at the granularity the domain actually operates on — one event per summary log submission, one per balance-affecting PRN transition.
+This ADR supersedes ADR-0031 at the conceptual level. The storage shape and concurrency mechanics carry forward; the model shifts from per-row transactions to **business events** at the granularity the domain actually operates on — one event per summary log submission, one per balance-affecting PRN transition.
 
 The goal is a genuinely event-sourced stream: immutable facts capturing balance-affecting business operations, each carrying enough context to be self-auditing, with the balance derivable as a single indexed read.
 
-This is a target design for discussion. Implementation timing — whether to pause ADR-0031 work, land ADR-0031 first then iterate, or pivot in-flight PRs — is deliberately not scoped here.
+Migration and cutover timing are out of scope for this ADR — they are owned by the [rollout and cutover design](../discovery/waste-balance-ledger-rollout.md), which gates each accreditation onto the stream via a per-accreditation `canonicalSource` marker (`embedded → migrating → stream`).
 
 ## Decision
 
@@ -33,6 +35,8 @@ Each event carries:
 - **Running balance:** `openingBalance` and `closingBalance`, each `{ amount, availableAmount }`. Mirrors the ledger snapshot shape from ADR-0031. Always present for schema uniformity.
 - **Provenance:** `createdAt`, `createdBy: { id, name }`.
 
+**Actor vs cause.** `createdBy` is the **actor** — the user who triggered the event — and is uniform across every kind. For a `summary-log-submitted` event it is stamped from the SubmitUser at submit time, so every row in that submission shares one `createdBy` (per-submission actor, not per-row author); for a PRN event it is the user who performed the operation. The **cause** — the upstream business operation and the entity it affected — is the event itself: its `kind` and `payload`. The actor is never folded into the payload. An actor query ("every event user X caused") resolves uniformly against `createdBy` across all kinds; a cause query resolves against `kind`/`payload` without digging the actor out of differing payload shapes.
+
 Uniqueness of `(registrationId, accreditationId, number)` is enforced by a compound unique index — the same optimistic-append mechanism as ADR-0031, just with the partition broadened to cover registered-only phases.
 
 ### Locating the active stream
@@ -43,7 +47,7 @@ A registration may have multiple streams over its lifetime (one per accreditatio
 
 ### Event taxonomy (v1)
 
-Five kinds. The discriminated payload makes additions (`manual-adjustment`, `accreditation-granted`, `accreditation-date-range-changed`, etc.) backwards-compatible — new `kind` value, new payload shape, no schema migration.
+Seven kinds. The discriminated payload makes additions (`manual-adjustment`, `accreditation-granted`, `accreditation-date-range-changed`, etc.) backwards-compatible — new `kind` value, new payload shape, no schema migration.
 
 | `kind`                      | `payload`                       | Valid in registered-only? | Effect on `closingBalance.amount` | Effect on `closingBalance.availableAmount` |
 | --------------------------- | ------------------------------- | ------------------------- | --------------------------------- | ------------------------------------------ |
@@ -52,6 +56,10 @@ Five kinds. The discriminated payload makes additions (`manual-adjustment`, `acc
 | `prn-issued`                | `{ prnId, amount }`             | ❌                        | −amount                           | — (ringfence already counted it)           |
 | `prn-creation-cancelled`    | `{ prnId, amount }`             | ❌                        | —                                 | +amount (release ringfence)                |
 | `prn-cancelled-after-issue` | `{ prnId, amount }`             | ❌                        | +amount                           | +amount (reverse both)                     |
+| `prn-accepted`              | `{ prnId, amount }`             | ❌                        | — (lifecycle only)                | — (lifecycle only)                         |
+| `prn-rejected`              | `{ prnId, amount }`             | ❌                        | — (lifecycle only)                | — (lifecycle only)                         |
+
+The two PRN lifecycle kinds (`prn-accepted`, `prn-rejected`) close the balance at exactly their opening — they move no money. They are on the stream so that every balance-affecting _and_ lifecycle PRN transition is recorded as an event (see "Resolved: lifecycle-only PRN transitions on the stream"). The authoritative mapping from PRN state transitions to event kinds is owned by the write-side decider in `epr-backend` and documented in the [waste balance LLD](../defined/pepr-lld.md#waste-balance); this ADR fixes the model, not the exhaustive transition table, so the mapping can evolve with the PRN state machine without an ADR amendment.
 
 ### `summary-log-submitted` and the frozen snapshot
 
@@ -80,9 +88,10 @@ The PRN lifecycle is genuinely two-phase, which is why `amount` and `availableAm
 | `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `closingBalance.amount -= amount` (`availableAmount` already down from the ringfence) |
 | `AWAITING_AUTHORISATION → CANCELLED` or `DELETED` | `prn-creation-cancelled`    | Release ringfence: `closingBalance.availableAmount += amount`                                        |
 | `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `closingBalance.amount += amount`, `closingBalance.availableAmount += amount`          |
-| `AWAITING_ACCEPTANCE → ACCEPTED`                  | (see open decision)         | None — lifecycle only                                                                                |
-| `AWAITING_ACCEPTANCE → AWAITING_CANCELLATION`     | (see open decision)         | None — lifecycle only                                                                                |
-| `DRAFT → DISCARDED`                               | (see open decision)         | None — pre-ringfence                                                                                 |
+| `AWAITING_ACCEPTANCE → ACCEPTED`                  | `prn-accepted`              | None — lifecycle only (`closingBalance` equals `openingBalance`)                                     |
+| Rejection of an issued PRN                        | `prn-rejected`              | None — lifecycle only (`closingBalance` equals `openingBalance`)                                     |
+
+This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend` and the [waste balance LLD](../defined/pepr-lld.md#waste-balance), so it can track the PRN state machine without an ADR amendment.
 
 ### Worked example
 
@@ -113,6 +122,12 @@ Current balance after event 7 is `3500 / 3500`, read directly from the latest ev
 The current balance for an accredited stream is the `closingBalance` on its highest-numbered event — a single indexed read, same as ADR-0031. No cached projection; no second source of truth to drift.
 
 Whether registered-only streams maintain a running balance is a product decision; the schema supports either choice without change. If the product choice is not to maintain a pre-accreditation balance, `closingBalance` stays at `{ amount: 0, availableAmount: 0 }` on every event for schema uniformity.
+
+### Decimal arithmetic
+
+Every amount on an event (`payload.creditTotal`, `payload.amount`, and both `openingBalance` and `closingBalance` snapshots) is stored as MongoDB `Decimal128`, and arithmetic over those amounts goes through `decimal.js` via the helpers in `src/common/helpers/decimal-utils.js` (precision 34 to match the Decimal128 spec, `ROUND_HALF_UP`). Storing as BSON Double would silently introduce IEEE 754 drift over the cumulative closing-total chain — at the scale this design operates at, that drift becomes material against operator-entered tonnages, and the `delta = creditTotal − previousCreditTotal` arithmetic in particular relies on exact arithmetic to recognise a re-submitted snapshot as a zero delta.
+
+The application boundary stays in JS-number shape: schemas validate amounts as `Joi.number()`, and the storage adapter converts to `Decimal128` on write and back via `toNumber` on read. Aggregation pipelines that touch amount fields must keep their literal numeric operands in Decimal128 (`{ $toDecimal: -1 }` rather than a bare integer) so `$sum`, `$multiply`, and `$switch` outputs preserve the type instead of widening back to Double.
 
 ### Reading PRN state
 
@@ -166,7 +181,7 @@ A retry of a stalled operation that already landed fails on the duplicate-key ch
 
 The summary-log ordering means an interrupted submission leaves no balance trace at all — the historical TTL-on-`SUBMITTING` footgun is neutralised because the balance was never moved off the previous event. Row versions written during the failed attempt persist in waste-records as trailing orphans that the canonicity walk excludes (see "Row-version canonicity"); they stay in the chain indefinitely.
 
-The PRN ordering inverts: the event lands first because it is the source of truth for balance, and the PRN document's status field becomes a projection. This depends on the open decision below (Option A vs Option B for lifecycle transitions). Either way, the principle is the same — if there's both an event and a doc write, the event goes first and the doc is recoverable from it.
+The PRN ordering inverts: the event lands first because it is the source of truth for balance, and the PRN document's status field becomes a projection. Because lifecycle-only transitions are also recorded as events (see "Resolved: lifecycle-only PRN transitions on the stream"), this holds for every PRN transition — if there's both an event and a doc write, the event goes first and the doc is recoverable from it.
 
 **What stays consistent in all cases.**
 
@@ -218,14 +233,13 @@ For a row R that C doesn't touch but B did: R's chain is `[v1, v2]`, `data = {co
 
 If a subsequent submission D fails and writes v4 to a row whose latest committed version was v3: v4 becomes a trailing orphan. Reading the latest committed state stops at v3 — v4 is ignored. `data` reflects v4, but the canonical state does not.
 
-## Open decisions
+## Resolved: lifecycle-only PRN transitions on the stream
 
-**Lifecycle-only PRN transitions on the stream?** Three transitions don't affect the balance: `AWAITING_ACCEPTANCE → ACCEPTED`, `AWAITING_ACCEPTANCE → AWAITING_CANCELLATION`, `DRAFT → DISCARDED`. They're lifecycle moves the PRN document already records.
+Some PRN transitions don't affect the balance — `AWAITING_ACCEPTANCE → ACCEPTED` and the rejection path among them. The question was whether to keep these off-stream (the stream stays a pure balance ledger; the PRN document remains the source of truth for non-balance lifecycle) or to record every PRN state change as an event (the stream becomes the single source of truth for PRN lifecycle as well as balance).
 
-- **Option A — Keep them off-stream.** The stream stays a pure balance ledger. The PRN document remains the source of truth for non-balance lifecycle. Smaller event taxonomy; tighter focus. Trade-off: lifecycle-only transitions are direct doc writes with no event behind them, so they fall outside the watermark catch-up and have no partial-failure recovery — a failed lifecycle write leaves the doc inconsistent until the next manual fix.
-- **Option B — Put every PRN state change on the stream.** The stream becomes the single source of truth for PRN lifecycle as well as balance. Larger taxonomy (eight kinds), but PRN status is purely derived rather than maintained on the document — removes the dual-source-of-truth shape and brings every transition under the watermark catch-up for uniform partial-failure recovery.
+**Decision: record lifecycle-only transitions as events.** The taxonomy carries `prn-accepted` and `prn-rejected` as zero-effect kinds (`closingBalance` equals `openingBalance`). PRN status becomes a projection derived from the stream rather than state maintained independently on the document, which removes the dual-source-of-truth shape and brings every transition — balance-affecting or not — under the same watermark catch-up, so a failed lifecycle write recovers identically to a failed balance write (see "Reading PRN state" and "Partial failure and recovery"). The cost is a slightly larger taxonomy and zero-effect events on the stream; the gain is uniform partial-failure recovery and one source of truth for PRN state.
 
-Neither is decided yet.
+The exhaustive transition-to-event mapping is owned by the write-side decider in `epr-backend` and the [waste balance LLD](../defined/pepr-lld.md#waste-balance), not by this ADR.
 
 ## Considered alternatives
 
@@ -265,7 +279,7 @@ Neither is decided yet.
 
 ### Negative
 
-- **Supersedes in-flight ADR-0031 implementation.** PRs #1130, #1137, #1148, #1158, #1161 and rollout discovery #202 are either redirected or paused. Implementation timing is out of scope for this doc.
+- **Supersedes the ADR-0031 implementation.** The per-row transaction-ledger code built against ADR-0031 is superseded; the design-neutral plumbing (the storage shape, the slot-conflict concurrency primitive, the `canonicalSource` cutover marker) carries forward to the stream, and the per-row-specific parts (the embedded `transactions[]` reconciliation, `creditedAmount` denormalisation) retire with it. Cutover timing is owned by the rollout design, not this ADR.
 - **Per-row provenance moves off the hot path.** "What did summary log S contribute for row R?" is still answerable via the waste-records collection's version chain, but not via a single indexed query on the stream.
 - **`creditTotal` re-computation cost at submission time.** Writers compute the full snapshot from the live upload + contextual factors. Cost is bounded by submission size, not by accreditation history.
 - **`closingBalance.amount` and `closingBalance.availableAmount` shift together for `summary-log-submitted` events.** The split only matters when PRN events move them independently — reinforces ADR-0031's both-fields-per-event invariant.
@@ -281,9 +295,9 @@ Neither is decided yet.
 
 ## Related
 
-- [ADR-0031](../decisions/0031-waste-balance-transaction-ledger.md) — the per-row transaction ledger this design supersedes
+- [ADR-0031](./0031-waste-balance-transaction-ledger.md) — the per-row transaction ledger this design supersedes
 - [Waste balance LLD](../defined/pepr-lld.md#waste-balance) — the underlying `amount = sum(credits) − sum(debits)` projection
-- [Waste balance ledger rollout](./waste-balance-ledger-rollout.md) — rollout discovery for ADR-0031
+- [Waste balance ledger rollout](../discovery/waste-balance-ledger-rollout.md) — rollout and cutover design (the `canonicalSource` marker that gates each accreditation onto the stream)
 - [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — parent Jira ticket
 - [PAE-1364](https://eaflood.atlassian.net/browse/PAE-1364) — design drift root cause
 - [PAE-1439](https://eaflood.atlassian.net/browse/PAE-1439) — concurrency issue resolved by this design
