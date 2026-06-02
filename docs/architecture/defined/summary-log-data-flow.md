@@ -79,7 +79,7 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Waste Record data** | `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (exporter only) | Switches which tonnage field is used |
 | **Waste Record data** | Tonnage field (varies by table) | The actual credit or debit amount |
 | **ORS approval data** (exporter only) | ORS `validFrom` date (per accreditation, resolved via `registration.overseasSites`) matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance |
-| **Existing balance** | Prior transactions per rowId | Delta mechanism — only creates a transaction if the target amount differs from what was previously credited |
+| **Previous balance event** | `creditTotal` of the prior `summary-log-submitted` event on the stream | The submission's frozen `creditTotal` snapshot is differenced against this to derive the balance delta (see [Waste Balance section](#waste-balance--the-event-sourced-stream)) |
 
 ### PRN operations read
 
@@ -105,6 +105,39 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Registration** | `accreditationId` (present or absent) | Determines cadence: monthly (accredited) or quarterly (registered-only) |
 | **Registration** | `wasteProcessingType` | Determines operator category and which report sections apply |
 | **Registration** | `material`, `site.address` | Appended to report response |
+
+### Waste Balance — the event-sourced stream
+
+The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. Each balance-affecting business operation appends one immutable event carrying `openingBalance` and `closingBalance` snapshots; the current balance is the `closingBalance` of the highest-numbered event — a single indexed read. There is no separate balance store to drift. See [ADR 36: Event-sourced waste balance stream](../decisions/0036-event-sourced-waste-balance-stream.md) for the full design.
+
+A summary-log submission appends exactly **one `summary-log-submitted` event**, carrying a frozen `creditTotal` snapshot in its payload:
+
+```mermaid
+flowchart LR
+    classDef source fill:#4a90d9,color:#fff,stroke:none
+    classDef core fill:#f5f5f5,stroke:#333
+    classDef downstream fill:#51cf66,color:#000,stroke:none
+
+    SL["Summary Log\nsubmission"]:::source
+    SNAP["Compute creditTotal\nfrom merged row state\n+ contextual factors\n(frozen at submit time)"]:::core
+    EV["summary-log-submitted\nevent { summaryLogId,\ncreditTotal }"]:::core
+    WB["Waste Balance\n(latest closingBalance)"]:::downstream
+
+    SL -->|"merge row versions"| SNAP
+    SNAP -->|"freeze snapshot"| EV
+    EV -->|"closingBalance"| WB
+```
+
+`creditTotal` is the **absolute** credit contribution of that submission, computed at submission time from the merged row state of the registration (including this submission's row-version writes) and all then-current contextual factors — the accreditation date range in effect, ORS approval dates, and anything else that shapes the total. Because it is frozen at write time, prior submissions' snapshots are unaffected when a contextual factor later changes; the balance only moves when a new submission recomputes its own snapshot.
+
+The balance is derived by differencing snapshots:
+
+- `previousCreditTotal` = the `creditTotal` of the prior `summary-log-submitted` event on this stream, or `0` if this is the first.
+- `delta = creditTotal − previousCreditTotal`.
+- `openingBalance` = the `closingBalance` of the latest event on the stream (any kind).
+- `closingBalance.amount = openingBalance.amount + delta`; `closingBalance.availableAmount = openingBalance.availableAmount + delta`. A summary-log submission shifts both fields by the same delta; only PRN events move them independently.
+
+Per-row provenance — what submission S contributed for row R — remains answerable from the waste-records collection's version chain (versions tagged with the submission's `summaryLogId`), but it is **not** on the balance read path. The balance reads the stream; the version chain is consulted only at the next submission's write time and by rare audit queries.
 
 ## Invalidation Map
 
@@ -138,7 +171,7 @@ flowchart TD
     T["Summary Log\nsubmitted"]:::trigger
 
     T --> WR["Waste Records\nupdated with\nnew versions"]:::auto
-    T --> WB["Waste Balance\nrecalculated via\ndelta mechanism"]:::auto
+    T --> WB["summary-log-submitted\nevent appended;\nbalance shifts by\ncreditTotal delta"]:::auto
     T --> PREV["Previous unsubmitted\nSummary Logs for\nsame Registration\nbecome superseded"]:::stale
     T --> RPT_C["Computed Reports\nautomatically reflect\nnew data on next read"]:::auto
     T --> RPT_P["Persisted Reports\nfor affected periods\nnow contain\noutdated tonnages"]:::stale
@@ -316,7 +349,7 @@ flowchart TD
 
 | Change | Waste Records | Waste Balance | Computed Reports | Persisted Reports | PRNs |
 | --- | --- | --- | --- | --- | --- |
-| **Summary Log submitted** | Updated (new versions) | Auto-corrected (delta) | Auto-corrected | **Stale** — recreate | — |
+| **Summary Log submitted** | Updated (new versions) | Auto-corrected (creditTotal delta) | Auto-corrected | **Stale** — recreate | — |
 | **PRN created** | — | Auto-corrected (ringfence) | Auto-corrected | — | — |
 | **PRN issued** | — | Auto-corrected (debit) | Auto-corrected | **Stale** — recreate | — |
 | **PRN cancelled** | — | Auto-corrected (reversal) | Auto-corrected | **Stale** — recreate | — |
@@ -333,8 +366,8 @@ flowchart TD
 
 The system has three correction mechanisms, each with different latency:
 
-1. **Immediate** — PRN transactions update the waste balance straight away.
-2. **On next submission** — The delta mechanism re-classifies all waste records against the current accreditation state and creates corrective transactions. Changes to accreditation dates or suspension status are **not reflected in the waste balance until the operator uploads a new summary log**.
+1. **Immediate** — PRN events append to the stream and move the balance straight away.
+2. **On next submission** — Each submission re-evaluates all waste records against the current accreditation state and freezes a fresh `creditTotal` snapshot into a new `summary-log-submitted` event. Changes to accreditation dates or suspension status are **not reflected in the waste balance until the operator uploads a new summary log** — they only enter the balance through the next submission's recomputed snapshot.
 3. **On read** — Computed reports always aggregate from current waste records, so they self-correct. Persisted reports are snapshots that must be manually deleted and recreated.
 
 **There is no background recalculation.** If a regulator changes accreditation dates and no new summary log is submitted, the waste balance remains incorrect. This also means PRN balance sufficiency checks may use stale figures.
