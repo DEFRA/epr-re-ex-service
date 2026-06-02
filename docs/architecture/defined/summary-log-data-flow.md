@@ -108,36 +108,12 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Waste Balance — the event-sourced stream
 
-The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. Each balance-affecting business operation appends one immutable event carrying `openingBalance` and `closingBalance` snapshots; the current balance is the `closingBalance` of the highest-numbered event — a single indexed read. There is no separate balance store to drift. See [ADR 36: Event-sourced waste balance stream](../decisions/0036-event-sourced-waste-balance-stream.md) for the full design.
+The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-version writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). The balance shifts by the delta between this submission's `creditTotal` and the prior submission's; the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic.
 
-A summary-log submission appends exactly **one `summary-log-submitted` event**, carrying a frozen `creditTotal` snapshot in its payload:
+Two consequences matter for data flow:
 
-```mermaid
-flowchart LR
-    classDef source fill:#4a90d9,color:#fff,stroke:none
-    classDef core fill:#f5f5f5,stroke:#333
-    classDef downstream fill:#51cf66,color:#000,stroke:none
-
-    SL["Summary Log\nsubmission"]:::source
-    SNAP["Compute creditTotal\nfrom merged row state\n+ contextual factors\n(frozen at submit time)"]:::core
-    EV["summary-log-submitted\nevent { summaryLogId,\ncreditTotal }"]:::core
-    WB["Waste Balance\n(latest closingBalance)"]:::downstream
-
-    SL -->|"merge row versions"| SNAP
-    SNAP -->|"freeze snapshot"| EV
-    EV -->|"closingBalance"| WB
-```
-
-`creditTotal` is the **absolute** credit contribution of that submission, computed at submission time from the merged row state of the registration (including this submission's row-version writes) and all then-current contextual factors — the accreditation date range in effect, ORS approval dates, and anything else that shapes the total. Because it is frozen at write time, prior submissions' snapshots are unaffected when a contextual factor later changes; the balance only moves when a new submission recomputes its own snapshot.
-
-The balance is derived by differencing snapshots:
-
-- `previousCreditTotal` = the `creditTotal` of the prior `summary-log-submitted` event on this stream, or `0` if this is the first.
-- `delta = creditTotal − previousCreditTotal`.
-- `openingBalance` = the `closingBalance` of the latest event on the stream (any kind).
-- `closingBalance.amount = openingBalance.amount + delta`; `closingBalance.availableAmount = openingBalance.availableAmount + delta`. A summary-log submission shifts both fields by the same delta; only PRN events move them independently.
-
-Per-row provenance — what submission S contributed for row R — remains answerable from the waste-records collection's version chain (versions tagged with the submission's `summaryLogId`), but it is **not** on the balance read path. The balance reads the stream; the version chain is consulted only at the next submission's write time and by rare audit queries.
+- **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor (e.g. an amended accreditation date range) does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
+- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the waste-records version chain (versions tagged with the submission's `summaryLogId`), but the balance reads only the stream; the version chain is consulted only at the next submission's write time and by rare audit queries.
 
 ## Invalidation Map
 
