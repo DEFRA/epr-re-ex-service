@@ -6,11 +6,21 @@ inputs:
     description: npm script to run for the test typecheck (e.g. lint:types:tests, lint:types)
     required: false
     default: lint:types:tests
+  tsconfig:
+    description: >-
+      Path to the test-surface tsconfig/jsconfig the npm-script typechecks. Its
+      include/exclude define which changed files are attributed to the PR. Used
+      unless include-globs is set.
+    required: false
+    default: jsconfig.typecheck.tests.json
   include-globs:
-    description: Newline-separated globs matching the test file paths covered by the typecheck
-    required: true
+    description: >-
+      Override: newline-separated globs matching the test file paths covered by
+      the typecheck. When set, takes precedence over tsconfig.
+    required: false
+    default: ''
   exclude-globs:
-    description: Newline-separated globs; paths matching any are dropped from the changed-files set
+    description: Newline-separated globs; paths matching any are dropped from the changed-files set (only used alongside include-globs)
     required: false
     default: ''
   comment-header:
@@ -50,6 +60,7 @@ runs:
         BASE_REF: ${{ github.event.pull_request.base.ref }}
         COMMENT_FILE: ${{ runner.temp }}/lint-types-tests-comment.md
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
         LINT_TYPES_TESTS_INCLUDE_GLOBS: ${{ inputs.include-globs }}
         LINT_TYPES_TESTS_EXCLUDE_GLOBS: ${{ inputs.exclude-globs }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
