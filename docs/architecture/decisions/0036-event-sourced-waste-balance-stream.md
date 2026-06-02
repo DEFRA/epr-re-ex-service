@@ -20,7 +20,7 @@ This ADR supersedes ADR-0031 at the conceptual level. The storage shape and conc
 
 The goal is a genuinely event-sourced stream: immutable facts capturing balance-affecting business operations, each carrying enough context to be self-auditing, with the balance derivable as a single indexed read.
 
-Migration and cutover timing are out of scope for this ADR — they are owned by the [rollout and cutover design](../discovery/waste-balance-ledger-rollout.md), which gates each accreditation onto the stream via a per-accreditation `canonicalSource` marker (`embedded → migrating → stream`).
+Migration and cutover timing are out of scope for this ADR — they are owned by the [rollout and cutover design](../discovery/waste-balance-ledger-rollout.md), which gates each accreditation onto the stream via a per-accreditation `canonicalSource` marker (`embedded → migrating → ledger`).
 
 ## Decision
 
