@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { text } from 'node:stream/consumers'
 
@@ -43,6 +43,19 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
       !exclude.some((g) => path.matchesGlob(p, g)) &&
       include.some((g) => path.matchesGlob(p, g))
   )
+
+/**
+ * Reads include/exclude globs from a tsconfig/jsconfig file's text. Tolerant of
+ * comments and trailing commas; does not resolve `extends` (the test-surface
+ * config declares its own include/exclude).
+ *
+ * @param {string} jsonText
+ * @returns {FilterGlobs}
+ */
+export const tsconfigGlobs = (jsonText) => {
+  const { config } = ts.parseConfigFileTextToJson('tsconfig.json', jsonText)
+  return { include: config?.include ?? [], exclude: config?.exclude ?? [] }
+}
 
 /**
  * @param {string} tscOutput
@@ -247,21 +260,42 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
 /* v8 ignore start */
 /**
  * @param {string | undefined} value
- * @param {string} name
  * @returns {string[]}
  */
-const parseLinesEnv = (value, name) => {
-  if (value === undefined) {
-    return []
-  }
-  const lines = value
+const parseLinesEnv = (value) =>
+  (value ?? '')
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
-  if (lines.length === 0 && name === 'LINT_TYPES_TESTS_INCLUDE_GLOBS') {
-    throw new Error(`${name} must contain at least one glob`)
+
+/**
+ * Resolves the changed-file filter. Explicit `include-globs` (if any) win as an
+ * override; otherwise the globs are derived from the test-surface tsconfig the
+ * npm script runs, keeping that config the single source of truth.
+ *
+ * @returns {FilterGlobs}
+ */
+const resolveFilterGlobs = () => {
+  const include = parseLinesEnv(process.env.LINT_TYPES_TESTS_INCLUDE_GLOBS)
+  if (include.length > 0) {
+    return {
+      include,
+      exclude: parseLinesEnv(process.env.LINT_TYPES_TESTS_EXCLUDE_GLOBS)
+    }
   }
-  return lines
+
+  const tsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+  if (!tsconfig) {
+    throw new Error(
+      'either LINT_TYPES_TESTS_INCLUDE_GLOBS or LINT_TYPES_TESTS_TSCONFIG must be set'
+    )
+  }
+
+  const globs = tsconfigGlobs(readFileSync(tsconfig, 'utf8'))
+  if (globs.include.length === 0) {
+    throw new Error(`${tsconfig} declares no include globs`)
+  }
+  return globs
 }
 
 const tsCodeLookupFromPackage = (() => {
@@ -296,17 +330,8 @@ const changedFilesFromGit = (filterGlobs) => {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const include = parseLinesEnv(
-    process.env.LINT_TYPES_TESTS_INCLUDE_GLOBS,
-    'LINT_TYPES_TESTS_INCLUDE_GLOBS'
-  )
-  const exclude = parseLinesEnv(
-    process.env.LINT_TYPES_TESTS_EXCLUDE_GLOBS,
-    'LINT_TYPES_TESTS_EXCLUDE_GLOBS'
-  )
-
   const tscOutput = await text(process.stdin)
-  const changedFiles = changedFilesFromGit({ include, exclude })
+  const changedFiles = changedFilesFromGit(resolveFilterGlobs())
 
   const summary = buildSummary({
     tscOutput,
