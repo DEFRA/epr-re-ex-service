@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildPrComment, buildSummary, filterTestFiles } from './summary.mjs'
+import {
+  buildPrComment,
+  buildSummary,
+  filterTestFiles,
+  tsconfigGlobs
+} from './summary.mjs'
 
 const appGlobs = [
   '**/*.test.js',
@@ -82,6 +87,54 @@ describe('lint-types-tests summary', () => {
 
         expect(result).toStrictEqual(['test/features/active.js'])
       })
+    })
+  })
+
+  describe(tsconfigGlobs, () => {
+    it('should read include and exclude arrays from tsconfig text', () => {
+      const text = `{
+        "include": ["src/**/*.test.js", "src/**/*.contract.js"],
+        "exclude": ["node_modules", ".vite"]
+      }`
+
+      const result = tsconfigGlobs(text)
+
+      expect(result).toStrictEqual({
+        include: ['src/**/*.test.js', 'src/**/*.contract.js'],
+        exclude: ['node_modules', '.vite']
+      })
+    })
+
+    it('should tolerate comments and trailing commas', () => {
+      const text = `{
+        // test surface
+        "extends": "./jsconfig.typecheck.json",
+        "include": ["src/**/*.test.js",],
+      }`
+
+      const result = tsconfigGlobs(text)
+
+      expect(result).toStrictEqual({
+        include: ['src/**/*.test.js'],
+        exclude: []
+      })
+    })
+
+    it('should default include and exclude to empty arrays when absent', () => {
+      const result = tsconfigGlobs('{}')
+
+      expect(result).toStrictEqual({ include: [], exclude: [] })
+    })
+
+    it('should produce globs that filterTestFiles can use to keep contract files', () => {
+      const text = `{ "include": ["src/**/*.test.js", "src/**/*.contract.js"] }`
+
+      const result = filterTestFiles(
+        ['src/repo/find.contract.js', 'src/repo/find.js'],
+        tsconfigGlobs(text)
+      )
+
+      expect(result).toStrictEqual(['src/repo/find.contract.js'])
     })
   })
 
