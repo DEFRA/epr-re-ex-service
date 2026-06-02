@@ -59,7 +59,7 @@ Seven kinds. The discriminated payload makes additions (`manual-adjustment`, `ac
 | `prn-accepted`              | `{ prnId, amount }`             | ❌                        | — (lifecycle only)                | — (lifecycle only)                         |
 | `prn-rejected`              | `{ prnId, amount }`             | ❌                        | — (lifecycle only)                | — (lifecycle only)                         |
 
-The two PRN lifecycle kinds (`prn-accepted`, `prn-rejected`) close the balance at exactly their opening — they move no money. They are on the stream so that every balance-affecting _and_ lifecycle PRN transition is recorded as an event (see "Resolved: lifecycle-only PRN transitions on the stream"). The authoritative mapping from PRN state transitions to event kinds is owned by the write-side decider in `epr-backend` and documented in the [waste balance LLD](../defined/pepr-lld.md#waste-balance); this ADR fixes the model, not the exhaustive transition table, so the mapping can evolve with the PRN state machine without an ADR amendment.
+The two PRN lifecycle kinds (`prn-accepted`, `prn-rejected`) close the balance at exactly their opening — they move no money. They are on the stream so that every balance-affecting _and_ lifecycle PRN transition is recorded as an event (see "Lifecycle-only PRN transitions on the stream"). The authoritative mapping from PRN state transitions to event kinds is owned by the write-side decider in `epr-backend` and documented in the [waste balance LLD](../defined/pepr-lld.md#waste-balance); this ADR fixes the model, not the exhaustive transition table, so the mapping can evolve with the PRN state machine without an ADR amendment.
 
 ### `summary-log-submitted` and the frozen snapshot
 
@@ -181,7 +181,7 @@ A retry of a stalled operation that already landed fails on the duplicate-key ch
 
 The summary-log ordering means an interrupted submission leaves no balance trace at all — the historical TTL-on-`SUBMITTING` footgun is neutralised because the balance was never moved off the previous event. Row versions written during the failed attempt persist in waste-records as trailing orphans that the canonicity walk excludes (see "Row-version canonicity"); they stay in the chain indefinitely.
 
-The PRN ordering inverts: the event lands first because it is the source of truth for balance, and the PRN document's status field becomes a projection. Because lifecycle-only transitions are also recorded as events (see "Resolved: lifecycle-only PRN transitions on the stream"), this holds for every PRN transition — if there's both an event and a doc write, the event goes first and the doc is recoverable from it.
+The PRN ordering inverts: the event lands first because it is the source of truth for balance, and the PRN document's status field becomes a projection. Because lifecycle-only transitions are also recorded as events (see "Lifecycle-only PRN transitions on the stream"), this holds for every PRN transition — if there's both an event and a doc write, the event goes first and the doc is recoverable from it.
 
 **What stays consistent in all cases.**
 
@@ -233,11 +233,11 @@ For a row R that C doesn't touch but B did: R's chain is `[v1, v2]`, `data = {co
 
 If a subsequent submission D fails and writes v4 to a row whose latest committed version was v3: v4 becomes a trailing orphan. Reading the latest committed state stops at v3 — v4 is ignored. `data` reflects v4, but the canonical state does not.
 
-## Resolved: lifecycle-only PRN transitions on the stream
+## Lifecycle-only PRN transitions on the stream
 
-Some PRN transitions don't affect the balance — `AWAITING_ACCEPTANCE → ACCEPTED` and the rejection path among them. The question was whether to keep these off-stream (the stream stays a pure balance ledger; the PRN document remains the source of truth for non-balance lifecycle) or to record every PRN state change as an event (the stream becomes the single source of truth for PRN lifecycle as well as balance).
+Some PRN transitions don't affect the balance — `AWAITING_ACCEPTANCE → ACCEPTED` and the rejection path among them. These are still recorded as events: the taxonomy carries `prn-accepted` and `prn-rejected` as zero-effect kinds (`closingBalance` equals `openingBalance`).
 
-**Decision: record lifecycle-only transitions as events.** The taxonomy carries `prn-accepted` and `prn-rejected` as zero-effect kinds (`closingBalance` equals `openingBalance`). PRN status becomes a projection derived from the stream rather than state maintained independently on the document, which removes the dual-source-of-truth shape and brings every transition — balance-affecting or not — under the same watermark catch-up, so a failed lifecycle write recovers identically to a failed balance write (see "Reading PRN state" and "Partial failure and recovery"). The cost is a slightly larger taxonomy and zero-effect events on the stream; the gain is uniform partial-failure recovery and one source of truth for PRN state.
+Recording them keeps PRN status a projection derived from the stream rather than state maintained independently on the document. That removes the dual-source-of-truth shape and brings every transition — balance-affecting or not — under the same watermark catch-up, so a failed lifecycle write recovers identically to a failed balance write (see "Reading PRN state" and "Partial failure and recovery"). The cost is a slightly larger taxonomy and zero-effect events on the stream; the alternative — keeping lifecycle transitions as direct document writes with no event behind them — would leave them outside the watermark catch-up with no partial-failure recovery.
 
 The exhaustive transition-to-event mapping is owned by the write-side decider in `epr-backend` and the [waste balance LLD](../defined/pepr-lld.md#waste-balance), not by this ADR.
 
