@@ -257,14 +257,13 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
 }
 
-/* v8 ignore start */
 /**
  * Resolves the changed-file filter from the test-surface tsconfig the npm
  * script runs, keeping that config the single source of truth.
  *
  * @returns {FilterGlobs}
  */
-const resolveFilterGlobs = () => {
+export const resolveFilterGlobs = () => {
   const tsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
   if (!tsconfig) {
     throw new Error('LINT_TYPES_TESTS_TSCONFIG must be set')
@@ -277,6 +276,7 @@ const resolveFilterGlobs = () => {
   return globs
 }
 
+/* v8 ignore start */
 const tsCodeLookupFromPackage = (() => {
   const tsInternals =
     /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (

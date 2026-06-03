@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import {
   buildPrComment,
   buildSummary,
   filterTestFiles,
+  resolveFilterGlobs,
   tsconfigGlobs
 } from './summary.mjs'
 
@@ -135,6 +140,54 @@ describe('lint-types-tests summary', () => {
       )
 
       expect(result).toStrictEqual(['src/repo/find.contract.js'])
+    })
+  })
+
+  describe(resolveFilterGlobs, () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'lint-types-tests-'))
+    const originalTsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+
+    const writeTsconfig = (json) => {
+      const file = join(tmp, 'jsconfig.typecheck.tests.json')
+      writeFileSync(file, json)
+      process.env.LINT_TYPES_TESTS_TSCONFIG = file
+    }
+
+    afterEach(() => {
+      if (originalTsconfig === undefined) {
+        delete process.env.LINT_TYPES_TESTS_TSCONFIG
+      } else {
+        process.env.LINT_TYPES_TESTS_TSCONFIG = originalTsconfig
+      }
+    })
+
+    afterAll(() => {
+      rmSync(tmp, { recursive: true, force: true })
+    })
+
+    it('should throw when no tsconfig is configured', () => {
+      delete process.env.LINT_TYPES_TESTS_TSCONFIG
+
+      expect(() => resolveFilterGlobs()).toThrow(
+        'LINT_TYPES_TESTS_TSCONFIG must be set'
+      )
+    })
+
+    it('should throw when the tsconfig declares no include globs', () => {
+      writeTsconfig('{ "exclude": ["node_modules"] }')
+
+      expect(() => resolveFilterGlobs()).toThrow('declares no include globs')
+    })
+
+    it('should derive include and exclude globs from the tsconfig', () => {
+      writeTsconfig(
+        '{ "include": ["src/**/*.test.js"], "exclude": ["node_modules"] }'
+      )
+
+      expect(resolveFilterGlobs()).toStrictEqual({
+        include: ['src/**/*.test.js'],
+        exclude: ['node_modules']
+      })
     })
   })
 
