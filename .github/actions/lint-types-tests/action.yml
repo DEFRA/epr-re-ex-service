@@ -9,20 +9,9 @@ inputs:
   tsconfig:
     description: >-
       Path to the test-surface tsconfig/jsconfig the npm-script typechecks. Its
-      include/exclude define which changed files are attributed to the PR. Used
-      unless include-globs is set.
+      include/exclude define which changed files are attributed to the PR.
     required: false
     default: jsconfig.typecheck.tests.json
-  include-globs:
-    description: >-
-      Override: newline-separated globs matching the test file paths covered by
-      the typecheck. When set, takes precedence over tsconfig.
-    required: false
-    default: ''
-  exclude-globs:
-    description: Newline-separated globs; paths matching any are dropped from the changed-files set (only used alongside include-globs)
-    required: false
-    default: ''
   comment-header:
     description: Header for the sticky PR comment, used to dedupe across runs
     required: false
@@ -61,8 +50,6 @@ runs:
         COMMENT_FILE: ${{ runner.temp }}/lint-types-tests-comment.md
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
-        LINT_TYPES_TESTS_INCLUDE_GLOBS: ${{ inputs.include-globs }}
-        LINT_TYPES_TESTS_EXCLUDE_GLOBS: ${{ inputs.exclude-globs }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
       run: |
         # disable setup-node's tsc problem matcher: we summarise via the script
