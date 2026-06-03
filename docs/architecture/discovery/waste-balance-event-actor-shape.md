@@ -61,7 +61,7 @@ Both `email` and `scope` are in hand at submit time; the write collapses `email`
 
 ### The PRN write path is a separate actor stamp
 
-The summary-log submit path is not the only thing that stamps an actor onto the stream. PRN stream events are stamped by `appendPrnStreamEvent` (`src/waste-balances/repository/helpers-prn.js:86`) as `createdBy: { id: userId, name: userId }` — the id duplicated into `name`. This is **not** an email-as-name violation, so it does not breach the directive, but it is a distinct fidelity loss: the PRN repository boundary carries only a `userId` string, with no email, scope, or real name available there at all. Widening the event actor therefore cannot deliver "invalid state unrepresentable" by fixing the summary-log sites alone — the PRN path needs its own decision, because it has neither a name nor an email to supply for the richer shape. Sourcing a real actor for PRN events (or deliberately keeping it id-only) is part of the same widening, not a separate concern.
+The summary-log submit path is not the only thing that stamps an actor onto the stream. PRN stream events are stamped by `appendPrnStreamEvent` (`src/waste-balances/repository/helpers-prn.js:86`) as `createdBy: { id: userId, name: userId }` — the id duplicated into `name`. This is not an email-as-name violation, but it does put the id value in the `name` property, which the wrong-property invariant below forbids just as firmly. The PRN repository boundary carries only a `userId` string, with no email, scope, or real name available there at all, so under the recommended shape the PRN actor simply becomes `{ id }` — no `name`, because there is no name to put there. Widening the event actor therefore cannot deliver "invalid state unrepresentable" by fixing the summary-log sites alone; the PRN write site is part of the same change.
 
 ## Why it matters for rendering
 
@@ -69,24 +69,41 @@ The System Logs view renders the audit actor field-by-field — User ID, User em
 
 ## Recommendation
 
-**Expand the event actor to mirror the audit actor, dropping the email-as-name conflation.**
+**Expand the event actor to carry the best view of whatever identity we have — as many of `id`, `name`, `email`, `scope` as the source actually provides — dropping the email-as-name conflation.**
 
-Carrying an email in a `name` field is a defect, not a stylistic choice: it is a semantic lie that any downstream renderer trusting `name` will propagate. The event actor must carry `email` distinctly and represent the absence of a name honestly rather than synthesising one.
+Carrying an email in a `name` field is a defect, not a stylistic choice: it is a semantic lie that any downstream renderer trusting `name` will propagate. The governing invariant is broader than email-as-name:
 
-Recommended target shape — the same human/machine discrimination `extractUserDetails` already produces:
+> **A value must never be written to the wrong property.** An email goes only in `email`, an id only in `id`, a name only in `name`, scopes only in `scope`. A slot for which we have no real value is left absent — never filled with a value that belongs to a different slot.
 
-- **Human:** `{ id, email, scope }` — `name` optional/absent, never set to the email.
-- **Machine:** `{ id, name }`.
+Each piece of identity lives in its own slot, populated only when there is a real value for it.
 
-This makes invalid state unrepresentable (no path can stamp an email as a name), and gives render parity with System Logs for free because `scope` is already available at the write site. If a narrower outcome is preferred, the **floor** set by the no-email-in-name directive is still to carry `email` distinctly and make `name` optional; `scope` is the additional increment that buys User-roles parity.
+Recommended target shape — a single open actor record rather than a discriminated human/machine union:
+
+```
+{ id, name?, email?, scope? }
+```
+
+- `id` required — every actor has one.
+- `name`, `email`, `scope` each optional — present when the source supplies a real value, **absent otherwise**. Never synthesise one field from another (no `name = email`, no `name = id`).
+
+A single "best view" record is preferred over a `{ id, email, scope }` / `{ id, name }` discriminated union because it does not force a human-vs-machine classification onto data that may carry any subset. Each write site simply records what it has:
+
+| Source | Carries | Actor |
+|--------|---------|-------|
+| `SubmitUser` (live summary-log submit) | `id, email, scope` | `{ id, email, scope }` |
+| Submit audit, human (recovery) | `id, email, scope` | `{ id, email, scope }` |
+| Submit audit, machine (recovery) | `id, name` | `{ id, name }` |
+| PRN write (`helpers-prn.js`) | `userId` only | `{ id }` |
+
+This makes the email-as-name state unrepresentable (no path can stamp an email as a name) and gives render parity with System Logs wherever the data exists, because `email` and `scope` flow into their own slots. Where a source has only an id (PRN today), the actor honestly carries just `{ id }` rather than a placeholder `name`.
 
 ### Resolving the open question
 
-The prior open question — whether rendering submitter info from the ledger is a requirement at all, or whether System Logs remains the sole render surface with the event actor kept attribution-only — does not change the floor. Even an attribution-only actor must not store an email as a name. Expanding to the discriminated `{ id, email, scope }` / `{ id, name }` shape both satisfies that floor and leaves the ledger able to render with System Logs fidelity should it become the render surface, at no extra cost in captured data.
+The prior open question — whether rendering submitter info from the ledger is a requirement at all, or whether System Logs remains the sole render surface with the event actor kept attribution-only — does not change the recommendation. Even an attribution-only actor must not store an email as a name. The open `{ id, name?, email?, scope? }` shape both satisfies that floor and leaves the ledger able to render with System Logs fidelity should it become the render surface, at no extra cost in captured data.
 
 ## Decision
 
-Expand the event actor. Carry the human actor as `{ id, email, scope }` and the machine actor as `{ id, name }`, with `name` optional; never populate `name` with an email.
+Expand the event actor to a single open record, `{ id, name?, email?, scope? }`: `id` required, `name` / `email` / `scope` each present only when the source has a real value, absent otherwise. A value is never written to the wrong property — no email-as-name, no id-as-name; an unknown slot is left absent.
 
 **Timing — no data migration needed.** The ledger feature flag is off and the submitter recovery is read-only diagnostic, so no email-as-name events have been persisted. The change must land **before** the cutover promotion runs, while the stream is still empty of such events; done then, it needs no backfill or migration. Sequenced ahead of the embedded-path retirement and flag removal.
 
