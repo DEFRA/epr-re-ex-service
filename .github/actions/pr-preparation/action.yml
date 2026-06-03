@@ -19,7 +19,7 @@ runs:
         fi
 
     - name: Check branch name
-      uses: actions/github-script@v8
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
       if: ${{ steps.check-bot.outputs.skip != 'true' }}
       with:
         script: |
@@ -34,7 +34,7 @@ runs:
           }
 
     - name: Add ticket link to PR description
-      uses: actions/github-script@v8
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
       if: ${{ steps.check-bot.outputs.skip != 'true' }}
       with:
         script: |
@@ -55,7 +55,7 @@ runs:
           }
 
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: Check for pinned dependencies
       shell: bash
