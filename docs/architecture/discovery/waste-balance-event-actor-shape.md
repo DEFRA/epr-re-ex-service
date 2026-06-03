@@ -38,7 +38,7 @@ Reducing the audit actor to this shape loses three distinctions:
 
 ## Where the loss happens
 
-`name = email` is written at every site that stamps a human actor onto the stream — both the live write path and the historical recovery path:
+`name = email` is written at every site that stamps a **summary-log submitter** onto the stream — both the live write path and the historical recovery path:
 
 | Site | Code | Path |
 |------|------|------|
@@ -58,6 +58,10 @@ Crucially, the data needed for the richer shape is already present at the live w
 ```
 
 Both `email` and `scope` are in hand at submit time; the write collapses `email` into `name` and throws `scope` away. The rebuild's `actorOf` (`compute-rebuilt-stream.js`) reads `actor.name` from upstream records, inheriting whatever those carry.
+
+### The PRN write path is a separate actor stamp
+
+The summary-log submit path is not the only thing that stamps an actor onto the stream. PRN stream events are stamped by `appendPrnStreamEvent` (`src/waste-balances/repository/helpers-prn.js:86`) as `createdBy: { id: userId, name: userId }` — the id duplicated into `name`. This is **not** an email-as-name violation, so it does not breach the directive, but it is a distinct fidelity loss: the PRN repository boundary carries only a `userId` string, with no email, scope, or real name available there at all. Widening the event actor therefore cannot deliver "invalid state unrepresentable" by fixing the summary-log sites alone — the PRN path needs its own decision, because it has neither a name nor an email to supply for the richer shape. Sourcing a real actor for PRN events (or deliberately keeping it id-only) is part of the same widening, not a separate concern.
 
 ## Why it matters for rendering
 
@@ -86,4 +90,4 @@ Expand the event actor. Carry the human actor as `{ id, email, scope }` and the 
 
 **Timing — no data migration needed.** The ledger feature flag is off and the submitter recovery is read-only diagnostic, so no email-as-name events have been persisted. The change must land **before** the cutover promotion runs, while the stream is still empty of such events; done then, it needs no backfill or migration. Sequenced ahead of the embedded-path retirement and flag removal.
 
-Implementation — the `userSummarySchema` / `StreamUserSummary` widening, the three write-site fixes, the admin render wiring, and `actorOf` — is tracked separately.
+Implementation — the `userSummarySchema` / `StreamUserSummary` widening, the three summary-log write-site fixes, `actorOf`, the PRN write path (`helpers-prn.js`, which currently has only a `userId`), and the admin render wiring — is tracked separately.
