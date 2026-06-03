@@ -257,38 +257,16 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
 }
 
-/* v8 ignore start */
 /**
- * @param {string | undefined} value
- * @returns {string[]}
- */
-const parseLinesEnv = (value) =>
-  (value ?? '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-/**
- * Resolves the changed-file filter. Explicit `include-globs` (if any) win as an
- * override; otherwise the globs are derived from the test-surface tsconfig the
- * npm script runs, keeping that config the single source of truth.
+ * Resolves the changed-file filter from the test-surface tsconfig the npm
+ * script runs, keeping that config the single source of truth.
  *
  * @returns {FilterGlobs}
  */
-const resolveFilterGlobs = () => {
-  const include = parseLinesEnv(process.env.LINT_TYPES_TESTS_INCLUDE_GLOBS)
-  if (include.length > 0) {
-    return {
-      include,
-      exclude: parseLinesEnv(process.env.LINT_TYPES_TESTS_EXCLUDE_GLOBS)
-    }
-  }
-
+export const resolveFilterGlobs = () => {
   const tsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
   if (!tsconfig) {
-    throw new Error(
-      'either LINT_TYPES_TESTS_INCLUDE_GLOBS or LINT_TYPES_TESTS_TSCONFIG must be set'
-    )
+    throw new Error('LINT_TYPES_TESTS_TSCONFIG must be set')
   }
 
   const globs = tsconfigGlobs(readFileSync(tsconfig, 'utf8'))
@@ -298,6 +276,7 @@ const resolveFilterGlobs = () => {
   return globs
 }
 
+/* v8 ignore start */
 const tsCodeLookupFromPackage = (() => {
   const tsInternals =
     /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
