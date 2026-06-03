@@ -6,3 +6,4 @@ Documentation relating to architecture that we are in the process of defining, t
 
 1. [ORS Management](ors-management.md)
 1. [Waste Balance Ledger — Rollout and Cutover Strategy](waste-balance-ledger-rollout.md)
+1. [Waste Balance Event Actor Shape — Render Parity with the System Log](waste-balance-event-actor-shape.md)
