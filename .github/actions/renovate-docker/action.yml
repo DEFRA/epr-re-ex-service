@@ -18,7 +18,7 @@ runs:
 
     - uses: renovatebot/github-action@b67590ea780158ccd13192c22a3655a5231f869d # v46.1.8
       with:
-        renovate-version: 43.108.1
+        renovate-version: 43.206.0
         mount-docker-socket: false
         token: ${{ inputs.token }}
       env:
