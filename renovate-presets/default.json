@@ -2,6 +2,16 @@
   "minimumReleaseAge": "3 days",
   "recreateWhen": "always",
   "commitMessagePrefix": "Renovate:",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)package\\.json$/"],
+      "matchStrings": ["\"node\":\\s*\">=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "node-version",
+      "versioningTemplate": "node"
+    }
+  ],
   "packageRules": [
     {
       "matchManagers": ["docker-compose"],
@@ -9,7 +19,7 @@
       "groupName": "docker compose images"
     },
     {
-      "matchDatasources": ["docker"],
+      "matchDatasources": ["docker", "node-version"],
       "matchPackageNames": ["node"],
       "allowedVersions": "<25"
     },

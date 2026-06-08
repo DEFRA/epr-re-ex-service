@@ -3,8 +3,7 @@
   "version": "0.0.0",
   "description": "pEPR Re/Ex project",
   "engines": {
-    "node": ">=24.14.0 <25",
-    "npm": ">=11.11.0"
+    "node": ">=24.15.0 <25"
   },
   "scripts": {
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
@@ -16,7 +15,8 @@
     "postinstall": "npm run setup:husky",
     "seed:stub": "node scripts/seed-defra-id-stub.mjs",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
-    "test": "vitest run"
+    "test": "vitest run",
+    "validate:renovate": "renovate-config-validator --strict renovate.json renovate-presets/default.json renovate-presets/defra-node.json"
   },
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
@@ -28,6 +28,7 @@
     "lint-staged": "16.4.0",
     "mongodb": "7.1.1",
     "prettier": "3.8.1",
+    "renovate": "43.206.0",
     "typescript": "5.9.3",
     "vitest": "4.1.2"
   }
