@@ -497,7 +497,7 @@ PRN status is a projection of the stream: each balance-affecting PRN transition 
 | ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------ |
 | `DRAFT → AWAITING_AUTHORISATION`                  | `prn-created`               | Ringfence: `availableAmount −= amount`                             |
 | `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `amount −= amount` (`availableAmount` already down) |
-| `AWAITING_AUTHORISATION → CANCELLED` or `DELETED` | `prn-creation-cancelled`    | Release ringfence: `availableAmount += amount`                     |
+| `AWAITING_AUTHORISATION → DELETED`                | `prn-creation-cancelled`    | Release ringfence: `availableAmount += amount`                     |
 | `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `amount += amount`, `availableAmount += amount`      |
 | `AWAITING_ACCEPTANCE → ACCEPTED`                  | `prn-accepted`              | None — lifecycle only                                              |
 | Rejection of an issued PRN                        | `prn-rejected`              | None — lifecycle only                                              |
