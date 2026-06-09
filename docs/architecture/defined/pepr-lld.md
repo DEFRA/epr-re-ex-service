@@ -114,7 +114,8 @@ TBD
 #### Disambiguation
 
 The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
-The Waste Balance is the running total in tonnes of waste received minus PRNs issued.
+
+The Waste Balance is the running total in tonnes of waste received minus PRNs issued. It is held as a per-accreditation append-only event stream: each balance-affecting business operation (a summary log submission, a PRN transition) appends one immutable event carrying the resulting `closingBalance`. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no separately materialised total to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the design rationale.
 
 #### User Journey
 
@@ -251,35 +252,30 @@ erDiagram
     string[] rowIds "max 100 row IDs"
   }
 
-  WASTE-BALANCE {
+  WASTE-BALANCE-EVENT {
     ObjectId _id PK
-    ObjectId organistionId FK
-    ObjectId accreditationId FK, UK
-    int schemaVersion
-    int version
-    Decimal128 amount "transactions of type:credit minus transactions of type:debit"
-    Decimal128 availableAmount "amount minus transactions of type:pending_debit"
-    WASTE-BALANCE-TRANSACTION[] transactions
-  }
-
-  WASTE-BALANCE-TRANSACTION {
-    ObjectId _id PK
-    enum type "credit, debit, pending_debit"
+    ObjectId registrationId FK "stream partition"
+    ObjectId accreditationId FK "stream partition - null for registered-only"
+    ObjectId organisationId FK "denormalised for org-level queries"
+    int number "sequential per stream from 1"
+    enum kind "summary-log-submitted, prn-created, prn-issued, prn-creation-cancelled, prn-cancelled-after-issue, prn-accepted, prn-rejected"
+    STREAM-EVENT-PAYLOAD payload "kind-specific"
+    STREAM-BALANCE-SNAPSHOT openingBalance
+    STREAM-BALANCE-SNAPSHOT closingBalance
     ISO8601 createdAt
-    USER-SUMMARY createdBy
-    Decimal128 amount
-    Decimal128 openingAmount
-    Decimal128 closingAmount
-    Decimal128 openingAvailableAmount
-    Decimal128 closingAvailableAmount
-    WASTE-BALANCE-TRANSACTION-ENTITY[] entities "entities related to this transaction"
+    USER-SUMMARY createdBy "the actor who triggered the event"
   }
 
-  WASTE-BALANCE-TRANSACTION-ENTITY {
-    ObjectId id FK "WASTE-RECORD or PRN"
-    ObjectId currentVersionId FK "WASTE-RECORD-VERSION"
-    ObjectId[] previousVersionIds FK "WASTE-RECORD-VERSION"
-    enum type "waste_record, prn"
+  STREAM-EVENT-PAYLOAD {
+    string summaryLogId "summary-log-submitted only"
+    Decimal128 creditTotal "summary-log-submitted only"
+    string prnId "PRN kinds only"
+    Decimal128 amount "PRN kinds only"
+  }
+
+  STREAM-BALANCE-SNAPSHOT {
+    Decimal128 amount "credits minus confirmed debits"
+    Decimal128 availableAmount "amount minus ringfenced (pending) debits"
   }
 
   WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
@@ -296,10 +292,10 @@ erDiagram
   SUMMARY-LOG-LOADS ||--|| LOAD-CATEGORY : "adjusted"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "valid"
   LOAD-CATEGORY ||--|| LOAD-COUNT : "invalid"
-  WASTE-BALANCE ||--|{ WASTE-BALANCE-TRANSACTION : contains
-  WASTE-BALANCE-TRANSACTION ||--|{ USER-SUMMARY : contains
-  WASTE-BALANCE-TRANSACTION ||--|{ WASTE-BALANCE-TRANSACTION-ENTITY : contains
-  WASTE-BALANCE-TRANSACTION-ENTITY ||--|| WASTE-RECORD : references
+  WASTE-BALANCE-EVENT ||--|| STREAM-EVENT-PAYLOAD : contains
+  WASTE-BALANCE-EVENT ||--|| USER-SUMMARY : contains
+  WASTE-BALANCE-EVENT ||--|| STREAM-BALANCE-SNAPSHOT : "openingBalance"
+  WASTE-BALANCE-EVENT ||--|| STREAM-BALANCE-SNAPSHOT : "closingBalance"
 ```
 
 #### Waste Record Type: Received
@@ -491,107 +487,22 @@ In this example Alice has created a `sentOn` waste record
 
 #### Waste Balance
 
-An example of an object in the Waste Balance collection
+The waste balance is an **event-sourced stream**. The authoritative design — the event taxonomy, the on-the-wire event shape, the frozen-`creditTotal` delta arithmetic, decimal handling, concurrency, and partial-failure recovery — lives in [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) and is not restated here. In summary: each balance-affecting business operation (a summary-log submission or a PRN transition) appends one immutable event to a per-`(registrationId, accreditationId)` stream carrying `openingBalance` and `closingBalance` snapshots. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no embedded `transactions[]` array and no separately materialised total to drift.
 
-```json5
-{
-  _id: 'a1234567890a12345a03',
-  accreditationId: 'b1234567890a12345a01',
-  organisationId: 'e1234567890a12345a01',
-  amount: 48.99,
-  availableAmount: 23.99,
-  transactions: [
-    // Alice creates a prn, decreasing the available balance
-    {
-      id: 'K7mP9xQ2vL4nR8wF6tY3',
-      type: 'pending_debit',
-      createdAt: '2026-01-04T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      amount: 25.0,
-      openingAmount: 48.99,
-      closingAmount: 48.99,
-      openingAvailableAmount: 48.99,
-      closingAvailableAmount: 23.99,
-      entities: [
-        {
-          id: 'd1234567890a12345a05',
-          type: 'prn:created'
-        }
-      ]
-    },
-    // Charlie adds waste sent_on, decreasing the balance
-    {
-      id: 'Zh5Bn2Qx8Wj4Lp7Ck9Vm',
-      type: 'debit',
-      createdAt: '2026-01-03T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a03',
-        name: 'Charlie'
-      },
-      amount: 1.01,
-      openingAmount: 50.0,
-      closingAmount: 48.99,
-      openingAvailableAmount: 50.0,
-      closingAvailableAmount: 48.99,
-      entities: [
-        {
-          id: 'd1234567890a12345a04',
-          type: 'waste_record:sent_on'
-        }
-      ]
-    },
-    // Bob adds waste received, increasing the balance
-    {
-      id: 'Fd3Rt6Gy9Mn1Zx4Hk8Qw',
-      type: 'credit',
-      createdAt: '2026-01-02T09:00:00.000Z',
-      createdBy: {
-        _id: 'd1234567890a12345a04',
-        name: 'Bob'
-      },
-      amount: 40.0,
-      openingAmount: 10.0,
-      closingAmount: 50.0,
-      openingAvailableAmount: 10.0,
-      closingAvailableAmount: 50.0,
-      entities: [
-        {
-          id: 'd1234567890a12345a03',
-          type: 'waste_record:received'
-        },
-        {
-          id: 'd1234567890a12345a02',
-          type: 'waste_record:received'
-        }
-      ]
-    },
-    // Alice adds waste received, increasing the balance
-    {
-      id: 'Np2Vb7Xc5Jm9Rt4Lw6Fq',
-      type: 'credit',
-      createdAt: '2026-01-01T09:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      amount: 10.0,
-      openingAmount: 0,
-      closingAmount: 10.0,
-      openingAvailableAmount: 0,
-      closingAvailableAmount: 10.0,
-      entities: [
-        {
-          id: 'd1234567890a12345a01',
-          type: 'waste_record:received'
-        }
-      ]
-    }
-  ]
-}
-```
+##### PRN transition → event mapping
+
+PRN status is a projection of the stream: each balance-affecting PRN transition appends one event, and the two-phase lifecycle is why `amount` and `availableAmount` are separate fields. The event kinds are defined in [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md#event-taxonomy-v1); their balance effects:
+
+| PRN transition                                    | Stream event                | Balance effect                                                     |
+| ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------ |
+| `DRAFT → AWAITING_AUTHORISATION`                  | `prn-created`               | Ringfence: `availableAmount −= amount`                             |
+| `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `amount −= amount` (`availableAmount` already down) |
+| `AWAITING_AUTHORISATION → DELETED`                | `prn-creation-cancelled`    | Release ringfence: `availableAmount += amount`                     |
+| `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `amount += amount`, `availableAmount += amount`      |
+| `AWAITING_ACCEPTANCE → ACCEPTED`                  | `prn-accepted`              | None — lifecycle only                                              |
+| Rejection of an issued PRN                        | `prn-rejected`              | None — lifecycle only                                              |
+
+This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend`, so it can track the PRN state machine without amending the design.
 
 ### PRN
 
