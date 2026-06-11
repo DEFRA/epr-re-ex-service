@@ -22,14 +22,14 @@
   "license": "OGL-UK-3.0",
   "overrides": {},
   "devDependencies": {
-    "@dotenvx/dotenvx": "1.57.5",
+    "@dotenvx/dotenvx": "1.71.0",
     "@types/node": "24.12.2",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "mongodb": "7.1.1",
-    "prettier": "3.8.1",
-    "renovate": "43.206.0",
+    "mongodb": "7.2.0",
+    "prettier": "3.8.3",
+    "renovate": "43.214.5",
     "typescript": "5.9.3",
-    "vitest": "4.1.2"
+    "vitest": "4.1.8"
   }
 }
