@@ -33,15 +33,15 @@ One further shaping consideration: operator-facing access to individual rows —
 
 ### Committed row-state documents
 
-A new collection holds **one document per distinct state of each row**: the canonicalised row content, the row's identity, and a `summaryLogIds` array listing every submission for which this state is the row's content.
+A new collection holds **one document per distinct state of each row**: the row content, the row's identity, and a `summaryLogIds` array listing every submission for which this state is the row's content.
 
 ```
 { orgId, registrationId, wasteRecordType, rowId, data: { …coerced row… }, summaryLogIds: [ … ] }
 ```
 
-Row state is keyed by the template's headers, exactly as extracted. The headers are hidden in the template, decoupled from the labels operators see: they are already the canonical field names — the interface between the template and the backend — so no mapping onto another key set is introduced. The backend defines only the columns it needs for validation or downstream meaning (waste balance, reporting); every other column is recorded verbatim — table schemas deliberately accept unknown columns so templates can grow without a coordinated release, and those columns are shared with regulators when they investigate, so the row state must not drop them.
+Row state is keyed by the template's headers, exactly as extracted — the same keys the waste-record `data` field carries today. The headers are hidden in the template, decoupled from the labels operators see: they are already the canonical field names, the interface between the template and the backend, and this ADR introduces no mapping onto another key set. As today, the backend defines only the columns it needs for validation or downstream meaning (waste balance, reporting), and every other column is recorded verbatim — table schemas deliberately accept unknown columns so templates can grow without a coordinated release, and those columns are shared with regulators when they investigate — so the row state must not drop them.
 
-Values of schema-defined fields are **coerced** per the table schema (dates, numbers) at write time; verbatim columns are stored as extracted. The raw operator-typed original remains available in the retained workbook; the row state is the query-ready form, and coerced values are what make the unchanged/changed comparison below semantic rather than byte-level for every field the backend understands.
+What this ADR adds is coercion of stored values: schema-defined fields are **coerced** per the existing table schemas (dates, numbers) at write time, where today's `data` stores raw ExcelJS output; verbatim columns are stored as extracted. The raw operator-typed original remains available in the retained workbook; the row state is the query-ready form, and coerced values are what make the unchanged/changed comparison below semantic rather than byte-level for every field the backend understands.
 
 Coercing at write also pins interpretation to the commit point. The event's `creditTotal` is derived from the coerced values, so the row state and the stream record the same reading of the workbook and stay consistent however coercion rules later evolve. Coercing at read would let a committed submission's meaning drift away from the balance the stream already recorded; under the ledger, a reinterpretation that matters is a new event, not a silent change to what a committed submission said.
 
@@ -103,7 +103,7 @@ Row-level reads need no separate machinery: a row's current committed value is i
 
 **Keep ADR-0036's sparse versions and canonicity walk (status quo).** Correct for the balance, which never reads the chain at rest. Rejected as the row-state mechanism because every committed-state read pays per-row reconstruction subtlety, the materialised `data` field remains non-canonical, and failure modes 4 and 5 (phantom diffs, uncoerced values) are untouched.
 
-**Full snapshots in the waste-record document's versions array.** Replace sparse diffs with full row copies per version. Rejected: document growth is unbounded (every record × every submission × full row), existing delta versions cannot be reconstructed into snapshots, and the cross-record header drift survives because each record still carries whatever its operator's template produced.
+**Full snapshots in the waste-record document's versions array.** Replace sparse diffs with full row copies per version. Rejected: document growth is unbounded (every record × every submission × full row), existing delta versions cannot be reconstructed into snapshots, and the stored values remain uncoerced ExcelJS output.
 
 **Per-submission snapshot artefacts in S3.** Gzip the parsed rows of the whole workbook, keyed by `summaryLogId` — immutable by construction, a single put on the commit path. Rejected: it adds a second storage system to the committed path, every read pays a fetch-gunzip-parse, bulk reads fan out per registration, and row-level access needs a separate projection — machinery the membership collection replaces with one multikey index. Its structural immutability is defence in depth (the event gate carries the commit semantics either way), traded here for one queryable store.
 
