@@ -12,7 +12,7 @@ An investigation into a reported tonnage discrepancy in the admin waste-records 
 
 1. **Failed submissions still write `data`.** Row writes precede the status transition to SUBMITTED and are never rolled back; a failed submission cannot be retried, so the completing write never comes.
 2. **A narrow ordering race can regress `data`.** Submission exclusivity is the SUBMITTING status, not the worker — a worker that outlives the 20-minute TTL can overwrite a newer submission's rows with older values.
-3. **`data` keys are raw spreadsheet header strings, replaced wholesale.** A template revision that renames a header splits one logical field across two keys collection-wide.
+3. **`data` is replaced wholesale, keyed by the template's hidden header names.** The headers are the template-to-backend interface, decoupled from the labels operators see; renaming one without migrating stored documents splits a logical field across two keys collection-wide.
 4. **The sparse `versions` array cannot reconstruct state on its own.** Update versions store diffs whose meaning depends on what was last _written_ (committed or orphan), and strict-equality comparison against object-typed cells records phantom changes.
 5. **Values are uncoerced ExcelJS output.** A tonnage may be a number, a numeric string, or an object, depending on how the operator's spreadsheet was built.
 
@@ -36,13 +36,12 @@ One further shaping consideration: operator-facing access to individual rows —
 A new collection holds **one document per distinct state of each row**: the canonicalised row content, the row's identity, and a `summaryLogIds` array listing every submission for which this state is the row's content.
 
 ```
-{ orgId, registrationId, wasteRecordType, rowId, data: { …canonical row… }, summaryLogIds: [ … ] }
+{ orgId, registrationId, wasteRecordType, rowId, data: { …coerced row… }, summaryLogIds: [ … ] }
 ```
 
-Rows are **canonicalised** at write time:
+Row state is keyed by the template's headers, exactly as extracted. The headers are hidden in the template, decoupled from the labels operators see: they are already the canonical field names — the interface between the template and the backend — so no mapping onto another key set is introduced. The backend defines only the columns it needs for validation or downstream meaning (waste balance, reporting); every other column is recorded verbatim — table schemas deliberately accept unknown columns so templates can grow without a coordinated release, and those columns are shared with regulators when they investigate, so the row state must not drop them.
 
-- Headers that map to a table-schema field are stored under the canonical field name. Unknown headers are carried through as-is — table schemas deliberately accept unknown columns so templates can grow without a coordinated release, and the row state must not drop them.
-- Values are coerced per the table schema (dates, numbers) at write time. The raw operator-typed original remains available in the retained workbook; the row state is the clean, query-ready form.
+Values of schema-defined fields are **coerced** per the table schema (dates, numbers) at write time; verbatim columns are stored as extracted. The raw operator-typed original remains available in the retained workbook; the row state is the query-ready form, and coerced values are what make the unchanged/changed comparison below semantic rather than byte-level for every field the backend understands.
 
 At submission time, after extraction and validation and before the event append, each row of the workbook is compared against the state tagged with the partition's **latest committed** `summaryLogId` — never against the last write:
 
@@ -77,7 +76,7 @@ The change rolls out in three stages, each independently shippable:
 
 **Stage 2 — reads cut over.** Committed-state reads — the admin CSV export, FOI extracts, per-row audit — move from the waste-records collection to stream + membership query. Each consumer migrates on its own schedule; the old read path keeps working throughout.
 
-**Stage 3 — waste-records retires.** With committed-state reads served directly by the row-state collection — current rows are simply the membership of the latest committed submission — there is no projection left to maintain. The waste-record `data` field, the sparse `versions` array, and the canonicity walk retire; remaining consumers (reporting aggregation, tonnage monitoring) migrate to the row-state collection on their own schedule. Removal timing for the existing data is owned by the rollout design, not this ADR. `creditTotal` computation simplifies too: the submission's own canonicalised rows are the complete row state (cumulative restatement), so the walk's one remaining write-time consumer disappears.
+**Stage 3 — waste-records retires.** With committed-state reads served directly by the row-state collection — current rows are simply the membership of the latest committed submission — there is no projection left to maintain. The waste-record `data` field, the sparse `versions` array, and the canonicity walk retire; remaining consumers (reporting aggregation, tonnage monitoring) migrate to the row-state collection on their own schedule. Removal timing for the existing data is owned by the rollout design, not this ADR. `creditTotal` computation simplifies too: the submission's own coerced rows are the complete row state (cumulative restatement), so the walk's one remaining write-time consumer disappears.
 
 Stages 1 and 2 carry no migration risk — they add documents and move readers. Only stage 3 changes write-side behaviour, and by then the collection it retires has no committed-state consumers left.
 
@@ -100,7 +99,7 @@ Row-level reads need no separate machinery: a row's current committed value is i
 
 ## Considered alternatives
 
-**Keep ADR-0036's sparse versions and canonicity walk (status quo).** Correct for the balance, which never reads the chain at rest. Rejected as the row-state mechanism because every committed-state read pays per-row reconstruction subtlety, the materialised `data` field remains non-canonical, and failure modes 3–5 (header drift, phantom diffs, uncoerced values) are untouched.
+**Keep ADR-0036's sparse versions and canonicity walk (status quo).** Correct for the balance, which never reads the chain at rest. Rejected as the row-state mechanism because every committed-state read pays per-row reconstruction subtlety, the materialised `data` field remains non-canonical, and failure modes 4 and 5 (phantom diffs, uncoerced values) are untouched.
 
 **Full snapshots in the waste-record document's versions array.** Replace sparse diffs with full row copies per version. Rejected: document growth is unbounded (every record × every submission × full row), existing delta versions cannot be reconstructed into snapshots, and the cross-record header drift survives because each record still carries whatever its operator's template produced.
 
@@ -119,10 +118,10 @@ Row-level reads need no separate machinery: a row's current committed value is i
 ### Positive
 
 - **Additive rollout.** Stages 1 and 2 add documents and move readers without touching the existing write path; nothing breaks for consumers that haven't migrated, and the write-side retirement happens only once nothing depends on what it removes.
-- **"Values as of the last submission" becomes a first-class read** — one event lookup plus one indexed query, with the ledger as the sole authority on what was last submitted. All five failure modes from the PAE-1560 investigation die at once rather than being patched individually.
+- **"Values as of the last submission" becomes a first-class read** — one event lookup plus one indexed query, with the ledger as the sole authority on what was last submitted. Failure modes 1, 2, 4 and 5 from the PAE-1560 investigation die at once rather than being patched individually; header naming stays the template-interface concern it is today.
 - **Row-level access comes for free.** Current value, point-in-time value, and full history of any row are all queries on the same collection — the operator-facing row view under consideration needs no separate read model.
 - **The canonicity walk and sparse version chains retire.** The subtlest part of ADR-0036's row-level design is no longer load-bearing.
-- **Export columns stabilise.** Canonical field names and coerced values mean a column in the export is one logical field with one type, so a single-column sum means one thing.
+- **Export values stabilise.** Coerced values mean a column in the export holds one type, so a single-column sum means one thing.
 - **Committed row state lives where the rest of the data lives** — directly queryable, with no projection to keep fresh.
 - **Registered-only submissions join the ledger**, closing the coverage gap where the stream is blind to a whole class of submissions.
 
@@ -131,7 +130,7 @@ Row-level reads need no separate machinery: a row's current committed value is i
 - **Correctness is disciplinary, not structural.** The invariants — state documents never mutate, membership arrays only grow, comparison anchors to the committed head, every write is an idempotent upsert — live in write-path code. A bug can violate them in place; they need contract-test enforcement.
 - **The commit path keeps a many-document bulk write** (one operation per row) ahead of the event append — the same cost the submission path pays today.
 - **Membership arrays and the multikey index grow without bound** — one entry per row per submission, small individually, accumulating for as long as a registration keeps submitting. Compaction is available if measured growth ever surprises.
-- **Canonicalisation becomes load-bearing at write time.** A header-mapping or coercion bug bakes into stored states; fixes mean rewriting affected documents, rebuildable from the retained workbooks (always possible, never automatic).
+- **Coercion becomes load-bearing at write time.** A coercion bug bakes into stored states; fixes mean rewriting affected documents, rebuildable from the retained workbooks (always possible, never automatic).
 - **Inert garbage accumulates.** Failed submissions leave unreachable documents and memberships; harmless to every committed read, but a sweep belongs to operational hygiene.
 
 ## Out of scope
