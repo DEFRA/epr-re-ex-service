@@ -4,19 +4,19 @@ Date: 2026-06-12
 
 ## Status
 
-Proposed. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR extends the `summary-log-submitted` payload with a snapshot reference and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once committed-state reads have moved to snapshots. The change lands additively — the existing waste-records write path is untouched until the final stage.
+Proposed. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a per-submission snapshot artefact, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once committed-state reads have moved to snapshots. The change lands additively — the existing waste-records write path is untouched until the final stage.
 
 ## Context
 
-An investigation into a reported tonnage discrepancy in the admin waste-records CSV export ([PAE-1560](https://eaflood.atlassian.net/browse/PAE-1560)) established that the waste-record document's `data` field cannot be trusted as "the row's contents as of the last submission". It is the last *written* contents:
+An investigation into a reported tonnage discrepancy in the admin waste-records CSV export ([PAE-1560](https://eaflood.atlassian.net/browse/PAE-1560)) established that the waste-record document's `data` field cannot be trusted as "the row's contents as of the last submission". It is the last _written_ contents:
 
 1. **Failed submissions still write `data`.** Row writes precede the status transition to SUBMITTED and are never rolled back; a failed submission cannot be retried, so the completing write never comes.
 2. **A narrow ordering race can regress `data`.** Submission exclusivity is the SUBMITTING status, not the worker — a worker that outlives the 20-minute TTL can overwrite a newer submission's rows with older values.
 3. **`data` keys are raw spreadsheet header strings, replaced wholesale.** A template revision that renames a header splits one logical field across two keys collection-wide.
-4. **The sparse `versions` array cannot reconstruct state on its own.** Update versions store diffs whose meaning depends on what was last *written* (committed or orphan), and strict-equality comparison against object-typed cells records phantom changes.
+4. **The sparse `versions` array cannot reconstruct state on its own.** Update versions store diffs whose meaning depends on what was last _written_ (committed or orphan), and strict-equality comparison against object-typed cells records phantom changes.
 5. **Values are uncoerced ExcelJS output.** A tonnage may be a number, a numeric string, or an object, depending on how the operator's spreadsheet was built.
 
-[ADR-0036](./0036-event-sourced-waste-balance-stream.md) already made the event append the commit point for the *balance*, and acknowledged that uncommitted row versions persist as orphans — handling them with the canonicity walk: a per-row, in-order fold of sparse diffs, stopping at the latest version whose `summaryLogId` is on the stream. The walk is correct but subtle, and it leaves every read that needs committed row state — exports, FOI extracts, per-row audit — performing per-row reconstruction against a collection whose materialised `data` field is explicitly *not* canonical.
+[ADR-0036](./0036-event-sourced-waste-balance-stream.md) already made the event append the commit point for the _balance_, and acknowledged that uncommitted row versions persist as orphans — handling them with the canonicity walk: a per-row, in-order fold of sparse diffs, stopping at the latest version whose `summaryLogId` is on the stream. The walk is correct but subtle, and it leaves every read that needs committed row state — exports, FOI extracts, per-row audit — performing per-row reconstruction against a collection whose materialised `data` field is explicitly _not_ canonical.
 
 Two domain invariants make a simpler shape available:
 
@@ -39,31 +39,33 @@ Rows in the snapshot are **canonicalised**:
 - Values are coerced per the table schema (dates, numbers) at write time. The raw operator-typed original remains available in the retained workbook; the snapshot is the clean, query-ready form.
 - Each row carries its identity: table, waste-record type, and row ID.
 
-### Commit point and payload
+### Commit point and addressing
 
-The `summary-log-submitted` event payload gains a snapshot reference:
+The `summary-log-submitted` event payload is unchanged from ADR-0036:
 
 ```
-{ summaryLogId, creditTotal, snapshot: { uri, contentHash, rowCount } }
+{ summaryLogId, creditTotal }
 ```
 
-The commit point is unchanged from ADR-0036: **the event append**. No event, no submission. A snapshot written by a submission whose event never lands is an unreachable orphan in S3 — harmless, and eligible for lifecycle expiry. This kills failure modes 1 and 2 above structurally: there is no shared mutable state for a failed or late writer to corrupt; it can only produce orphan artefacts that no committed pointer references.
+The `summaryLogId` the payload already carries is the snapshot's address: the artefact key is derived deterministically from it, so given a committed event the snapshot location follows with no reference field in the event.
+
+The commit point is unchanged from ADR-0036: **the event append**. No event, no submission — and no canonical snapshot: a snapshot whose submission's event never lands is derivable but unreachable from the stream, harmless in S3 and eligible for lifecycle expiry. This kills failure modes 1 and 2 above structurally: there is no shared mutable state for a failed or late writer to corrupt; each submission writes only its own key, and only the event append makes that key canonical.
 
 ### Every submission appends an event
 
-Today the live path only appends `summary-log-submitted` events for accredited registrations. Registered-only submissions must also append events, on the `(registrationId, null)` partition the stream schema already admits. Their balance effect stays as ADR-0036 left it (a product decision; zero under the current choice) — their purpose here is commit marking and snapshot reference, which every submission needs regardless of balance.
+Today the live path only appends `summary-log-submitted` events for accredited registrations. Registered-only submissions must also append events, on the `(registrationId, null)` partition the stream schema already admits. Their balance effect stays as ADR-0036 left it (a product decision; zero under the current choice) — their purpose here is commit marking, which every submission needs regardless of balance: the event is what makes the submission's snapshot canonical.
 
 ### Additive first, simplify later
 
 The change rolls out in three stages, each independently shippable:
 
-**Stage 1 — additive.** The submission path gains the snapshot write and the broadened event coverage; everything else is exactly as today. Row versions and `data` are written as ADR-0036 describes, the canonicity walk remains in force, and every existing consumer is untouched. The only observable change is that snapshots accumulate in S3 and every submission appears on the stream with a snapshot reference.
+**Stage 1 — additive.** The submission path gains the snapshot write and the broadened event coverage; everything else is exactly as today. Row versions and `data` are written as ADR-0036 describes, the canonicity walk remains in force, and every existing consumer is untouched. The only observable change is that snapshots accumulate in S3 and every submission appears on the stream, its snapshot addressable by `summaryLogId`.
 
 **Stage 2 — reads cut over.** Committed-state reads — the admin CSV export, FOI extracts, per-row audit — move from the waste-records collection to stream + snapshot. Each consumer migrates on its own schedule; the old read path keeps working throughout.
 
 **Stage 3 — waste-records simplifies.** With no committed-state read left on the collection, the waste-record document is demoted from system of record to **rebuildable projection**:
 
-- `data` is defined as the latest *committed* snapshot's row, projected for queries. The projection write moves after the event append and is idempotent; a missed projection write is repaired by rebuild or by the next submission, and no committed-state read depends on it.
+- `data` is defined as the latest _committed_ snapshot's row, projected for queries. The projection write moves after the event append and is idempotent; a missed projection write is repaired by rebuild or by the next submission, and no committed-state read depends on it.
 - The sparse `versions` array and the canonicity walk retire. Per-row audit — "what did submission S say for row R" — is a lookup in S's snapshot; per-row history is a diff of consecutive snapshots on the stream. Removal timing for the existing version data is owned by the rollout design, not this ADR.
 - `creditTotal` computation simplifies: the submission's own canonicalised rows are the complete row state (cumulative restatement), so the walk's one remaining write-time consumer disappears.
 
@@ -73,17 +75,17 @@ Stages 1 and 2 carry no migration risk — they add artefacts and move readers. 
 
 Stage 1 inserts the snapshot write before the event append; row-version writes continue exactly as ADR-0036 orders them. The target ordering, reached at stage 3:
 
-| Step | Write | On failure |
-| ---- | ----- | ---------- |
-| 1 | Snapshot to S3 (idempotent, keyed by `summaryLogId`) | Balance and committed state unchanged; retry safe |
-| 2 | Append `summary-log-submitted` event (commit) | Balance and committed state unchanged; snapshot is an unreachable orphan; operator re-submits |
-| 3 | Project rows into waste-records | Committed state unaffected (it lives in step 1+2); projection repaired by rebuild or next submission |
+| Step | Write                                                | On failure                                                                                           |
+| ---- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1    | Snapshot to S3 (idempotent, keyed by `summaryLogId`) | Balance and committed state unchanged; retry safe                                                    |
+| 2    | Append `summary-log-submitted` event (commit)        | Balance and committed state unchanged; snapshot is an unreachable orphan; operator re-submits        |
+| 3    | Project rows into waste-records                      | Committed state unaffected (it lives in step 1+2); projection repaired by rebuild or next submission |
 
 This ultimately replaces ADR-0036's summary-log row of its write-ordering table, where row-version writes preceded the event and relied on the canonicity walk to be invisible until committed.
 
 ### Reads
 
-Any read that needs committed row state — the admin CSV export, FOI extracts, per-row audit — resolves it from the stream: latest `summary-log-submitted` event for the partition, then its snapshot. Point-in-time reads ("the estate as of date T") resolve the latest event at or before T per registration; cumulative restatement means the snapshot is the whole answer, never a fold. Queries that only need *current* rows in bulk may continue to use the waste-records projection, accepting projection freshness semantics.
+Any read that needs committed row state — the admin CSV export, FOI extracts, per-row audit — resolves it from the stream: latest `summary-log-submitted` event for the partition, then the snapshot its `summaryLogId` addresses. Point-in-time reads ("the estate as of date T") resolve the latest event at or before T per registration; cumulative restatement means the snapshot is the whole answer, never a fold. Queries that only need _current_ rows in bulk may continue to use the waste-records projection, accepting projection freshness semantics.
 
 ## Considered alternatives
 
@@ -91,9 +93,13 @@ Any read that needs committed row state — the admin CSV export, FOI extracts, 
 
 **Full snapshots in the waste-record document's versions array.** Replace sparse diffs with full row copies per version. Rejected: document growth is unbounded (every record × every submission × full row), existing delta versions cannot be reconstructed into snapshots, and the cross-record header drift survives because each record still carries whatever its operator's template produced.
 
+**One document per row per submission in a dedicated MongoDB collection.** Keyed `(summaryLogId, rowId)`, written by idempotent upsert — Mongo-native, no second storage system on the commit path, and per-row audit becomes a point query. Rejected on four grounds. The access pattern is whole-snapshot, never per-row: cumulative restatement means every committed-state read wants all rows of one submission, so per-row documents get reassembled into the artefact shape on every read, paying cursor streaming for query flexibility nothing uses. The volume lands in the wrong store: the same quadratic-ish restatement growth that is gzip-squashed and operationally invisible in S3 becomes working-set pressure, index size on hundreds of millions of documents, and backup/restore cost in MongoDB — the same trade ADR-0036 made when it rejected per-event row manifests. Write amplification: a large submission becomes a tens-of-thousands-of-document bulk write on the critical path before the event append, with partial-application states to reason about, where a single artefact put either lands or doesn't. And restated rows compress as a unit in one artefact, where per-document storage repeats the row structure every time. The honest concession: ad-hoc cross-submission row queries would suit per-row documents better — but snapshot diffing covers the audit cases we have, and rows can be projected into MongoDB _from_ snapshots later if that need materialises, because the snapshot is the more primitive artefact.
+
 **Re-extract the workbook from S3 at read time, no new persistence.** The submitted files are retained, so "latest submitted file per registration → parse → emit" is always available. Rejected as the steady state: it puts xlsx parsing on the export request path (minutes across the estate, against ~14 seconds today) and re-runs coercion on every read. It remains the right primitive for backfilling snapshots for historical submissions.
 
-**Inline the rows in the event payload.** Rejected — the same reasoning as ADR-0036's rejection of per-event row manifests, sharpened: a large submission's rows run to tens of megabytes, which Mongo's 16MB document limit rules out and which would bloat the stream's hot partition scans. Note this ADR does *not* reverse that rejection: ADR-0036 priced carrying row data **in stream documents**; the snapshot lives out of band in S3, where the cost profile is a different question with a different answer.
+**Inline the rows in the event payload.** Rejected — the same reasoning as ADR-0036's rejection of per-event row manifests, sharpened: a large submission's rows run to tens of megabytes, which Mongo's 16MB document limit rules out and which would bloat the stream's hot partition scans. Note this ADR does _not_ reverse that rejection: ADR-0036 priced carrying row data **in stream documents**; the snapshot lives out of band in S3, where the cost profile is a different question with a different answer.
+
+**Carry an explicit snapshot reference in the event payload** (`snapshot: { uri, contentHash, rowCount }`). Rejected: the `summaryLogId` the payload already carries addresses the snapshot deterministically, so the reference adds stream-schema surface without adding reachability — and a URI bakes storage layout into immutable events, where a derivation rule can be versioned in code. The one substantive loss is the in-event `contentHash`: an immutable attestation of exactly which bytes were committed, which a key-derivation convention cannot give. If audit comes to need that attestation, a hash field is an additive payload change; unpicking a baked-in URI is not.
 
 **Content-addressed row storage (git-style structural sharing).** Each submission stores a manifest of `rowId → contentHash`; unchanged rows share blobs across submissions, giving near-perfect dedup of the restatement redundancy. Rejected as unjustified machinery: restatement makes naive snapshots quadratic-ish per registration (a weekly uploader ending the year at 10,000 rows stores roughly 260,000 row copies), but restated rows compress extremely well and S3 economics make the difference immaterial — tens of gigabytes across the estate in the worst case, against the operational cost of a two-level fetch and hash maintenance. Revisit only if the measured numbers surprise.
 
