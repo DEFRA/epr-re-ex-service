@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: nginxproxy/nginx-proxy:1.10
+    image: nginxproxy/nginx-proxy:1.11
     ports:
       - '7300:80'
     environment:
@@ -25,7 +25,7 @@ services:
       - cdp-tenant
 
   floci-init:
-    image: amazon/aws-cli:2.34.53
+    image: amazon/aws-cli:2.34.64
     entrypoint: /bin/sh
     command: /setup/init.sh
     depends_on:
