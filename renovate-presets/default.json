@@ -34,6 +34,15 @@
         "!kindest/node"
       ],
       "groupName": "Node.js"
+    },
+    {
+      "matchDatasources": ["node-version"],
+      "matchPackageNames": ["node"],
+      "postUpgradeTasks": {
+        "commands": ["npm install --package-lock-only --ignore-scripts"],
+        "fileFilters": ["package-lock.json"],
+        "executionMode": "branch"
+      }
     }
   ]
 }
