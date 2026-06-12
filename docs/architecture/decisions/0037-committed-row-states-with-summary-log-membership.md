@@ -43,6 +43,8 @@ Row state is keyed by the template's headers, exactly as extracted. The headers 
 
 Values of schema-defined fields are **coerced** per the table schema (dates, numbers) at write time; verbatim columns are stored as extracted. The raw operator-typed original remains available in the retained workbook; the row state is the query-ready form, and coerced values are what make the unchanged/changed comparison below semantic rather than byte-level for every field the backend understands.
 
+Coercing at write also pins interpretation to the commit point. The event's `creditTotal` is derived from the coerced values, so the row state and the stream record the same reading of the workbook and stay consistent however coercion rules later evolve. Coercing at read would let a committed submission's meaning drift away from the balance the stream already recorded; under the ledger, a reinterpretation that matters is a new event, not a silent change to what a committed submission said.
+
 At submission time, after extraction and validation and before the event append, each row of the workbook is compared against the state tagged with the partition's **latest committed** `summaryLogId` — never against the last write:
 
 - **Unchanged** → `$addToSet` the new `summaryLogId` onto the existing state document.
@@ -130,7 +132,7 @@ Row-level reads need no separate machinery: a row's current committed value is i
 - **Correctness is disciplinary, not structural.** The invariants — state documents never mutate, membership arrays only grow, comparison anchors to the committed head, every write is an idempotent upsert — live in write-path code. A bug can violate them in place; they need contract-test enforcement.
 - **The commit path keeps a many-document bulk write** (one operation per row) ahead of the event append — the same cost the submission path pays today.
 - **Membership arrays and the multikey index grow without bound** — one entry per row per submission, small individually, accumulating for as long as a registration keeps submitting. Compaction is available if measured growth ever surprises.
-- **Coercion becomes load-bearing at write time.** A coercion bug bakes into stored states; fixes mean rewriting affected documents, rebuildable from the retained workbooks (always possible, never automatic).
+- **Coercion becomes load-bearing at write time.** A coercion bug bakes into stored states. Rebuilding affected documents from the retained workbooks is always possible, never automatic — and where the corrected values differ in fields the stream has already aggregated, the correction itself belongs on the stream rather than in a silent rewrite of committed history.
 - **Inert garbage accumulates.** Failed submissions leave unreachable documents and memberships; harmless to every committed read, but a sweep belongs to operational hygiene.
 
 ## Out of scope
