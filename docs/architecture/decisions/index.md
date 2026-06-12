@@ -36,3 +36,4 @@
 * [34. Multi-year accreditation model](0034-multi-year-accreditation-model.md)
 * [35. Read organisation data with Basic Auth](0035-read-organisation-data-with-basic-auth.md)
 * [36. Event-sourced waste balance stream](0036-event-sourced-waste-balance-stream.md)
+* [37. Per-submission row snapshots committed by the stream](0037-per-submission-row-snapshots.md)
