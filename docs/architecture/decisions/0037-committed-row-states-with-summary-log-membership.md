@@ -27,7 +27,7 @@ Together these mean **each committed submission carries the registration's compl
 
 Restatement also means most rows are restated _unchanged_, submission after submission. The existing sparse versions are an optimisation aimed at exactly that redundancy, but they pay for it in reconstructability: diffs only mean something relative to what was last written. The shape this ADR chooses keeps the deduplication while staying directly readable.
 
-One further shaping consideration: operator-facing access to individual rows — drilling into a row and its history — is under consideration as a possibility. The committed-state mechanism should serve per-row reads as readily as whole-submission ones, without separate machinery.
+One further shaping consideration: operator-facing access to individual rows — drilling into a row and its history — is under consideration as a possibility. The committed-state mechanism should serve per-row reads as readily as whole-submission ones, without separate machinery. Part of a row's story is whether it counted towards the balance and why not if it didn't — today that judgement is computed during validation and discarded once `creditTotal` is summed, so neither operators nor anyone else can see which rows an event's credit came from.
 
 ## Decision
 
@@ -36,7 +36,7 @@ One further shaping consideration: operator-facing access to individual rows —
 A new collection holds **one document per distinct state of each row**: the row content, the row's identity, and a `summaryLogIds` array listing every submission for which this state is the row's content.
 
 ```
-{ orgId, registrationId, wasteRecordType, rowId, data: { …coerced row… }, summaryLogIds: [ … ] }
+{ orgId, registrationId, wasteRecordType, rowId, data: { …coerced row… }, classification: { outcome, reasons, amount }, summaryLogIds: [ … ] }
 ```
 
 Row state is keyed by the template's headers, exactly as extracted — the same keys the waste-record `data` field carries today. The headers are hidden in the template, decoupled from the labels operators see: they are already the canonical field names, the interface between the template and the backend, and this ADR introduces no mapping onto another key set. As today, the backend defines only the columns it needs for validation or downstream meaning (waste balance, reporting), and every other column is recorded verbatim — table schemas deliberately accept unknown columns so templates can grow without a coordinated release, and those columns are shared with regulators when they investigate — so the row state must not drop them.
@@ -50,9 +50,19 @@ At submission time, after extraction and validation and before the event append,
 - **Unchanged** → `$addToSet` the new `summaryLogId` onto the existing state document.
 - **Changed or new** → insert a new state document whose membership array starts with the new `summaryLogId`.
 
-Every write is an idempotent upsert keyed by row identity and content, so a retry re-applies as a no-op. State documents are never mutated once written — `data` is immutable and membership arrays only gain entries.
+Every write is an idempotent upsert keyed by row identity, content and classification, so a retry re-applies as a no-op. State documents are never mutated once written — `data` and `classification` are immutable and membership arrays only gain entries.
 
-Deduplication falls out of the shape: document count grows with _distinct states_ (rows plus corrections), not rows × submissions. The restatement redundancy costs an array entry and a multikey index entry per row per submission, both small.
+Deduplication falls out of the shape: document count grows with _distinct states_ (rows plus corrections and reclassifications), not rows × submissions. The restatement redundancy costs an array entry and a multikey index entry per row per submission, both small.
+
+### Classification is part of the state
+
+Each state document records the **reading** that produced the submission's credit alongside the content: the waste-balance classification — outcome (included, excluded, ignored), machine-readable reason codes, and the amount the row contributed. The validation pipeline computes all of this already; today it is discarded once `creditTotal` is summed. Classification is not a pure function of row content — it reads context (accreditation validity, overseas-site approval state) — so it cannot be recomputed from a stored row later without risking disagreement with the credit the stream recorded. Stamping it at write is the same argument as coercing at write: the committed states record the reading that produced the committed total.
+
+A row whose content is unchanged but whose reading has changed — an overseas site approved between submissions, say — gets a new state document, exactly like a content correction, and the flip is visible in the row's history.
+
+This makes `creditTotal` decomposable: the included states in a submission's membership, with their stamped amounts, reproduce the total its event recorded — a contract-testable invariant. It also serves the operator-facing possibility directly: "why didn't this row count" becomes a stored, committed fact with a reason code rather than a recomputation.
+
+Context changes commit nothing by themselves. A reading changes only at the next commit, when the comparison re-runs under the now-current context — today that is the operator's next submission, whose cumulative restatement re-reads every row. Until then the stored reading remains the true committed answer, in agreement with the balance; any "this row would count now" hint a UI wants to give is a read-time preview against current context, not stored state.
 
 ### Commit point and addressing
 
@@ -65,6 +75,8 @@ The `summary-log-submitted` event payload is unchanged from ADR-0036:
 Membership is the address: the complete row state for committed submission S is `find({ summaryLogIds: S })`, served by a multikey index on the array.
 
 The commit point is unchanged from ADR-0036: **the event append**. No event, no submission — and no reachable row state: memberships and documents tagged only with an uncommitted `summaryLogId` are inert, because committed reads only ever query for ids that are on the stream. This kills failure modes 1 and 2 above structurally: a failed or stale writer cannot mutate any existing state — it can only add inert memberships or insert inert documents — and because the change comparison anchors to the committed head, its leftovers cannot poison the next submission's writes either.
+
+Today the summary-log submission is the only commit type, so membership ids are `summaryLogId`s. Strictly, other changes affect the balance too — an overseas-site approval, an accreditation suspension — and relying on the operator's next upload to surface them is an acknowledged workaround. If they are modelled as ledger events in future, their commits join the membership id space, with the same obligation a submission meets: restate the whole partition's memberships, so that any commit id's membership remains the complete row state as of that commit and one-query addressing survives. Modelling those events is out of scope; this note records that the shape is open to them.
 
 ### Every submission appends an event
 
@@ -121,7 +133,8 @@ Row-level reads need no separate machinery: a row's current committed value is i
 
 - **Additive rollout.** Stages 1 and 2 add documents and move readers without touching the existing write path; nothing breaks for consumers that haven't migrated, and the write-side retirement happens only once nothing depends on what it removes.
 - **"Values as of the last submission" becomes a first-class read** — one event lookup plus one indexed query, with the ledger as the sole authority on what was last submitted. Failure modes 1, 2, 4 and 5 from the PAE-1560 investigation die at once rather than being patched individually; header naming stays the template-interface concern it is today.
-- **Row-level access comes for free.** Current value, point-in-time value, and full history of any row are all queries on the same collection — the operator-facing row view under consideration needs no separate read model.
+- **Row-level access comes for free.** Current value, point-in-time value, full history, and whether and why a row counted towards the balance are all queries on the same collection — the operator-facing row view under consideration needs no separate read model.
+- **`creditTotal` becomes decomposable.** The included states in a submission's membership, with their stamped amounts, reproduce the event's total; an excluded row carries the reason it didn't count.
 - **The canonicity walk and sparse version chains retire.** The subtlest part of ADR-0036's row-level design is no longer load-bearing.
 - **Export values stabilise.** Coerced values mean a column in the export holds one type, so a single-column sum means one thing.
 - **Committed row state lives where the rest of the data lives** — directly queryable, with no projection to keep fresh.
@@ -132,7 +145,7 @@ Row-level reads need no separate machinery: a row's current committed value is i
 - **Correctness is disciplinary, not structural.** The invariants — state documents never mutate, membership arrays only grow, comparison anchors to the committed head, every write is an idempotent upsert — live in write-path code. A bug can violate them in place; they need contract-test enforcement.
 - **The commit path keeps a many-document bulk write** (one operation per row) ahead of the event append — the same cost the submission path pays today.
 - **Membership arrays and the multikey index grow without bound** — one entry per row per submission, small individually, accumulating for as long as a registration keeps submitting. Compaction is available if measured growth ever surprises.
-- **Coercion becomes load-bearing at write time.** A coercion bug bakes into stored states. Rebuilding affected documents from the retained workbooks is always possible, never automatic — and where the corrected values differ in fields the stream has already aggregated, the correction itself belongs on the stream rather than in a silent rewrite of committed history.
+- **Coercion and classification become load-bearing at write time.** A coercion or classification bug bakes into stored states. Rebuilding affected documents from the retained workbooks is always possible, never automatic — and where the corrected values differ in what the stream has already aggregated, the correction itself belongs on the stream rather than in a silent rewrite of committed history.
 - **Inert garbage accumulates.** Failed submissions leave unreachable documents and memberships; harmless to every committed read, but a sweep belongs to operational hygiene.
 
 ## Out of scope
