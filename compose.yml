@@ -367,7 +367,7 @@ services:
 
   selenium-chrome:
     profiles: ['all', 'journey-test']
-    image: selenium/standalone-chrome:147.0
+    image: selenium/standalone-chrome:148.0
     platform: linux/amd64
     ports:
       - 4444:4444
