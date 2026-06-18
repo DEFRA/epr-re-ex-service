@@ -78,6 +78,74 @@ The commit point is unchanged from ADR-0036: **the event append**. No event, no 
 
 Today the summary-log submission is the only commit type, so membership ids are `summaryLogId`s. Strictly, other changes affect the balance too — an overseas-site approval, an accreditation suspension — and relying on the operator's next upload to surface them is an acknowledged workaround. If they are modelled as ledger events in future, their commits join the membership id space, with the same obligation a submission meets: restate the whole partition's memberships, so that any commit id's membership remains the complete row state as of that commit and one-query addressing survives. Modelling those events is out of scope; this note records that the shape is open to them.
 
+### Worked example
+
+An accredited exporter registration submits twice. Field keys are the template's hidden headers, exactly as stored today (`ROW_ID`, `TONNAGE_RECEIVED_FOR_EXPORT`, `OSR_ID`, …); the row's `data` is shown abbreviated to the columns that carry the example.
+
+**April submission** (`summaryLogId: "sl-2026-04"`) — two export rows. `EX-001` goes to an approved overseas site; `EX-002` goes to site `OSR-77`, which is **not yet approved**, so validation classifies it `EXCLUDED` and it contributes nothing to the credit.
+
+Two state documents are written, each with April in its membership array:
+
+```
+{
+  orgId: "org-acme", registrationId: "reg-export-1", wasteRecordType: "exported", rowId: "EX-001",
+  data: { ROW_ID: "EX-001", EWC_CODE: "150106", OSR_ID: "OSR-12", TONNAGE_RECEIVED_FOR_EXPORT: 120, DATE_OF_EXPORT: "2026-04-12" },
+  classification: { outcome: "INCLUDED", reasons: [], amount: 120 },
+  summaryLogIds: ["sl-2026-04"]
+}
+{
+  orgId: "org-acme", registrationId: "reg-export-1", wasteRecordType: "exported", rowId: "EX-002",
+  data: { ROW_ID: "EX-002", EWC_CODE: "150106", OSR_ID: "OSR-77", TONNAGE_RECEIVED_FOR_EXPORT: 80, DATE_OF_EXPORT: "2026-04-20" },
+  classification: { outcome: "EXCLUDED", reasons: [{ code: "ORS_NOT_APPROVED" }], amount: 0 },
+  summaryLogIds: ["sl-2026-04"]
+}
+```
+
+The commit is the event, whose `creditTotal` is the sum of the included amounts (just `EX-001`):
+
+```
+{
+  registrationId: "reg-export-1", accreditationId: "acc-1", organisationId: "org-acme",
+  number: 1, kind: "summary-log-submitted",
+  payload: { summaryLogId: "sl-2026-04", creditTotal: 120 },
+  openingBalance: { amount: 0, availableAmount: 0 },
+  closingBalance: { amount: 120, availableAmount: 120 }
+}
+```
+
+**May submission** (`summaryLogId: "sl-2026-05"`) — cumulative restatement of every load to date. Between the two returns `OSR-77` was approved. `EX-001` is restated unchanged; `EX-002` has identical content but now reads `INCLUDED`; a new row `EX-003` appears. Each row is compared against the state tagged with the latest committed id (April), never the last write:
+
+- `EX-001` — content and reading both unchanged → `$addToSet "sl-2026-05"` onto the existing document.
+- `EX-002` — content unchanged but the **reading** changed (site now approved) → a new state document; the April document is untouched.
+- `EX-003` — new row → a new state document.
+
+The collection now holds four documents:
+
+```
+{ …EX-001…, classification: { outcome: "INCLUDED", reasons: [], amount: 120 },
+  summaryLogIds: ["sl-2026-04", "sl-2026-05"] }            // one doc, two memberships — restated unchanged
+
+{ …EX-002…, classification: { outcome: "EXCLUDED", reasons: [{ code: "ORS_NOT_APPROVED" }], amount: 0 },
+  summaryLogIds: ["sl-2026-04"] }                          // April state — immutable, keeps April only
+
+{ …EX-002…, classification: { outcome: "INCLUDED", reasons: [], amount: 80 },
+  summaryLogIds: ["sl-2026-05"] }                          // May state — same content, new reading
+
+{ …EX-003…, classification: { outcome: "INCLUDED", reasons: [], amount: 50 },
+  summaryLogIds: ["sl-2026-05"] }
+```
+
+The May event records `creditTotal: 250`, closing balance `250`.
+
+What the shape buys, read off these documents:
+
+- **Values as of the last submission.** `find({ summaryLogIds: "sl-2026-05" })` returns `EX-001`, the May `EX-002`, and `EX-003` — the whole row state, no fold across submissions.
+- **`creditTotal` is decomposable.** The included states tagged `sl-2026-05` are `120 + 80 + 50 = 250`, reproducing the event's total — a contract-testable invariant.
+- **"Why didn't it count?" is a stored fact.** `EX-002` did not count in April because of `ORS_NOT_APPROVED`, recorded on its April state — not recomputed at read time, so it cannot disagree with the credit the April event actually recorded.
+- **Row history comes for free.** `EX-002`'s two state documents, ordered by the stream position of their memberships, show the `EXCLUDED → INCLUDED` flip and the approval behind it.
+
+A submission that never commits leaves documents tagged only with its `summaryLogId`; because no event names that id, no committed read ever queries it, and the leftovers are inert.
+
 ### Every submission appends an event
 
 Today the live path only appends `summary-log-submitted` events for accredited registrations. Registered-only submissions must also append events, on the `(registrationId, null)` partition the stream schema already admits. Their balance effect stays as ADR-0036 left it (a product decision; zero under the current choice) — their purpose here is commit marking, which every submission needs regardless of balance: the event is what makes the submission's row states reachable.
