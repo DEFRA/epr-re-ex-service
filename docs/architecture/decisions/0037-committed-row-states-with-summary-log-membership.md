@@ -4,7 +4,7 @@ Date: 2026-06-12
 
 ## Status
 
-Proposed. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of committed row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once committed-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage.
+Accepted. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of committed row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once committed-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage.
 
 ## Context
 
