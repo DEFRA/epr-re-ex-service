@@ -127,7 +127,7 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 
 ## Out of scope
 
-- **Frontend label derivation and screens.** Owned by the frontend ([defra-o5tb](https://eaflood.atlassian.net/browse/PAE-1541) and related work).
+- **Frontend label derivation and screens.** Owned by the frontend ([PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related work).
 - **Operator-initiated corrections with no late records detected.** This ADR's trigger is detection-driven only.
 - **Notifying the operator** that a resubmission is required (email, dashboard alerts).
 - **Resubmission of registered-only periods** beyond what the shared flow already covers.
