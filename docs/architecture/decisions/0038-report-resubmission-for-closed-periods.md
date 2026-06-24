@@ -34,16 +34,16 @@ Model a resubmission as **another report for the same period at the next `submis
 
 Submission 2 is an ordinary report document with `submissionNumber = 2`, moving through the same `in_progress -> ready_to_submit -> submitted` flow, gated by the same completeness check. `report-status.js` and `report-transitions.js` are untouched.
 
-Everything the frontend needs to distinguish a correction is derivable from `(currentStatus, submissionNumber)` plus the flag below. The two-list "Action required" / "Submitted" presentation, including a period appearing in _both_ lists mid-correction, falls straight out of the existing `current` / `previousSubmissions` split:
+Everything needed to distinguish a correction is derivable from `(currentStatus, submissionNumber)` plus the flag below. Where that derivation runs, in each frontend or surfaced ready-made from this service, is left open (see [Consequences](#consequences)); either way the same inputs produce the same labels. The two-list "Action required" / "Submitted" presentation, including a period appearing in _both_ lists mid-correction, falls straight out of the existing `current` / `previousSubmissions` split:
 
-| Frontend label        | Derivation                                                                 |
+| Derived label         | Derivation                                                                 |
 | --------------------- | -------------------------------------------------------------------------- |
 | Ready to submit       | `currentStatus = ready_to_submit`                                          |
 | Requires resubmission | latest submitted report carries the resubmission flag, no active draft yet |
 | Submitted             | latest submitted report, `submissionNumber = 1`                            |
 | Resubmitted           | latest submitted report, `submissionNumber > 1`                            |
 
-"Requires resubmission" and "Resubmitted" are therefore **presentation labels, not stored states.** When submission 2 is submitted, it becomes the period's latest submitted report and the same `submissionNumber > 1` rule re-derives its label as "Resubmitted". No data is rewritten; the labels simply re-derive.
+"Requires resubmission" and "Resubmitted" are therefore **presentation labels, not stored states.** When submission 2 is submitted, it becomes the period's latest submitted report and the same `submissionNumber > 1` rule re-derives its label as "Resubmitted". No data is rewritten; the labels simply re-derive. This holds regardless of whether the derivation runs in the frontend or in this service.
 
 ### The `resubmissionRequired` flag, kept separate from `stale`
 
@@ -123,11 +123,11 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 
 - **Submitted reports are no longer strictly immutable.** A dedicated, narrowly-scoped operation can set the resubmission flag on them. This is controlled mutation analogous to `markActiveReportsStale`, but it does loosen the "submitted reports are frozen" invariant.
 - **Two similarly-shaped fields (`stale`, `resubmissionRequired`) coexist** on report documents. Their distinct meaning has to be understood; the symmetry that aids consistency could invite future conflation if not documented (this ADR is that documentation).
-- **The frontend owns label derivation.** "Requires resubmission" and "Resubmitted" are computed in the frontend from `(currentStatus, submissionNumber)` and the flag, so the rules live outside this service and must be kept in step with it.
+- **Where label derivation lives is an open decision.** "Requires resubmission" and "Resubmitted" are computed from `(currentStatus, submissionNumber)` and the flag, but whether that computation runs in each frontend or is surfaced ready-made from this service is not settled here. Deriving in the frontend is the cheapest path to release and fits the existing operator reports list, which already derives a `Due` status the backend never sends and splits periods into "Action required" and "Submitted"; the cost is that the rules then live in both the operator and CMA frontends and must be kept in step with this service. Surfacing the labels from the backend keeps a single source of truth at the cost of additional API surface. The underlying state machine is identical either way.
 
 ## Out of scope
 
-- **Frontend label derivation and screens.** Owned by the frontend ([PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related work).
+- **Label derivation and screens.** The presentation rules, and the choice of where they run (see [Consequences](#consequences)), are owned by the frontend work ([PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related) and not settled here.
 - **Operator-initiated corrections with no late records detected.** This ADR's trigger is detection-driven only.
 - **Notifying the operator** that a resubmission is required (email, dashboard alerts).
 - **Resubmission of registered-only periods** beyond what the shared flow already covers.
