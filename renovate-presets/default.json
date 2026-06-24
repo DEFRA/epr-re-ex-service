@@ -46,6 +46,12 @@
         "fileFilters": ["package-lock.json"],
         "executionMode": "branch"
       }
+    },
+    {
+      "description": "Exempt the official node base image from minimumReleaseAge so the Dockerfile bumps in lockstep with the node-version files; the node-version datasource already enforces 3-day maturity on the release, and frequent Alpine image rebuilds would otherwise re-trigger cooldown and split the Node.js group into broken half-updates",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "minimumReleaseAge": "0 days"
     }
   ]
 }
