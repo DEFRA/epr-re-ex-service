@@ -116,7 +116,7 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 - **No new lifecycle states.** The report state machine, transition guard, and completeness gate are untouched; a correction reuses the exact flow operators already know.
 - **Minimal stored state.** One flag, shaped like its existing sibling, drives the whole operator-facing prompt.
 - **Trivially idempotent detection.** Re-uploading the same summary log re-flags nothing.
-- **The latest submission is the period's truth** via the existing `current` pointer; downstream needs no new plumbing.
+- **The latest submission is the period's truth** via the existing `current` pointer. This needs no new plumbing at the document-read level, though the period projections built on `mergeReportingPeriods` do need work (see [Impact on reports and consumers](#impact-on-reports-and-consumers)).
 - **The operator is the actor** for both creation and submission of the correction; no system identity is introduced.
 
 ### Negative
@@ -124,6 +124,41 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 - **Submitted reports are no longer strictly immutable.** A dedicated, narrowly-scoped operation can set the resubmission flag on them. This is controlled mutation analogous to `markActiveReportsStale`, but it does loosen the "submitted reports are frozen" invariant.
 - **Two similarly-shaped fields (`stale`, `resubmissionRequired`) coexist** on report documents. Their distinct meaning has to be understood; the symmetry that aids consistency could invite future conflation if not documented (this ADR is that documentation).
 - **Where label derivation lives is an open decision.** "Requires resubmission" and "Resubmitted" are computed from `(currentStatus, submissionNumber)` and the flag, but whether that computation runs in each frontend or is surfaced ready-made from this service is not settled here. Deriving in the frontend is the cheapest path to release and fits the existing operator reports list, which already derives a `Due` status the backend never sends and splits periods into "Action required" and "Submitted"; the cost is that the rules then live in both the operator and CMA frontends and must be kept in step with this service. Surfacing the labels from the backend keeps a single source of truth at the cost of additional API surface. The underlying state machine is identical either way.
+
+## Impact on reports and consumers
+
+The report document model is unchanged, so consumers that read a single report by id, or that already read the `current` / `previousSubmissions` split, are unaffected. The period projections built on `mergeReportingPeriods` are not: that helper sets `report: slot.current` for a period _regardless of the current report's status_ (`merge-reporting-periods.js`), so an in-flight submission 2 draft masks the last submitted report.
+
+During a correction the system is briefly inconsistent: `buildSubmittedPeriods` still counts the period as submitted (it checks `current.status === submitted` _or_ any `previousSubmissions`, `submitted-periods.js`), while the `mergeReportingPeriods` projections below report it as unsubmitted, because they read only `current`.
+
+Three reports generated from `epr-backend` inherit this. The fixes are not part of this ADR's backend work and each needs its own ticket.
+
+### Admin registration overview (tracked: PAE-1657)
+
+The regulator's registration-overview screen (`epr-re-ex-admin-frontend`) sources only `GET .../reports/calendar`, which collapses each period to `current` and discards `previousSubmissions`. With more than one submission per period this:
+
+- flips the period from a submitted tag to `in_progress` the moment submission 2 is started, with submission 1 disappearing and no trace or explanation,
+- leaves previous submissions unreachable (no submissions list; the report view renders one submission with no submission-number label or navigation),
+- never shows the submission number on the unsubmit confirm and result pages.
+
+**Remedial action.** Include a lightweight `submissions[]` summary in the per-period calendar payload, render prior submissions as reachable rows labelled by submission number, and label the number on the report and unsubmit screens (visibility and reachability only). Depends on the `shared.js` `submissionNumber` `valid(1) -> min(1)` relaxation in this ADR's backend work, so per-submission links resolve. Tracked as [PAE-1657](https://eaflood.atlassian.net/browse/PAE-1657).
+
+### Regulator report-submissions feed (ticket needed)
+
+`GET /v1/organisations/reports/submissions` (`report-submissions.js`) produces a flat, regulator-facing export with one row per period (regulator, full tonnage breakdown, submitter contacts, submitted date and submitter). Each row is built from `mergeReportingPeriods`, so:
+
+- **Mid-correction regression.** While submission 2 is an `in_progress` draft, `current` is that draft, so the row's tonnage fields and `submittedDate` / `submittedBy` go blank: the period regresses from "submitted with figures" to an empty in-progress row for the duration of the correction.
+- **Silent supersession.** Once submission 2 is submitted the row reflects submission 2's figures only; submission 1 is dropped from the export, and there is no submission-number or resubmission column, so a regulator consuming the feed cannot tell a period was resubmitted or recover the original figures.
+
+### Public register (ticket needed)
+
+The public register CSV embeds a submitted date per period, sourced from `generateReportCompliance` (`report-compliance.js`), which is likewise built on `mergeReportingPeriods` and reads `current.submittedAt`. While submission 2 is in progress the period's date column blanks (the draft has no `submittedAt`), so the public register transiently shows a previously-submitted period as not submitted, resolving to submission 2's date once submitted. As a public-facing artefact, this transient regression matters more than its private equivalents.
+
+**Remedial action (feed and public register).** A single backend change addresses both: in these projections select the latest _submitted_ report (or expose the latest submitted separately from the latest draft) rather than the unconditional `current`, so an in-flight draft never masks the last submitted figures; then decide whether superseded submissions warrant their own rows or a submission-number column. Neither is tracked yet; each needs a ticket.
+
+### Not affected
+
+`waste-records-export.csv`, `tonnage-monitoring`, `prn-tonnage` (it aggregates the `packaging-recycling-notes` collection) and the summary-log-uploads report do not read submitted report documents.
 
 ## Out of scope
 
@@ -140,3 +175,4 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 - [PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649) - operator sees reports that require resubmission on the Reports landing page, the most direct consumer of this ADR's label derivation
 - [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650) - operator creates a draft for a report that requires resubmission, the lazy-create CTA this ADR describes
 - [PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) - the CMA check-page resubmission banner that depends on this functionality
+- [PAE-1657](https://eaflood.atlassian.net/browse/PAE-1657) - admin registration overview made multi-submission aware (see [Impact on reports and consumers](#impact-on-reports-and-consumers))
