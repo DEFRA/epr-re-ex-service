@@ -127,7 +127,7 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 
 ## Out of scope
 
-- **Label derivation and screens.** The presentation rules, and the choice of where they run (see [Consequences](#consequences)), are owned by the frontend work ([PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related) and not settled here.
+- **Label derivation and screens.** The presentation rules, and the choice of where they run (see [Consequences](#consequences)), are owned by the frontend work ([PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649), [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650), [PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related) and not settled here.
 - **Operator-initiated corrections with no late records detected.** This ADR's trigger is detection-driven only.
 - **Notifying the operator** that a resubmission is required (email, dashboard alerts).
 - **Resubmission of registered-only periods** beyond what the shared flow already covers.
@@ -137,4 +137,6 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 - [ADR-0028](./0028-reporting-api-and-due-rules.md) - the reporting API, report lifecycle, and due rules this builds on
 - [ADR-0037](./0037-committed-row-states-with-summary-log-membership.md) - cumulative restatement, the property that lets a later summary log restate loads into a closed period
 - [ADR-0036](./0036-event-sourced-waste-balance-stream.md) - the event-sourced stream that records each summary-log submission
+- [PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649) - operator sees reports that require resubmission on the Reports landing page, the most direct consumer of this ADR's label derivation
+- [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650) - operator creates a draft for a report that requires resubmission, the lazy-create CTA this ADR describes
 - [PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) - the CMA check-page resubmission banner that depends on this functionality
