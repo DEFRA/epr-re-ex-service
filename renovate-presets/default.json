@@ -46,6 +46,13 @@
         "fileFilters": ["package-lock.json"],
         "executionMode": "branch"
       }
+    },
+    {
+      "description": "Manage the official node base image: exempt it from minimumReleaseAge so it bumps in lockstep with the node-version files (the node-version datasource already enforces 3-day maturity on the release), and pin the image digest so the exact image is locked and every node/alpine/digest change arrives as a reviewable PR",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "minimumReleaseAge": "0 days",
+      "pinDigests": true
     }
   ]
 }
