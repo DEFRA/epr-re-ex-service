@@ -56,7 +56,9 @@ updates:
 
   # Update GitHub Actions
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
 
     # Schedule run nightly
     schedule:
