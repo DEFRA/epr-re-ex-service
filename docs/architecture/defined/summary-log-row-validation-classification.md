@@ -37,14 +37,14 @@ This is the only business rule applied during row classification. The remaining 
 
 When the Waste Balance is calculated, each INCLUDED row is re-assessed with the accreditation period and overseas-site approval state applied. A row contributes its tonnage only if it passes every rule; otherwise it carries a specific reason and contributes nothing:
 
-| Reason                         | Outcome  | Description                                                                                                       |
-| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | The load date falls outside the accreditation period (VAL013). Applies to exporters and reprocessors.             |
-| `MISSING_REQUIRED_FIELD`       | EXCLUDED | A field required for the Waste Balance is absent (the same check as VAL011).                                      |
-| `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste. Applies to exporters.                                        |
-| `ORS_NOT_APPROVED`             | EXCLUDED | The overseas reprocessing site was not approved as at the date of export. Applies to exporters.                   |
-| `ORS_NOT_FOUND`                | EXCLUDED | The OSR_ID is not one of the registration's overseas sites, so no approval can be resolved. Applies to exporters. |
-| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation. Applies to reprocessors.                 |
+| Reason                         | Outcome  | Description                                                                                                                |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | The load date falls outside the accreditation period (VAL013). Applies to exporters and reprocessors.                      |
+| `MISSING_REQUIRED_FIELD`       | EXCLUDED | A field required for the Waste Balance is absent (the same check as VAL011).                                               |
+| `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste. Applies to exporters.                                                 |
+| `ORS_NOT_APPROVED`             | EXCLUDED | The overseas reprocessing site was not approved as at the date of export (VAL014). Applies to exporters.                   |
+| `ORS_NOT_FOUND`                | EXCLUDED | The OSR_ID is not one of the registration's overseas sites, so no approval can be resolved (VAL015). Applies to exporters. |
+| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation. Applies to reprocessors.                          |
 
 Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure".
 
@@ -115,6 +115,8 @@ The checks are evaluated across the two stages:
 | VAL011     | WR18, WR19, WR20    | PAE-475, PAE-476, PAE-477 | Implemented     |
 | VAL012     | WR33                | -                         | Not implemented |
 | VAL013     | -                   | -                         | Implemented     |
+| VAL014     | -                   | -                         | Implemented     |
+| VAL015     | -                   | PAE-1647                  | Implemented     |
 
 ## Additional Context
 
@@ -123,3 +125,12 @@ The checks are evaluated across the two stages:
 VAL012 (WR33) is a planned check that would prevent Summary Log submission entirely while a Monthly Report is in a "pending" state (any state prior to "Approved") against the same accreditation.
 
 It is **not implemented** in the backend. The behaviour described here is the intended design, not current behaviour; today no Monthly Report state blocks Summary Log submission.
+
+### VAL014 and VAL015: Overseas reprocessing site checks (exporters)
+
+For exporters, each load names an OSR_ID that must resolve to one of the registration's overseas reprocessing sites, and that site must be approved as at the date of export. These are two separate checks with distinct reasons:
+
+- **VAL014 (`ORS_NOT_APPROVED`)** - the OSR_ID resolves to a registered overseas site, but its approval does not yet cover the date of export (the site has no approval date, or one later than the export date). This is a timing failure; the site is known, it is simply not approved at that point in time.
+- **VAL015 (`ORS_NOT_FOUND`)** - the OSR_ID is not one of the registration's overseas sites at all, so there is no site against which to resolve approval. This is a membership failure, typically a data-entry error in the OSR_ID rather than an approval-timing issue.
+
+Both exclude the row from the Waste Balance at calculation time while leaving it in the submission. Splitting them lets the "Check Before You Submit" screen distinguish "this site is not yet approved" from "this OSR_ID is not recognised", which call for different operator action.
