@@ -1,10 +1,10 @@
-# 38. Report resubmission for closed periods
+# 39. Report resubmission for closed periods
 
 Date: 2026-06-23
 
 ## Status
 
-Accepted.
+Accepted. This ADR was renumbered from 0038 to 0039 so that [ADR-0038](./0038-derive-report-state-in-backend.md) carries the lower number: the principle that the backend derives report status and state is the foundation this work builds on. The open question this ADR left, where the "requires resubmission" and "resubmitted" derivation runs, is settled by ADR-0038 (in the backend, surfaced as first-class API fields).
 
 ## Context
 
@@ -34,7 +34,7 @@ Model a resubmission as **another report for the same period at the next `submis
 
 Submission 2 is an ordinary report document with `submissionNumber = 2`, moving through the same `in_progress -> ready_to_submit -> submitted` flow, gated by the same completeness check. `report-status.js` and `report-transitions.js` are untouched.
 
-Everything needed to distinguish a correction is derivable from `(currentStatus, submissionNumber)` plus the flag below. Where that derivation runs, in each frontend or surfaced ready-made from this service, is left open (see [Consequences](#consequences)); either way the same inputs produce the same labels. The two-list "Action required" / "Submitted" presentation, including a period appearing in _both_ lists mid-correction, falls straight out of the existing `current` / `previousSubmissions` split:
+Everything needed to distinguish a correction is derivable from `(currentStatus, submissionNumber)` plus the flag below. That derivation runs in the backend and is surfaced as first-class API fields (see [ADR-0038](./0038-derive-report-state-in-backend.md)) rather than recomputed in each frontend; the same inputs produce the same labels. The two-list "Action required" / "Submitted" presentation, including a period appearing in _both_ lists mid-correction, falls straight out of the existing `current` / `previousSubmissions` split:
 
 | Derived label         | Derivation                                                                 |
 | --------------------- | -------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ Everything needed to distinguish a correction is derivable from `(currentStatus,
 | Submitted             | latest submitted report, `submissionNumber = 1`                            |
 | Resubmitted           | latest submitted report, `submissionNumber > 1`                            |
 
-"Requires resubmission" and "Resubmitted" are therefore **presentation labels, not stored states.** When submission 2 is submitted, it becomes the period's latest submitted report and the same `submissionNumber > 1` rule re-derives its label as "Resubmitted". No data is rewritten; the labels simply re-derive. This holds regardless of whether the derivation runs in the frontend or in this service.
+"Requires resubmission" and "Resubmitted" are therefore **presentation labels, not stored states.** When submission 2 is submitted, it becomes the period's latest submitted report and the same `submissionNumber > 1` rule re-derives its label as "Resubmitted". No data is rewritten; the labels simply re-derive. [ADR-0038](./0038-derive-report-state-in-backend.md) specifies how this is expressed in the API: a submission-grained calendar where `periodStatus` carries the lifecycle and the resubmission context is an additional item rather than a stored state.
 
 ### The `resubmissionRequired` flag, kept separate from `stale`
 
@@ -83,13 +83,13 @@ The route guard `submissionNumber: Joi...valid(1)` in `reports/routes/shared.js`
 
 ### Reading: precedence for a period's action status
 
-A period's "action required" status is derived in this precedence order:
+A period's action status follows this precedence. Per [ADR-0038](./0038-derive-report-state-in-backend.md) it is computed in the backend and surfaced as `periodStatus` on a submission-grained calendar, rather than re-derived in each frontend:
 
 1. An active draft exists (`in_progress` or `ready_to_submit` at `submissionNumber > latest submitted`): show the draft's status.
 2. Else the latest submitted report carries `resubmissionRequired`: show "Requires resubmission" plus the create CTA.
 3. Else: the period is simply submitted, no action.
 
-Rule 1 winning over rule 2 is what prevents "Requires resubmission" and an in-flight draft showing simultaneously.
+Rule 1 winning over rule 2 is what prevents "Requires resubmission" and an in-flight draft showing simultaneously. In ADR-0038's submission-grained form an active draft and the original submitted report are separate calendar items, so this precedence is expressed structurally rather than as one collapsed status.
 
 ### Controlled mutation of submitted reports
 
@@ -123,7 +123,7 @@ Setting the flag is the first write to an otherwise-frozen submitted report. It 
 
 - **Submitted reports are no longer strictly immutable.** A dedicated, narrowly-scoped operation can set the resubmission flag on them. This is controlled mutation analogous to `markActiveReportsStale`, but it does loosen the "submitted reports are frozen" invariant.
 - **Two similarly-shaped fields (`stale`, `resubmissionRequired`) coexist** on report documents. Their distinct meaning has to be understood; the symmetry that aids consistency could invite future conflation if not documented (this ADR is that documentation).
-- **Where label derivation lives is an open decision.** "Requires resubmission" and "Resubmitted" are computed from `(currentStatus, submissionNumber)` and the flag, but whether that computation runs in each frontend or is surfaced ready-made from this service is not settled here. Deriving in the frontend is the cheapest path to release and fits the existing operator reports list, which already derives a `Due` status the backend never sends and splits periods into "Action required" and "Submitted"; the cost is that the rules then live in both the operator and CMA frontends and must be kept in step with this service. Surfacing the labels from the backend keeps a single source of truth at the cost of additional API surface. The underlying state machine is identical either way.
+- **Backend-derived status adds API surface.** [ADR-0038](./0038-derive-report-state-in-backend.md) settles that this derivation runs in this service and is surfaced as first-class fields, so "Requires resubmission" and "Resubmitted" are computed once rather than kept in step across the operator and CMA frontends. The cost is additional API surface (the submission-grained calendar and `periodStatus`); the underlying state machine is unchanged.
 
 ## Impact on reports and consumers
 
@@ -162,13 +162,14 @@ The public register CSV embeds a submitted date per period, sourced from `genera
 
 ## Out of scope
 
-- **Label derivation and screens.** The presentation rules, and the choice of where they run (see [Consequences](#consequences)), are owned by the frontend work ([PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649), [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650), [PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related) and not settled here.
+- **Screens and presentation.** The screens and presentation rules (tag copy, colour, layout) are owned by the frontend work ([PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649), [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650), [PAE-1541](https://eaflood.atlassian.net/browse/PAE-1541) and related). Where the underlying status is derived is settled by [ADR-0038](./0038-derive-report-state-in-backend.md) (the backend), not here.
 - **Operator-initiated corrections with no late records detected.** This ADR's trigger is detection-driven only.
 - **Notifying the operator** that a resubmission is required (email, dashboard alerts).
 - **Resubmission of registered-only periods** beyond what the shared flow already covers.
 
 ## Related
 
+- [ADR-0038](./0038-derive-report-state-in-backend.md) - derives report status and state in the backend as first-class API fields; settles where the resubmission labels are derived
 - [ADR-0028](./0028-reporting-api-and-due-rules.md) - the reporting API, report lifecycle, and due rules this builds on
 - [ADR-0037](./0037-committed-row-states-with-summary-log-membership.md) - cumulative restatement, the property that lets a later summary log restate loads into a closed period
 - [ADR-0036](./0036-event-sourced-waste-balance-stream.md) - the event-sourced stream that records each summary-log submission
