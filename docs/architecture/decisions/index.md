@@ -37,3 +37,4 @@
 * [35. Read organisation data with Basic Auth](0035-read-organisation-data-with-basic-auth.md)
 * [36. Event-sourced waste balance stream](0036-event-sourced-waste-balance-stream.md)
 * [37. Committed row states with summary-log membership](0037-committed-row-states-with-summary-log-membership.md)
+* [39. Report resubmission for closed periods](0039-report-resubmission-for-closed-periods.md)
