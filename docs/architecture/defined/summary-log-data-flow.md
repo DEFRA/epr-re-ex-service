@@ -55,56 +55,56 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Summary Log Validation reads
 
-| Source | Data used | Purpose |
-| --- | --- | --- |
-| **Registration** | `registrationNumber` | Compared against spreadsheet metadata (FATAL if mismatch) |
-| **Registration** | `wasteProcessingType`, `reprocessingType` | Selects which table schemas and validation rules apply |
-| **Registration** | `material`, `glassRecyclingProcess` | Compared against spreadsheet metadata (FATAL if mismatch) |
-| **Accreditation** | `accreditationNumber` | Compared against spreadsheet metadata (FATAL if mismatch) |
-| **Accreditation** | `validFrom`, `validTo` | Used to mark rows as IGNORED if dates fall outside the period |
-| **Accreditation** | `statusHistory` | Used to mark rows as IGNORED if accreditation was suspended at the load date |
-| **Existing Waste Records** | `type`, `rowId` | Row continuity check — previously submitted rows must not be removed |
-| **Feature flags** | `isRegisteredOnlyEnabled` | Controls whether registered-only template variants are accepted |
-| **Template version thresholds** | Minimum per processing type | Rejects spreadsheets using outdated template versions |
+| Source                          | Data used                                 | Purpose                                                                      |
+| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| **Registration**                | `registrationNumber`                      | Compared against spreadsheet metadata (FATAL if mismatch)                    |
+| **Registration**                | `wasteProcessingType`, `reprocessingType` | Selects which table schemas and validation rules apply                       |
+| **Registration**                | `material`, `glassRecyclingProcess`       | Compared against spreadsheet metadata (FATAL if mismatch)                    |
+| **Accreditation**               | `accreditationNumber`                     | Compared against spreadsheet metadata (FATAL if mismatch)                    |
+| **Accreditation**               | `validFrom`, `validTo`                    | Used to mark rows as IGNORED if dates fall outside the period                |
+| **Accreditation**               | `statusHistory`                           | Used to mark rows as IGNORED if accreditation was suspended at the load date |
+| **Existing Waste Records**      | `type`, `rowId`                           | Row continuity check — previously submitted rows must not be removed         |
+| **Feature flags**               | `isRegisteredOnlyEnabled`                 | Controls whether registered-only template variants are accepted              |
+| **Template version thresholds** | Minimum per processing type               | Rejects spreadsheets using outdated template versions                        |
 
 ### Waste Balance calculation reads
 
-| Source | Data used | Purpose |
-| --- | --- | --- |
-| **Accreditation** | `validFrom`, `validTo` | Date range for row classification (INCLUDED vs IGNORED) |
-| **Accreditation** | `statusHistory` | Suspension check at each load date |
-| **Waste Record data** | Required fields per table | Missing required fields → row EXCLUDED from balance |
-| **Waste Record data** | `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` | If "Yes" → row EXCLUDED (already accounted for) |
-| **Waste Record data** | `ADD_PRODUCT_WEIGHT` (reprocessor output only) | If not "Yes" → row EXCLUDED |
-| **Waste Record data** | `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (exporter only) | Switches which tonnage field is used |
-| **Waste Record data** | Tonnage field (varies by table) | The actual credit or debit amount |
-| **ORS approval data** (exporter only) | ORS `validFrom` date (per accreditation, resolved via `registration.overseasSites`) matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance |
-| **Previous balance event** | `creditTotal` of the prior `summary-log-submitted` event on the stream | The submission's frozen `creditTotal` snapshot is differenced against this to derive the balance delta (see [Waste Balance section](#waste-balance--the-event-sourced-stream)) |
+| Source                                | Data used                                                                                                       | Purpose                                                                                                                                                                                                |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Accreditation**                     | `validFrom`, `validTo`                                                                                          | Date range for row classification (INCLUDED vs IGNORED)                                                                                                                                                |
+| **Accreditation**                     | `statusHistory`                                                                                                 | Suspension check at each load date                                                                                                                                                                     |
+| **Waste Record data**                 | Required fields per table                                                                                       | Missing required fields → row EXCLUDED from balance                                                                                                                                                    |
+| **Waste Record data**                 | `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE`                                                                         | If "Yes" → row EXCLUDED (already accounted for)                                                                                                                                                        |
+| **Waste Record data**                 | `ADD_PRODUCT_WEIGHT` (reprocessor output only)                                                                  | If not "Yes" → row EXCLUDED                                                                                                                                                                            |
+| **Waste Record data**                 | `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (exporter only)                                                        | Switches which tonnage field is used                                                                                                                                                                   |
+| **Waste Record data**                 | Tonnage field (varies by table)                                                                                 | The actual credit or debit amount                                                                                                                                                                      |
+| **ORS approval data** (exporter only) | ORS `validFrom` date (per accreditation, resolved via `registration.overseasSites`) matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance (`ORS_NOT_APPROVED`). An OSR_ID absent from `registration.overseasSites` → row EXCLUDED with `ORS_NOT_FOUND` |
+| **Previous balance event**            | `creditTotal` of the prior `summary-log-submitted` event on the stream                                          | The submission's frozen `creditTotal` snapshot is differenced against this to derive the balance delta (see [Waste Balance section](#waste-balance--the-event-sourced-stream))                         |
 
 ### PRN operations read
 
-| Source | Data used | Purpose |
-| --- | --- | --- |
-| **Waste Balance** | `availableAmount` | Checked at PRN creation — must have sufficient available tonnage |
-| **Waste Balance** | `amount` | Checked at PRN issue — must have sufficient total tonnage |
-| **Accreditation** | `status` | Checked at PRN issue — cannot issue if accreditation is suspended |
-| **Accreditation** | Number, year, material, glass process, site address | Snapshotted into the PRN at creation (never updated) |
-| **Organisation** | `name`, `tradingName` | Snapshotted into the PRN at creation (never updated) |
+| Source            | Data used                                           | Purpose                                                           |
+| ----------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| **Waste Balance** | `availableAmount`                                   | Checked at PRN creation — must have sufficient available tonnage  |
+| **Waste Balance** | `amount`                                            | Checked at PRN issue — must have sufficient total tonnage         |
+| **Accreditation** | `status`                                            | Checked at PRN issue — cannot issue if accreditation is suspended |
+| **Accreditation** | Number, year, material, glass process, site address | Snapshotted into the PRN at creation (never updated)              |
+| **Organisation**  | `name`, `tradingName`                               | Snapshotted into the PRN at creation (never updated)              |
 
 ### Reports read
 
-| Source | Data used | Purpose |
-| --- | --- | --- |
-| **Waste Records** | Date fields (varies by operator category) | Determines which records fall in which reporting period |
-| **Waste Records** | Tonnage fields | Summed for received, exported, sent-on totals |
-| **Waste Records** | `SUPPLIER_NAME`, `ACTIVITIES_CARRIED_OUT_BY_SUPPLIER` | Listed in recycling activity section |
-| **Waste Records** | `OSR_ID` | Groups exported waste by overseas site |
-| **Overseas Sites** (live) | `siteName`, `country` | Resolved from ORS reference data at read time via `getOrsDetailsMap()` |
-| **Waste Records** | `FINAL_DESTINATION_NAME`, `FINAL_DESTINATION_FACILITY_TYPE` | Listed in waste sent section, categorised by facility type |
-| **PRNs** (accredited only) | Tonnage of PRNs with `status.issued.at` in period | PRN issuance data in report |
-| **Registration** | `accreditationId` (present or absent) | Determines cadence: monthly (accredited) or quarterly (registered-only) |
-| **Registration** | `wasteProcessingType` | Determines operator category and which report sections apply |
-| **Registration** | `material`, `site.address` | Appended to report response |
+| Source                     | Data used                                                   | Purpose                                                                 |
+| -------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Waste Records**          | Date fields (varies by operator category)                   | Determines which records fall in which reporting period                 |
+| **Waste Records**          | Tonnage fields                                              | Summed for received, exported, sent-on totals                           |
+| **Waste Records**          | `SUPPLIER_NAME`, `ACTIVITIES_CARRIED_OUT_BY_SUPPLIER`       | Listed in recycling activity section                                    |
+| **Waste Records**          | `OSR_ID`                                                    | Groups exported waste by overseas site                                  |
+| **Overseas Sites** (live)  | `siteName`, `country`                                       | Resolved from ORS reference data at read time via `getOrsDetailsMap()`  |
+| **Waste Records**          | `FINAL_DESTINATION_NAME`, `FINAL_DESTINATION_FACILITY_TYPE` | Listed in waste sent section, categorised by facility type              |
+| **PRNs** (accredited only) | Tonnage of PRNs with `status.issued.at` in period           | PRN issuance data in report                                             |
+| **Registration**           | `accreditationId` (present or absent)                       | Determines cadence: monthly (accredited) or quarterly (registered-only) |
+| **Registration**           | `wasteProcessingType`                                       | Determines operator category and which report sections apply            |
+| **Registration**           | `material`, `site.address`                                  | Appended to report response                                             |
 
 ### Waste Balance — the event-sourced stream
 
@@ -323,20 +323,20 @@ flowchart TD
 
 ## Invalidation Summary
 
-| Change | Waste Records | Waste Balance | Computed Reports | Persisted Reports | PRNs |
-| --- | --- | --- | --- | --- | --- |
-| **Summary Log submitted** | Updated (new versions) | Auto-corrected (creditTotal delta) | Auto-corrected | **Stale** — recreate | — |
-| **PRN created** | — | Auto-corrected (ringfence) | Auto-corrected | — | — |
-| **PRN issued** | — | Auto-corrected (debit) | Auto-corrected | **Stale** — recreate | — |
-| **PRN cancelled** | — | Auto-corrected (reversal) | Auto-corrected | **Stale** — recreate | — |
-| **Accreditation dates changed** | Classification changes | **Stale** until next submission | Auto-corrected | **Stale** — recreate | Retain old snapshot |
-| **Accreditation suspended** | Classification changes | **Stale** until next submission | Auto-corrected | **Stale** — recreate | Issuance blocked |
-| **Registration suspended** | Via accreditation cascade | Via accreditation cascade | Via cascade | Via cascade | Via cascade |
-| **Accreditation granted/removed** | Schema changes | Created or removed | Cadence changes | Historical | — |
-| **Registration details changed** | Unaffected (IDs only) | Unaffected | Site address auto-corrected | — | Retain old snapshot |
-| **Organisation details changed** | Unaffected (IDs only) | Unaffected | Unaffected | Unaffected | Retain old snapshot |
-| **ORS data changed** | Retain old snapshot | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | — |
-| **Pending Report exists** | — | — | — | — | — (submission blocked) |
+| Change                            | Waste Records             | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
+| --------------------------------- | ------------------------- | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
+| **Summary Log submitted**         | Updated (new versions)    | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN created**                   | —                         | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
+| **PRN issued**                    | —                         | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN cancelled**                 | —                         | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
+| **Accreditation dates changed**   | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
+| **Accreditation suspended**       | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
+| **Registration suspended**        | Via accreditation cascade | Via accreditation cascade                               | Via cascade                      | Via cascade          | Via cascade            |
+| **Accreditation granted/removed** | Schema changes            | Created or removed                                      | Cadence changes                  | Historical           | —                      |
+| **Registration details changed**  | Unaffected (IDs only)     | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
+| **Organisation details changed**  | Unaffected (IDs only)     | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
+| **ORS data changed**              | Retain old snapshot       | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
+| **Pending Report exists**         | —                         | —                                                       | —                                | —                    | — (submission blocked) |
 
 ## Key Architectural Insight
 

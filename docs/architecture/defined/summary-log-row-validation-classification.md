@@ -37,13 +37,14 @@ This is the only business rule applied during row classification. The remaining 
 
 When the Waste Balance is calculated, each INCLUDED row is re-assessed with the accreditation period and overseas-site approval state applied. A row contributes its tonnage only if it passes every rule; otherwise it carries a specific reason and contributes nothing:
 
-| Reason                         | Outcome  | Description                                                                                           |
-| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------- |
-| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | The load date falls outside the accreditation period (VAL013). Applies to exporters and reprocessors. |
-| `MISSING_REQUIRED_FIELD`       | EXCLUDED | A field required for the Waste Balance is absent (the same check as VAL011).                          |
-| `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste. Applies to exporters.                            |
-| `ORS_NOT_APPROVED`             | EXCLUDED | The overseas reprocessing site was not approved as at the date of export. Applies to exporters.       |
-| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation. Applies to reprocessors.     |
+| Reason                         | Outcome  | Description                                                                                                       |
+| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | The load date falls outside the accreditation period (VAL013). Applies to exporters and reprocessors.             |
+| `MISSING_REQUIRED_FIELD`       | EXCLUDED | A field required for the Waste Balance is absent (the same check as VAL011).                                      |
+| `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste. Applies to exporters.                                        |
+| `ORS_NOT_APPROVED`             | EXCLUDED | The overseas reprocessing site was not approved as at the date of export. Applies to exporters.                   |
+| `ORS_NOT_FOUND`                | EXCLUDED | The OSR_ID is not one of the registration's overseas sites, so no approval can be resolved. Applies to exporters. |
+| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation. Applies to reprocessors.                 |
 
 Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure".
 
@@ -53,22 +54,22 @@ These rules are evaluated in order, and the first one to fail decides the outcom
 
 The **Row Outcome** column is decided at upload (row classification); the **Waste Balance** column is decided later, at calculation time (contribution). Rows 4 and 5 are INCLUDED at upload and only resolve to Ignored or Excluded once the accreditation and overseas-site context is applied.
 
-| #   | In-Sheet (VAL010) | Required fields (VAL011) | Waste Balance rules (VAL013, PRN/PERN, overseas site, product weight)       | Row Outcome  | Waste Balance  | Summary Log   |
-| --- | ----------------- | ------------------------ | --------------------------------------------------------------------------- | ------------ | -------------- | ------------- |
-| 1   | ❌ Some fail      | -                        | -                                                                           | **REJECTED** | N/A            | ❌ Blocked    |
-| 2   | ✅ All pass       | ❌ Some missing          | -                                                                           | **EXCLUDED** | ❌ Excluded    | ✅ Can submit |
-| 3   | ✅ All pass       | ✅ All present           | ✅ All pass                                                                 | **INCLUDED** | ✅ Contributes | ✅ Can submit |
-| 4   | ✅ All pass       | ✅ All present           | ❌ Load date outside accreditation period                                   | **INCLUDED** | ⚠️ Ignored     | ✅ Can submit |
-| 5   | ✅ All pass       | ✅ All present           | ❌ PRN/PERN issued, overseas site not approved, or product weight not added | **INCLUDED** | ❌ Excluded    | ✅ Can submit |
+| #   | In-Sheet (VAL010) | Required fields (VAL011) | Waste Balance rules (VAL013, PRN/PERN, overseas site, product weight)                    | Row Outcome  | Waste Balance  | Summary Log   |
+| --- | ----------------- | ------------------------ | ---------------------------------------------------------------------------------------- | ------------ | -------------- | ------------- |
+| 1   | ❌ Some fail      | -                        | -                                                                                        | **REJECTED** | N/A            | ❌ Blocked    |
+| 2   | ✅ All pass       | ❌ Some missing          | -                                                                                        | **EXCLUDED** | ❌ Excluded    | ✅ Can submit |
+| 3   | ✅ All pass       | ✅ All present           | ✅ All pass                                                                              | **INCLUDED** | ✅ Contributes | ✅ Can submit |
+| 4   | ✅ All pass       | ✅ All present           | ❌ Load date outside accreditation period                                                | **INCLUDED** | ⚠️ Ignored     | ✅ Can submit |
+| 5   | ✅ All pass       | ✅ All present           | ❌ PRN/PERN issued, overseas site not approved or not found, or product weight not added | **INCLUDED** | ❌ Excluded    | ✅ Can submit |
 
 ## Outcome Summary
 
-| Outcome      | Meaning                                                                                                                                                                                                       | Caused by                                                                 | Waste Balance    | Submission           |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------- | -------------------- |
-| **INCLUDED** | Row passes classification and every Waste Balance rule                                                                                                                                                        | Passes VAL010 + required fields present + Waste Balance rules pass        | ✅ Contributes   | ✅ Included          |
-| **EXCLUDED** | Row passes in-sheet validation but is held back from the Waste Balance, at classification (missing required fields) or at calculation (PRN/PERN issued, overseas site not approved, product weight not added) | VAL011, or `PRN_ISSUED` / `ORS_NOT_APPROVED` / `PRODUCT_WEIGHT_NOT_ADDED` | ❌ Excluded      | ✅ Included          |
-| **IGNORED**  | Row passes in-sheet validation and has the required fields, but its load date falls outside the accreditation period                                                                                          | VAL013 (`OUTSIDE_ACCREDITATION_PERIOD`)                                   | ⚠️ Contributes 0 | ✅ Included          |
-| **REJECTED** | One or more filled values fail in-sheet validation                                                                                                                                                            | Fails VAL010                                                              | N/A              | ❌ Blocks submission |
+| Outcome      | Meaning                                                                                                                                                                                                       | Caused by                                                                                   | Waste Balance    | Submission           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------- | -------------------- |
+| **INCLUDED** | Row passes classification and every Waste Balance rule                                                                                                                                                        | Passes VAL010 + required fields present + Waste Balance rules pass                          | ✅ Contributes   | ✅ Included          |
+| **EXCLUDED** | Row passes in-sheet validation but is held back from the Waste Balance, at classification (missing required fields) or at calculation (PRN/PERN issued, overseas site not approved, product weight not added) | VAL011, or `PRN_ISSUED` / `ORS_NOT_APPROVED` / `ORS_NOT_FOUND` / `PRODUCT_WEIGHT_NOT_ADDED` | ❌ Excluded      | ✅ Included          |
+| **IGNORED**  | Row passes in-sheet validation and has the required fields, but its load date falls outside the accreditation period                                                                                          | VAL013 (`OUTSIDE_ACCREDITATION_PERIOD`)                                                     | ⚠️ Contributes 0 | ✅ Included          |
+| **REJECTED** | One or more filled values fail in-sheet validation                                                                                                                                                            | Fails VAL010                                                                                | N/A              | ❌ Blocks submission |
 
 ## Decision Flowchart
 
@@ -85,7 +86,7 @@ flowchart TD
     INCLUDED --> WB{"Waste Balance contribution - re-assessed at calculation with accreditation and overseas-site context"}
 
     WB -->|Load date outside accreditation period - VAL013| IGNORED["IGNORED: Contributes 0"]
-    WB -->|PRN/PERN issued, overseas site not approved, or product weight not added| EXCL2["EXCLUDED: Contributes 0"]
+    WB -->|PRN/PERN issued, overseas site not approved or not found, or product weight not added| EXCL2["EXCLUDED: Contributes 0"]
     WB -->|All rules pass| CONTRIB["Contributes tonnage to Waste Balance"]
 
     style REJECTED fill:#ff6b6b,color:#fff
@@ -104,7 +105,7 @@ The checks are evaluated across the two stages:
 
 2. **Required-Field Validation (VAL011)** - Checked second, during row classification. If in-sheet validation passes but a field required for the Waste Balance is missing, the row is EXCLUDED from the Waste Balance but still included in the submission.
 
-3. **Waste Balance Contribution Rules (VAL013 and related)** - Checked later, during the Waste Balance calculation, when the accreditation period and overseas-site approval state are available. An INCLUDED row whose load date falls outside the accreditation period is IGNORED; one that fails another rule (PRN/PERN issued, overseas site not approved, product weight not added) is EXCLUDED. Either way it contributes 0 to the Waste Balance and remains in the submission.
+3. **Waste Balance Contribution Rules (VAL013 and related)** - Checked later, during the Waste Balance calculation, when the accreditation period and overseas-site approval state are available. An INCLUDED row whose load date falls outside the accreditation period is IGNORED; one that fails another rule (PRN/PERN issued, overseas site not approved or not found, product weight not added) is EXCLUDED. Either way it contributes 0 to the Waste Balance and remains in the submission.
 
 ## Related Requirements
 
