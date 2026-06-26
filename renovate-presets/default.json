@@ -6,7 +6,7 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)package\\.json$/"],
-      "matchStrings": ["\"node\":\\s*\">=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "matchStrings": ["\"node\":\\s*\"[\\^>=]*(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "node",
       "datasourceTemplate": "node-version",
       "versioningTemplate": "node"
@@ -17,11 +17,6 @@
       "matchManagers": ["docker-compose"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "docker compose images"
-    },
-    {
-      "matchDatasources": ["docker", "node-version"],
-      "matchPackageNames": ["node"],
-      "allowedVersions": "<25"
     },
     {
       "matchDatasources": ["docker", "node-version"],
@@ -52,6 +47,11 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
       "minimumReleaseAge": "0 days",
+      "pinDigests": true
+    },
+    {
+      "description": "Pin docker-compose image digests so each image is locked to an exact build and digest changes arrive as reviewable PRs",
+      "matchManagers": ["docker-compose"],
       "pinDigests": true
     }
   ]
