@@ -53,6 +53,11 @@
       "matchPackageNames": ["node"],
       "minimumReleaseAge": "0 days",
       "pinDigests": true
+    },
+    {
+      "description": "Pin docker-compose image digests so each image is locked to an exact build and digest changes arrive as reviewable PRs",
+      "matchManagers": ["docker-compose"],
+      "pinDigests": true
     }
   ]
 }
