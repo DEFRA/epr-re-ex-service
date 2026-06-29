@@ -51,21 +51,21 @@ For related context, see:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: Reprocessor/Exporter\nEnter PRN details
+    [*] --> draft: Reprocessor/Exporter<br/>Enter PRN details
 
-    draft --> awaiting_authorisation: Reprocessor/Exporter\nCreate PRN\n/ Deduct available balance\n[Sufficient available balance]
-    draft --> discarded: Reprocessor/Exporter\nDiscard
+    draft --> awaiting_authorisation: Reprocessor/Exporter<br/>Create PRN<br/>/ Deduct available balance<br/>[Sufficient available balance]
+    draft --> discarded: Reprocessor/Exporter<br/>Discard
 
-    awaiting_authorisation --> awaiting_acceptance: PRN Signatory\nAuthorise & Issue PRN\n/ Allocate PRN number\n/ Deduct total balance\n[Sufficient total balance]\n[Accreditation not suspended]
-    awaiting_authorisation --> deleted: PRN Signatory\nDelete PRN\n/ Credit available balance
+    awaiting_authorisation --> awaiting_acceptance: PRN Signatory<br/>Authorise & Issue PRN<br/>/ Allocate PRN number<br/>/ Deduct total balance<br/>[Sufficient total balance]<br/>[Accreditation not suspended]
+    awaiting_authorisation --> deleted: PRN Signatory<br/>Delete PRN<br/>/ Credit available balance
 
-    awaiting_acceptance --> accepted: Producer/Compliance Scheme\nAccept PRN
-    awaiting_acceptance --> awaiting_cancellation: Producer/Compliance Scheme\nReject PRN
+    awaiting_acceptance --> accepted: Producer/Compliance Scheme<br/>Accept PRN
+    awaiting_acceptance --> awaiting_cancellation: Producer/Compliance Scheme<br/>Reject PRN
 
-    awaiting_cancellation --> cancelled: PRN Signatory\nCancel PRN\n/ Credit full balance
+    awaiting_cancellation --> cancelled: PRN Signatory<br/>Cancel PRN<br/>/ Credit full balance
 
-    awaiting_acceptance --> cancelled: Regulator\nCancel PRN\n/ Reverse balance\n(future scope)
-    accepted --> cancelled: Regulator\nCancel PRN\n/ Reverse balance\n(future scope)
+    awaiting_acceptance --> cancelled: Regulator<br/>Cancel PRN<br/>/ Reverse balance<br/>(future scope)
+    accepted --> cancelled: Regulator<br/>Cancel PRN<br/>/ Reverse balance<br/>(future scope)
 
     accepted --> [*]
     cancelled --> [*]
