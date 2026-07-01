@@ -296,6 +296,7 @@ services:
       WASTE_ORGANISATIONS_API_URL: http://wire-mock:8080/waste-organisations/organisations
       WASTE_ORGANISATIONS_API_USERNAME: testuser
       WASTE_ORGANISATIONS_API_PASSWORD: testpassword
+      FEATURE_FLAG_CLOSED_PERIOD_ADJUSTMENTS: true
       FEATURE_FLAG_ENHANCED_SUMMARY_LOG_CHECK_PAGES: true
     networks:
       - cdp-tenant
