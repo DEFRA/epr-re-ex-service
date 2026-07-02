@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: nginxproxy/nginx-proxy:1.11
+    image: nginxproxy/nginx-proxy:1.11@sha256:e7e74d7e0a46daeec556fc5701324b33524e303fd94fa1abbb4688fcc09abe54
     ports:
       - '7300:80'
     environment:
@@ -13,7 +13,7 @@ services:
       - cdp-tenant
 
   floci:
-    image: hectorvent/floci:1.5.5
+    image: hectorvent/floci:1.5.5@sha256:c969cb48fcfae0eff3f4a4647b7772cd975e633cae7468e45abaf2d2eae18558
     ports:
       - '4566:4566'
     environment:
@@ -25,7 +25,7 @@ services:
       - cdp-tenant
 
   floci-init:
-    image: amazon/aws-cli:2.35.8
+    image: amazon/aws-cli:2.35.8@sha256:14b197d682f59240b51c3953a3a47b19288dbbb25c2e237fc6eb2d70e8fca227
     entrypoint: /bin/sh
     command: /setup/init.sh
     depends_on:
@@ -44,7 +44,7 @@ services:
       - cdp-tenant
 
   mongodb:
-    image: mongo:8.3.4
+    image: mongo:8.3.4@sha256:48a009d2d8007e92d6d7e8baa31713cd11c48c06e827e856240e5a1d319b49d9
     networks:
       - cdp-tenant
     ports:
@@ -54,7 +54,7 @@ services:
       - ./mongodb-backups:/backups
 
   redis:
-    image: redis:8.0.6-alpine3.21
+    image: redis:8.0.6-alpine3.21@sha256:5f61955be8ab2ccee9372b84ae4d4da2e2b156f87281e3f218544055e7ee04d4
     healthcheck:
       test: ['CMD', 'redis-cli', 'PING']
       interval: 5s
@@ -68,7 +68,7 @@ services:
       - data-redis:/data
 
   cdp-uploader:
-    image: defradigital/cdp-uploader:1.16.0
+    image: defradigital/cdp-uploader:1.16.0@sha256:eb1627b60690ec24d41a17ed82e80c28d009aaaeb19dc179c6a3887da7e6a5bd
     ports:
       - '7337:7337'
     depends_on:
@@ -108,7 +108,7 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    image: defradigital/cdp-defra-id-stub:0.36.0
+    image: defradigital/cdp-defra-id-stub:0.36.0@sha256:ad65e553ffd03f1f9ef6bc6a82d665a1643f7efa2daeb00775d6c20b0132dfa3
     ports:
       - '3200:3200'
     depends_on:
@@ -129,7 +129,7 @@ services:
       - cdp-tenant
 
   entra-stub:
-    image: defradigital/epr-re-ex-entra-stub:0.66.0
+    image: defradigital/epr-re-ex-entra-stub:0.66.0@sha256:7f5020aadf2b681bc52f689f89e92026e1a600bc4a6b8cb300656c46684463aa
     ports:
       - '3010:3010'
     depends_on:
@@ -150,7 +150,7 @@ services:
 
   # Copies cognito seed files into a volume so cognito-stub has its own copies
   cognito-stub-init:
-    image: alpine:3.24.1
+    image: alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     volumes:
       - ./compose/cognito-local/clients.json:/seed/clients.json:ro
       - ./compose/cognito-local/local_4D8shcYm.json:/seed/local_4D8shcYm.json:ro
@@ -160,7 +160,7 @@ services:
       - cdp-tenant
 
   cognito-stub:
-    image: jagregory/cognito-local:5.3.0
+    image: jagregory/cognito-local:5.3.0@sha256:a5ad30d01da5016a38535a717f6e1642d1b37f886a7b17e90b67f6e5ad134831
     ports:
       - '9229:9229'
     depends_on:
@@ -173,7 +173,7 @@ services:
 
   wire-mock:
     profiles: ['all', 'epr-backend']
-    image: wiremock/wiremock:3.13.2
+    image: wiremock/wiremock:3.13.2@sha256:fd27e46090916e85326229e5102ee169ae729059f3374549615bd20a35fee1f2
     ports:
       - '3100:8080'
     volumes:
@@ -369,7 +369,7 @@ services:
 
   selenium-chrome:
     profiles: ['all', 'journey-test']
-    image: selenium/standalone-chrome:148.0
+    image: selenium/standalone-chrome:148.0@sha256:b4d4e3f64280c4cd69198c8eb2c1daa74b3d206ff87a647728fc070affee94b0
     platform: linux/amd64
     ports:
       - 4444:4444
