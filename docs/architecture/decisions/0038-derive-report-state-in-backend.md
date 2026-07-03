@@ -4,7 +4,7 @@ Date: 2026-06-25
 
 ## Status
 
-Proposed.
+Accepted (2026-07-03). Implemented by [PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649) and [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650) in `epr-backend`. One aspect was revised during implementation, in agreement with the engineers: resubmission is surfaced as a first-class `requires_resubmission` value of `periodStatus`, not modelled structurally with `isResubmission` / `current` booleans as originally proposed. This document describes the contract as shipped.
 
 Amends the derivation stance of [ADR-0028](./0028-reporting-api-and-due-rules.md) (which leaves "due" implicit for the frontend to infer) and supersedes the frontend-derived precedence in the closed-period-adjustments ADR (renumbered to 0039; this ADR takes the lower number because the derivation principle is the foundation that the closed-period work builds on). Neither of those ADRs' **storage** decisions change: there is still no persisted `due` or `overdue` state, and `resubmissionRequired` remains the single stored flag.
 
@@ -40,41 +40,45 @@ If a concrete querying driver appears (for example "list every overdue operator"
 
 The existing `report` object stays frozen as `{ status, id, ... } | null` with today's meanings, so no client that switches on the stored status or checks `report === null` breaks.
 
-The `GET /reports/calendar` list becomes **submission-grained**: items are keyed on `(year, period, submissionNumber)`, so a single period can carry more than one item. Each item gains additive sibling fields:
+The `GET /reports/calendar` list becomes **submission-grained**: items are keyed on `(year, period, submissionNumber)`, so a single period can carry more than one item. Each item gains one additive sibling field:
 
-- **`periodStatus`** — a single-axis lifecycle enum: `due | overdue | in_progress | ready_to_submit | submitted`. The backend does the date arithmetic (`due` once the period has ended, `overdue` once past the due date).
-- **`isResubmission`** — `true` for submission 2 and later, so the frontend renders resubmission copy rather than first-draft copy.
-- **`current`** (or its inverse `superseded`) — a boolean letting the frontend hide superseded submissions with a simple check rather than recomputing the latest submission itself. This leans on the `current` / `previousSubmissions` read view the closed-period ADR already defines.
+- **`periodStatus`** — a single-axis lifecycle enum: `due | overdue | in_progress | ready_to_submit | submitted | requires_resubmission`. The backend does the date arithmetic (`due` once the period has ended, `overdue` once past the due date) and the resubmission expansion described below.
+
+There are no `isResubmission`, `current` or `superseded` fields. Superseded submissions do not appear in the calendar at all: the backend emits only the items a client should show, so there is nothing for clients to filter. Previous submissions remain available on the report detail view.
 
 ```jsonc
-// period 1 in resubmission: two items
+// period 1 in resubmission, correction draft in flight: two items
 { "year": 2026, "period": 1, "submissionNumber": 1,
-  "periodStatus": "submitted", "isResubmission": false, "current": false,
+  "periodStatus": "submitted",
   "report": { "status": "submitted", "id": "uuid", "submittedAt": "...", "submittedBy": { "name": "..." } } },
 
 { "year": 2026, "period": 1, "submissionNumber": 2,
-  "periodStatus": "due", "isResubmission": true, "current": true,
-  "report": null }
+  "periodStatus": "requires_resubmission",
+  "report": { "status": "in_progress", "id": "uuid", "submittedAt": null, "submittedBy": null } }
 ```
 
-### Resubmission is modelled structurally, not as a status
+Before the operator starts the correction draft, the second item is a pre-draft skeleton with `report: null`.
 
-When detection sets `resubmissionRequired` on a submitted report, the backend emits an additional skeleton item for `submissionNumber + 1` (`periodStatus: due`, `isResubmission: true`), the same way it already emits skeleton items for started periods that have no draft. The original report stays `periodStatus: submitted`.
+### Resubmission is a first-class period status
 
-This keeps `periodStatus` a clean single axis and avoids a combinatorial enum that would otherwise need to encode resubmission context across every lifecycle state. The frontend's existing active / submitted table partition keeps working unchanged: the resubmission skeleton sorts into the active table because it is `due`, the original into the submitted table because it is `submitted`. There is no `requires_resubmission` enum value.
+When detection sets `resubmissionRequired` on a submitted report, the backend expands the period into two items. The flagged report stays visible as `periodStatus: submitted` at its own submission number. A second item at `submissionNumber + 1` carries `periodStatus: requires_resubmission`: its `report` is `null` until the operator starts the correction draft, then carries that draft for the whole of the draft's life. The `periodStatus` stays `requires_resubmission` throughout, so every client keeps the period in its resubmission state and picks the call to action from `report` (`null` means start, `in_progress` means continue, `ready_to_submit` means review and submit). Distinguishing a resubmission from a first draft needs no extra boolean: the status itself says it. The `requires_resubmission` item bypasses the date arithmetic and never becomes `overdue`.
 
-Once submission 2 is itself submitted, submission 1 is hidden and only the latest submitted report shows. That is a presentation rule and stays in the frontend, made trivial by the `current` / `superseded` marker.
+The stored `resubmissionRequired` flag is immutable and never cleared. The calendar derives on read from the **latest submitted** report's flag: once the correction is itself submitted it becomes the latest submitted report (unflagged), so the period collapses back to a single `submitted` item. The stale flag on the now-superseded submission is an ignored historical artefact, which avoids any write-back on submit and any two-document consistency problem.
+
+The frontend's existing active / submitted table partition keeps working unchanged: the `requires_resubmission` item sorts into the active table, the flagged original into the submitted table. Hiding superseded submissions is not a client concern at all, because the backend never emits them.
+
+An earlier revision of this ADR modelled resubmission structurally (a `due` skeleton plus `isResubmission` and `current` booleans) to keep the enum single-axis. Implementation showed the explicit status is simpler: it is one additional enum value rather than a combinatorial explosion, and it removes two boolean fields every client would otherwise have to interpret.
 
 ### Scope
 
-- **Lifted now:** `periodStatus` (due and overdue resolution), submission-grained calendar items, `isResubmission`, and `current` / `superseded`.
+- **Lifted now:** `periodStatus` (due, overdue and requires-resubmission resolution) and submission-grained calendar items.
 - **Candidate, documented but not built:** the frontend's `getTotalTonnageSentOn` arithmetic over three tonnage fields could become a backend aggregate field under this same principle.
-- **Stays in the frontend:** tag colour and translation (`format-submission-status`), table-row shaping (`build-table-rows`), value formatters, action-path and URL selection (`getInProgressActionPath`, which resolves to routes), and the filtering of superseded submissions.
+- **Stays in the frontend:** tag colour and translation (`format-submission-status`), table-row shaping (`build-table-rows`), value formatters, and action-path and URL selection (`getInProgressActionPath`, which resolves to routes).
 
 ## Consequences
 
 - **Clients key on `(year, period, submissionNumber)`.** The calendar may now return more than one item per period. Any client that assumed one item per period must adapt. This is the one behavioural change clients cannot ignore; everything else is additive.
-- **The closed-period ADR's frontend precedence is superseded.** The "active draft wins, else requires resubmission, else submitted" rule moves into the backend as the submission-grained items plus `periodStatus`. The resubmission **mechanics** in that ADR (the `resubmissionRequired` flag, lazy creation of the correction draft, the route-guard relaxation) are unchanged and are what the resubmission skeleton item is emitted from. That ADR is sequenced behind this one.
-- **The admin overview, public register, and report-submissions feed converge.** Each currently hand-rolls "show the latest submitted, not the unconditional current". The `current` / `superseded` marker and the submission-grained contract give them one consistent shape to build on.
+- **The closed-period ADR's frontend precedence is superseded.** The "active draft wins, else requires resubmission, else submitted" rule moves into the backend as the submission-grained items plus `periodStatus`. The resubmission **mechanics** in that ADR (the `resubmissionRequired` flag, lazy creation of the correction draft, the route-guard relaxation) are unchanged and are what the `requires_resubmission` item is emitted from. That ADR is sequenced behind this one.
+- **The admin overview, public register, and report-submissions feed converge.** Each currently hand-rolls "show the latest submitted, not the unconditional current". The backend's latest-submitted selection and the submission-grained contract give them one consistent shape to build on.
 - **No background jobs and no drift.** Due and overdue are always correct as of the request, with no clock-driven state transitions to persist.
 - **The escape hatch is documented, not closed.** If querying these states across the dataset becomes a real requirement, a materialised projection can be added without revisiting this principle.
