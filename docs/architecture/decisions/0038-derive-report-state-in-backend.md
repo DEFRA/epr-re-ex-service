@@ -38,23 +38,49 @@ If a concrete querying driver appears (for example "list every overdue operator"
 
 ### Contract: additive and submission-grained
 
-The existing `report` object stays frozen as `{ status, id, ... } | null` with today's meanings, so no client that switches on the stored status or checks `report === null` breaks.
+The existing `report` object stays frozen as `{ id, status, submissionNumber, submittedAt, submittedBy } | null` with today's meanings, so no client that switches on the stored status or checks `report === null` breaks.
 
-The `GET /reports/calendar` list becomes **submission-grained**: items are keyed on `(year, period, submissionNumber)`, so a single period can carry more than one item. Each item gains one additive sibling field:
+The calendar response from `GET /v1/organisations/{organisationId}/registrations/{registrationId}/reports/calendar` is an object of the shape `{ cadence, reportingPeriods }`. The `reportingPeriods` array becomes **submission-grained**: items are keyed on `(year, period, submissionNumber)`, so a single period can carry more than one item. Each item gains one additive sibling field:
 
 - **`periodStatus`** — a single-axis lifecycle enum: `due | overdue | in_progress | ready_to_submit | submitted | requires_resubmission`. The backend does the date arithmetic (`due` once the period has ended, `overdue` once past the due date) and the resubmission expansion described below.
 
 There are no `isResubmission`, `current` or `superseded` fields. Superseded submissions do not appear in the calendar at all: the backend emits only the items a client should show, so there is nothing for clients to filter. Previous submissions remain available on the report detail view.
 
 ```jsonc
-// period 1 in resubmission, correction draft in flight: two items
-{ "year": 2026, "period": 1, "submissionNumber": 1,
-  "periodStatus": "submitted",
-  "report": { "status": "submitted", "id": "uuid", "submittedAt": "...", "submittedBy": { "name": "..." } } },
+// period 1 in resubmission, correction draft in flight: two items for the period.
+// Each item also carries startDate, endDate and dueDate (omitted for brevity).
+{
+  "cadence": "quarterly",
+  "reportingPeriods": [
+    {
+      "year": 2026,
+      "period": 1,
+      "submissionNumber": 1,
+      "periodStatus": "submitted",
+      "report": {
+        "id": "uuid",
+        "status": "submitted",
+        "submissionNumber": 1,
+        "submittedAt": "...",
+        "submittedBy": { "id": "uuid", "name": "..." }
+      }
+    },
 
-{ "year": 2026, "period": 1, "submissionNumber": 2,
-  "periodStatus": "requires_resubmission",
-  "report": { "status": "in_progress", "id": "uuid", "submittedAt": null, "submittedBy": null } }
+    {
+      "year": 2026,
+      "period": 1,
+      "submissionNumber": 2,
+      "periodStatus": "requires_resubmission",
+      "report": {
+        "id": "uuid",
+        "status": "in_progress",
+        "submissionNumber": 2,
+        "submittedAt": null,
+        "submittedBy": null
+      }
+    }
+  ]
+}
 ```
 
 Before the operator starts the correction draft, the second item is a pre-draft skeleton with `report: null`.
