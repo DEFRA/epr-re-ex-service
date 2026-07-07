@@ -6,7 +6,9 @@ Revised: 2026-07-07
 
 ## Status
 
-Proposed
+Rejected.
+
+Retained as a historical record of the original spike, not as a living specification. Subsequent analysis of the registered-only to accredited transition (and of switching operators between the two) has moved beyond what is captured here and is now the source of truth. Rather than keep this document continuously in sync with the code, we treat it as a point-in-time record and reject it as a standing ADR: the findings below are accurate as at the revision date but should not be read as the authoritative decision. See the revision history for what changed and why.
 
 ## Revision history
 
