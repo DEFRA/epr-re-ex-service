@@ -39,3 +39,4 @@
 * [37. Committed row states with summary-log membership](0037-committed-row-states-with-summary-log-membership.md)
 * [38. Derive report status and state in the backend](0038-derive-report-state-in-backend.md)
 * [39. Report resubmission for closed periods](0039-report-resubmission-for-closed-periods.md)
+* [40. Registration and accreditation validity dates (validFrom / validTo)](0040-registration-and-accreditation-validity-dates.md)
