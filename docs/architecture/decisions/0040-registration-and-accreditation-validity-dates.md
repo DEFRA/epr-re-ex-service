@@ -70,13 +70,6 @@ reinstated, the dates are unchanged; the interruption is recorded in `status` / 
 `validFrom`..`validTo`?) with status history (were they suspended on D?). A suspended accreditation
 therefore keeps its number and can reactivate if the suspension is lifted.
 
-### Rule 4 — reporting cadence rounds the window up to whole periods
-
-The stored `validFrom` is the exact determination date, but reporting obligations round _up_ to
-the whole period containing it: an operator accredited at any point in a quarter is treated as
-monthly-reporting for that entire quarter (the mid-quarter rule). The stored date is unchanged;
-only the derived cadence rounds.
-
 ### Worked example — accreditation approved 3 February 2026
 
 An operator must already be registered to be accredited (SIP Part 1 is submitted at registration,
@@ -89,9 +82,12 @@ own dates.
 | **Accreditation** | `2026-02-03` (date of determination)                            | `2026-12-31` |
 
 If registration and accreditation are determined on the same day, both `validFrom` are
-`2026-02-03`. Reporting for the accreditation: no January obligation (before `validFrom`);
-monthly for Feb and Mar; and — because accreditation began in Q1 — the whole of Q1 is treated
-as monthly.
+`2026-02-03`.
+
+Reporting cadence on a mid-period transition (e.g. quarterly for the part period up to the
+accreditation start, then monthly thereafter) is out of scope for this ADR and will be recorded
+in a separate reporting ADR. The earlier "whole quarter becomes monthly" interpretation is not
+carried here — it does not affect how `validFrom`/`validTo` are set.
 
 ## Consequences
 
