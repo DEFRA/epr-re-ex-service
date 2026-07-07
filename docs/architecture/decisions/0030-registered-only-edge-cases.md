@@ -2,9 +2,18 @@
 
 Date: 2026-03-27
 
+Revised: 2026-07-07
+
 ## Status
 
-Proposed
+Rejected.
+
+Retained as a historical record of the original spike, not as a living specification. Subsequent analysis of the registered-only to accredited transition (and of switching operators between the two) has moved beyond what is captured here and is now the source of truth. Rather than keep this document continuously in sync with the code, we treat it as a point-in-time record and reject it as a standing ADR: the findings below are accurate as at the revision date but should not be read as the authoritative decision. See the revision history for what changed and why.
+
+## Revision history
+
+- **2026-03-27** — original spike findings recorded.
+- **2026-07-07** — revised to reconcile with code that changed after the original draft. Two things shifted the picture materially: reporting and cadence classification moved from a simple `Boolean(registration.accreditationId)` check to a status-based `isRegistrationAccredited` check (approved/suspended only), and diagnostics plus a warning log were added for the silent report data loss. The template-validation axis was left unchanged, so the two axes now diverge for cancelled operators. Findings 2, 3 and 4 are updated below to match; the underlying risks are unchanged, but two of the specific failure modes are now different from what was first recorded.
 
 ## Executive summary
 
@@ -12,9 +21,9 @@ Three findings require no immediate code change: suspension is already handled c
 
 ### Impact of doing nothing
 
-- **Data silently disappears from reports.** If a registered-only operator gains accreditation, all waste records they submitted before the transition are excluded from every report generated afterwards. There is no error, no warning — the data just stops appearing. This is the most serious finding (Finding 3).
-- **Cadence rules are wrong for edge cases.** An operator accredited mid-quarter gets the right monthly periods going forward, but their pre-accreditation months in that quarter show empty reports (same root cause as above). A cancelled operator never reverts to quarterly — they stay on monthly reporting indefinitely (Finding 4).
-- **Cancelled operators can keep uploading.** No guard exists. Post-cancellation rows are harmlessly ignored in waste balance, so the practical risk is low, but it may not match regulatory intent (Finding 2).
+- **Data silently disappears from reports.** If a registered-only operator gains accreditation, all waste records they submitted before the transition are excluded from every report generated afterwards. The data still stops appearing, but it is no longer completely silent: a `diagnostics.wasteReceivedRecordsExcluded` count and a `warn`-level log were added (in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040)) to surface the dropped records. This is the most serious finding (Finding 3).
+- **Cadence rules are wrong for edge cases.** An operator accredited mid-quarter gets the right monthly periods going forward, but their pre-accreditation months in that quarter show empty reports (same root cause as above). Cancellation now flips the reporting classification the other way: a cancelled operator reverts to quarterly immediately, whereas the business rule is that they should stay monthly until the end of the current quarter (Finding 4).
+- **Cancelled operators can keep uploading.** No guard exists. Post-cancellation rows are ignored in waste balance only when dated after `validTo`; rows dated within the original accreditation window still count, because the waste-balance check excludes suspended periods but not cancelled ones. The practical risk is still low but higher than first recorded, and it may not match regulatory intent (Finding 2).
 - **Sparse registered-only rows have no classification mechanism at upload time, so they are not surfaced to the user for review.** Registered-only schemas lack the `classifyForWasteBalance` function that accredited schemas use to flag `MISSING_REQUIRED_FIELD` issues on the check page. Incomplete rows are silently accepted (Finding 5).
 
 ### Questions for the business
@@ -41,12 +50,18 @@ A subsequent review against the team wiki revealed two further gaps not covered 
 
 ### Background: how the system classifies operators
 
-The system classifies operators into two categories based on whether the registration has a linked accreditation with an `accreditationNumber`:
+There are now **two independent classification axes**, and they use different signals. This distinction was not present when the spike was first written and is central to the revised findings below.
+
+**Template axis (which template must the operator upload?)** — decided by whether the registration has a linked accreditation with an `accreditationNumber`:
 
 - **Accredited**: registration has an `accreditationId` linking to an `Accreditation` with a non-null `accreditationNumber` (in practice this includes operators whose accreditation is `approved`, `suspended`, or `cancelled`, because none of those states clear `accreditationNumber`). Must use accredited templates: `REPROCESSOR_INPUT`, `REPROCESSOR_OUTPUT`, or `EXPORTER`.
 - **Registered-only**: registration has no `accreditationId`, or the linked accreditation has no `accreditationNumber`. Must use registered-only templates: `REPROCESSOR_REGISTERED_ONLY` or `EXPORTER_REGISTERED_ONLY`.
 
-This classification is enforced by `isRegisteredOnlyMismatch` in `src/application/summary-logs/validations/processing-type.js`. A mismatch between the operator class and the uploaded template type produces a fatal `PROCESSING_TYPE_MISMATCH` error.
+This axis is enforced by `isRegisteredOnlyMismatch` in `src/application/summary-logs/validations/processing-type.js` (it tests `!registration.accreditation?.accreditationNumber`). A mismatch between the operator class and the uploaded template type produces a fatal `PROCESSING_TYPE_MISMATCH` error.
+
+**Reporting axis (which category, date fields and cadence apply to reports?)** — decided by the accreditation's _status_, via `isRegistrationAccredited` in `src/domain/organisations/registration-utils.js`. This returns true only when `registration.accreditation.status` is in `ACTIVE_ACCREDITATION_STATUSES` (`approved` or `suspended`). Presence of an `accreditationId` or `accreditationNumber` is not sufficient. `getOperatorCategory` (`src/reports/domain/operator-category.js`) and the cadence selection in `src/reports/routes/get.js` both use this.
+
+**The two axes diverge for cancelled operators.** A cancelled accreditation keeps its `accreditationNumber` (so the template axis still classes it as accredited) but its status is `cancelled` (so the reporting axis classes it as registered-only). The consequences of this divergence are drawn out in Findings 2, 3 and 4.
 
 ---
 
@@ -72,9 +87,11 @@ No action required. The system already handles this correctly. Suspension does n
 
 **Current behaviour**
 
-Cancellation cascades from the registration to the linked accreditation in the same way as suspension. The accreditation's status becomes `cancelled` but its `accreditationNumber` and `validTo` date are not cleared from the document.
+Cancellation cascades from the registration to the linked accreditation in the same way as suspension (`applyRegistrationStatusToLinkedAccreditations` in `src/repositories/organisations/schema/status-transition.js`). The accreditation's status becomes `cancelled` but its `accreditationNumber` and `validTo` date are not cleared from the document.
 
-Because `accreditationNumber` is still present, the operator is still classified as accredited and must use the accredited template. Post-cancellation rows have dates beyond `validTo`, which `isWithinAccreditationDateRange` (`accreditation.js`) will mark as `IGNORED`.
+The two classification axes now split (see Background). Because `accreditationNumber` is still present, the **template axis** still classes the operator as accredited, so they must keep using the accredited template. But the **reporting axis** keys on status, so `isRegistrationAccredited` returns false and the operator is treated as registered-only for report category and cadence. A cancelled operator is therefore required to upload accredited-template data (daily date fields) while their reports are generated with the registered-only category (which looks up the monthly date field): the same mismatch that drives Finding 3, but in the opposite direction.
+
+Waste balance handles post-cancellation rows only partially. `isAccreditedAtDates` (`src/common/helpers/dates/accreditation.js`) marks a row `IGNORED` when its date falls outside `validFrom`..`validTo`, so rows dated **after** `validTo` are correctly excluded. However, its suspension check (`isSuspendedAtDate`) only looks for `suspended` status in the history, not `cancelled`. Rows dated **within** the original accreditation window but uploaded after cancellation are therefore still treated as accredited and still contribute to the waste balance. The "post-cancellation rows are harmlessly ignored" summary holds only for rows dated beyond `validTo`.
 
 There is no upload guard on `cancelled` status. A cancelled operator can initiate and submit uploads.
 
@@ -114,9 +131,11 @@ The registered-only received-loads table uses a monthly date field (`MONTH_RECEI
 
 **Reporting category change and historical record visibility**
 
-The `getOperatorCategory` function in `src/reports/domain/operator-category.js` derives the operator category from `registration.accreditationId`. Once the registration gains an `accreditationId`, all subsequent reports for that registration use the accredited category. Historical registered-only records retain their `processingType: 'REPROCESSOR_REGISTERED_ONLY'` (or `EXPORTER_REGISTERED_ONLY`), so there is a period of mixed processing types within a single registration's waste record history.
+The `getOperatorCategory` function in `src/reports/domain/operator-category.js` derives the operator category via `isRegistrationAccredited`, which returns true only when the linked accreditation's status is `approved` or `suspended`. Once the accreditation reaches an active status, all subsequent reports for that registration use the accredited category. Historical registered-only records retain their `processingType: 'REPROCESSOR_REGISTERED_ONLY'` (or `EXPORTER_REGISTERED_ONLY`), so there is a period of mixed processing types within a single registration's waste record history.
 
-This creates a concrete data loss path in report aggregation. The `aggregateReportDetail` function in `src/reports/domain/aggregate-report-detail.js` filters waste records by looking up `wasteRecord.data[dateField]`, where `dateField` is resolved from `SECTION_DATE_FIELDS_BY_OPERATOR_CATEGORY` using the current operator category. After gaining accreditation, the category becomes `REPROCESSOR` (or `EXPORTER`), so the date field looked up is `DATE_RECEIVED_FOR_REPROCESSING`. Historical registered-only records only have `MONTH_RECEIVED_FOR_REPROCESSING`. The date field is absent, so those records are silently excluded from every aggregated report.
+This creates a concrete data loss path in report aggregation. The `aggregateReportDetail` function in `src/reports/domain/aggregation/aggregate-report-detail.js` filters waste records by looking up `wasteRecord.data[dateField]`, where `dateField` is resolved from `SECTION_DATE_FIELDS_BY_OPERATOR_CATEGORY` (`src/reports/domain/aggregation/fields-by-operator-category.js`) using the current operator category. After gaining accreditation, the category becomes `REPROCESSOR` (or `EXPORTER`), so the date field looked up is `DATE_RECEIVED_FOR_REPROCESSING`. Historical registered-only records only have `MONTH_RECEIVED_FOR_REPROCESSING`. The date field is absent, so those records are excluded from every aggregated report.
+
+The exclusion is no longer completely silent. `aggregateReportDetail` counts excluded received records in `diagnostics.wasteReceivedRecordsExcluded`, and the report-detail route (`src/reports/routes/get-detail.js`) emits a `warn`-level log referencing this ADR whenever that count is greater than zero (both added in [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040)). The records are still dropped from the report; the diagnostics only surface that it happened.
 
 In other words: any data the operator submitted under the registered-only template before accreditation will not appear in any report generated after the transition.
 
@@ -144,18 +163,19 @@ The following rules govern the transition between quarterly and monthly reportin
 
 **Current behaviour**
 
-The reporting calendar is generated in `src/reports/routes/get.js` (line 35–36) with a simple binary check:
+The reporting calendar is generated in `src/reports/routes/get.js` with a simple binary check:
 
 ```js
-const isAccredited = Boolean(registration.accreditationId)
-const cadence = isAccredited ? CADENCE.monthly : CADENCE.quarterly
+const cadence = isRegistrationAccredited(registration)
+  ? CADENCE.monthly
+  : CADENCE.quarterly
 ```
 
-This does not implement any of the transition rules above:
+`isRegistrationAccredited` returns true only for `approved` or `suspended` status. This is a single point-in-time decision that implements none of the transition rules above:
 
-- **Mid-quarter accreditation**: an operator accredited in February would correctly receive monthly periods for the full year. However, January data already submitted under the registered-only template uses `MONTH_RECEIVED_FOR_REPROCESSING` (YYYY-MM), not the `DATE_RECEIVED_FOR_REPROCESSING` (YYYY-MM-DD) that monthly report aggregation expects. January data would be silently absent from the January monthly report (see Finding 3 for the mechanism).
-- **Cancellation reversion**: a cancelled operator retains `accreditationId` in the domain model, so `get.js` would continue treating them as monthly indefinitely. There is no concept of "revert to quarterly after one full non-accredited quarter".
-- **Suspension**: handled correctly — suspension does not affect cadence, and the simple binary check returns monthly for a suspended operator.
+- **Mid-quarter accreditation**: an operator accredited in February would correctly receive monthly periods for the full year. However, January data already submitted under the registered-only template uses `MONTH_RECEIVED_FOR_REPROCESSING` (YYYY-MM), not the `DATE_RECEIVED_FOR_REPROCESSING` (YYYY-MM-DD) that monthly report aggregation expects. January data would be absent from the January monthly report (see Finding 3 for the mechanism, and the diagnostics that now surface it).
+- **Cancellation reversion**: this is now wrong in the _opposite_ direction to what was first recorded. Because the check keys on status, a cancelled operator (status `cancelled`, not in the active set) flips to quarterly immediately. The business rule is that they should stay monthly for the remainder of the current quarter and revert to quarterly only at the start of the first full non-accredited quarter. There is still no concept of "revert to quarterly after one full non-accredited quarter"; the code now reverts too early rather than never.
+- **Suspension**: handled correctly. Suspension keeps the accreditation in the active set, so the check returns monthly for a suspended operator, which matches the business rule that cadence is unchanged during suspension.
 
 There is also no concept of a registration determination date in the system. Pete Spink's clarification (25 March 2026) confirms there is no expectation that operators report data from before their registration or accreditation determination date. The codebase does not enforce this — uploads for dates before accreditation `validFrom` are accepted and simply classified as `IGNORED` by `isWithinAccreditationDateRange`. This is currently sufficient, but the service should be able to support case-by-case exceptions where pre-determination data is requested.
 
@@ -207,8 +227,8 @@ The five findings have materially different risk profiles:
 
 1. **Suspension** — no action required. The system handles this correctly.
 2. **Cancellation** — three follow-up items: a policy decision on upload permissions, a minor typedef fix (done — [epr-backend#1040](https://github.com/DEFRA/epr-backend/pull/1040)), and cadence reversion logic (see Finding 4).
-3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is silently lost from report aggregation after the transition, and mid-quarter cadence rules are not implemented.
-4. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented. A separate design story is required before implementation.
+3. **Template transition (reg-only to accredited)** — no code change required for the transition mechanics, but historical data is lost from report aggregation after the transition (now surfaced by diagnostics, not yet fixed), and mid-quarter cadence rules are not implemented.
+4. **Cadence transition rules** — high complexity. The full business rules (mid-quarter accreditation, cancellation reversion) are not implemented; cancellation currently reverts to quarterly immediately rather than at the start of the first full non-accredited quarter. A separate design story is required before implementation.
 5. **Report completeness gating** — policy not yet resolved. No code change until agreed.
 
 ## Consequences
