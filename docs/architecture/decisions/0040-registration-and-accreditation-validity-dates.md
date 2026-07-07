@@ -39,10 +39,18 @@ end date at all.
 
 ## Decision
 
-### Rule 1 — `validFrom` is the date of determination
+### Rule 1 — `validFrom` is set on approval, to the approved-at date
 
-`validFrom` is set to the **date the regulator determines (approves/grants)** the registration
-or accreditation. This is the exact approval date, not the first of the month.
+A registration or accreditation is **created first** (`created` status) and **approved later**
+by the regulator (transition to `approved`). The dates are set across this lifecycle:
+
+- **On creation** — `validFrom` and `validTo` are initialised to the full scheme year
+  (1 January – 31 December). _(This initialise-on-create behaviour is a "guess" pending
+  confirmation — see [Open questions](#open-questions).)_
+- **On approval** — when the record transitions to `approved`, `validFrom` is **overwritten to
+  the approved-at date** (the date of determination). `validTo` is left as the scheme-year end.
+
+`validFrom` is therefore the exact approval date, not the first of the month. Its statutory basis:
 
 - **Accreditation** has a statutory start date: the regulations stipulate the date of
   determination as the start.
@@ -61,14 +69,18 @@ was determined. The scheme year is the calendar year: the annual RE/EX return is
 28 February following the accreditation year"_ and PRNs must be accepted _"by 31 January of the
 following year"_ — both anchor the year end at 31 December.
 
-### Rule 3 — suspension and cancellation do not move the window
+### Rule 3 — status changes after approval never move the window
 
-`validFrom`/`validTo` record the **granted period**. If an accreditation is suspended and later
-reinstated, the dates are unchanged; the interruption is recorded in `status` / `statusHistory`
-(queried by the suspended-at-date check — see [ADR 34](0034-multi-year-accreditation-model.md)).
+Once set on **first approval**, `validFrom` is **frozen**. Later **suspensions, cancellations,
+or re-approvals must not change `validFrom`** (nor `validTo`). In particular, a re-approval after
+a suspension keeps the **original** `validFrom` — it is _not_ reset to the re-approval date.
+Interruptions are recorded in `status` / `statusHistory` (queried by the suspended-at-date check —
+see [ADR 34](0034-multi-year-accreditation-model.md)), not by moving the window.
+
 "Was the operator live on day D?" is answered by combining the validity window (are we inside
 `validFrom`..`validTo`?) with status history (were they suspended on D?). A suspended accreditation
-therefore keeps its number and can reactivate if the suspension is lifted.
+therefore keeps its number and can reactivate — with its original `validFrom` — if the suspension
+is lifted.
 
 ### Worked example — accreditation approved 3 February 2026
 
@@ -99,7 +111,9 @@ carried here — it does not affect how `validFrom`/`validTo` are set.
   date (e.g. a determination recorded on 1 January vs 31 December) changes the year a PRN is
   attributed to. Determination dates must be recorded accurately.
 
-## Open question — registration end date (`validTo`)
+## Open questions
+
+### Registration end date (`validTo`)
 
 **How should a registration's `validTo` behave at year end — a hard 31 December that requires
 renewal, or a date that rolls forward?**
@@ -120,6 +134,15 @@ finalised. It also interacts with the multi-year model in
 [ADR 30](0030-registered-only-edge-cases.md) (cancellation handling). Until confirmed, treat
 registration `validTo` as 31 December of the determination year (Option A) but do not build
 hard-lapse enforcement that would be wrong under Option B.
+
+### Initial `validFrom` / `validTo` on creation
+
+Rule 1 assumes that, on first creation (`created` status, before approval), `validFrom` and
+`validTo` are pre-populated to the full scheme year (1 January – 31 December), and that
+`validFrom` is then overwritten to the approved-at date on approval. This initialise-on-create
+behaviour is a working assumption and needs confirming against the create path. If creation does
+_not_ pre-populate the dates, Rule 1 should be tightened to say `validFrom`/`validTo` are only
+ever set at the point of approval.
 
 ## References
 
