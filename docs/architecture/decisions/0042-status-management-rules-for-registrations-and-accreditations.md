@@ -187,7 +187,7 @@ The full anomaly set is reproducible from the safe extract via the PAE-1718 anal
 
 ## Known defect
 
-### BUG-1 — post-cancellation loads are credited to the waste balance
+### BUG-1 ([PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730)) — post-cancellation loads are credited to the waste balance
 
 The waste-balance date gate treats a **cancelled** accreditation as still covering dates up to
 `validTo`, so a load dated **after** the cancellation is wrongly counted toward the PRN/PERN-issuable
@@ -209,8 +209,14 @@ cleared" records also pass the gate, because `created` ≠ `suspended`.
 `approved`** (rather than "not `suspended`"). This single invariant fixes cancellation _and_ the
 un-cleared-`created` leak, and is more robust than enumerating exclusions. (Alternatively, shorten
 `validTo` to the cancellation date on cancel — but that does not fix the `created` leak and is more
-fragile.) Tracked as a bug against epic PAE-1598, with regression tests for the post-cancellation and
-reverted-to-`created` cases.
+fragile.) Tracked as [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730) under epic PAE-1598,
+with regression tests for the post-cancellation and reverted-to-`created` cases.
+
+A further finding raises the exposure from latent to live: **cancelled/suspended operators are not
+blocked from submitting summary logs.** The only submission gate is _organisation_-level status ==
+`ACTIVE` (`get-defra-user-roles.js`); a registration/accreditation can be cancelled while its
+organisation stays `ACTIVE`, so the operator can submit post-cancellation loads and have them
+credited.
 
 ## Consequences
 
@@ -228,15 +234,17 @@ reverted-to-`created` cases.
   design must make the cancellation cut-off explicit.
 - The two prior-year (`2020`) approved registrations and the three un-cleared `created` records
   should be triaged/cleaned before migration so they do not carry incorrect windows into the ledger
-  (data-cleanup ticket raised under epic PAE-1598).
+  ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731), under epic PAE-1598).
 
 ## Open questions / follow-ups
 
-- **[BUG-1](#known-defect)** — fix the post-cancellation (and reverted-to-`created`) waste-balance
-  leak by gating on effective-status-`approved`-at-date. Raised as a bug under epic PAE-1598. Needs
-  a check for whether any PRNs have already been issued against post-cancellation balances.
-- **Data cleanup** — null the validity dates on the three un-cleared `created` records and
-  investigate/triage the two `2020-05-06` records. Raised under epic PAE-1598.
+- **[BUG-1](#known-defect) ([PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730))** — fix the
+  post-cancellation (and reverted-to-`created`) waste-balance leak by gating on
+  effective-status-`approved`-at-date. Needs a check for whether any PRNs have already been issued
+  against post-cancellation balances.
+- **Data cleanup ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731))** — null the validity
+  dates on the three un-cleared `created` records and investigate/triage the two `2020-05-06`
+  records.
 - **Should cancellation become a dated event** (like suspension) in the ledger, rather than a
   coarse status gate? A policy + design decision for the migration, informed by the BUG-1 fix.
 - **Registration suspension:** the dated-suspension gate is implemented on the accreditation
