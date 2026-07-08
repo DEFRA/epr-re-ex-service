@@ -101,19 +101,49 @@ Suspension is therefore the one status whose transition timestamp carries date s
 Contrary to a natural expectation that cancellation would mirror suspension, the `updatedAt` of
 a `cancelled` entry is **not** used as an effective "date of cancellation" anywhere in the
 date-filtering or waste-balance path, and there is **no `cancelledAt` field**. Cancellation is
-handled by **status-set membership**, all-or-nothing rather than by date:
+handled by **status-set membership**, all-or-nothing rather than by date.
 
-- `cancelled` is included in `REPORTABLE_STATUSES` (`{approved, suspended, cancelled}`) — so a
-  cancelled registration/accreditation still appears on the public register.
-- `cancelled` is **excluded** from `ACTIVE_ACCREDITATION_STATUSES` (`{approved, suspended}`) — so
-  on the waste-records CSV-export path a cancelled accreditation resolves to `null` and is
-  treated as "no accreditation" (i.e. registered-only, no accreditation date gating).
+**Where `cancelled` is checked.** For registrations/accreditations the _only_ place that acts on
+a `cancelled` status is `src/domain/organisations/registration-utils.js`, via two sets (all other
+references are the enum definition, JSDoc types, the transition validator, or the unrelated PRN
+domain):
 
-(Both sets are defined in `src/domain/organisations/registration-utils.js`; the only permitted
-transition into `cancelled` is `suspended → cancelled`, per `src/domain/organisations/status.js`.)
+- `REPORTABLE_STATUSES = {approved, suspended, cancelled}` — `cancelled` **is** a member. Consumed
+  by `getReportableRegistrations`, so a cancelled registration/accreditation **still appears on
+  the public register / reporting output**. Cancellation does not block this.
+- `ACTIVE_ACCREDITATION_STATUSES = {approved, suspended}` — `cancelled` is **excluded**. Consumed
+  by `resolveAccreditation` (→ returns `null`), `resolveAccreditationNumber` (→ returns `''`), and
+  `isRegistrationAccredited` (→ returns `false`). So on the reporting/export resolution path a
+  cancelled accreditation is treated as **not live**: no accreditation number, and the registration
+  falls back to **registered-only**.
 
-The consequence is that cancellation is applied as a whole-record state, whereas suspension is
-applied from a point in time — an asymmetry that matters for the ledger migration.
+**What it blocks — and does not.** Because `resolveAccreditation` returns `null` for a cancelled
+accreditation, and `isAccreditedAtDates(dates, null)` returns `true` (no gating), cancellation on
+the export path means "registered-only" (cannot issue PRNs), **not** a date-based exclusion of the
+loads. Critically, the primary waste-balance **ingestion** path
+(`sync-from-summary-log.js` → `findAccreditationById`) fetches the accreditation **by id
+regardless of status**, so it **never consults `cancelled` at all** — inclusion there is bounded
+only by `validFrom`/`validTo` and the suspension check. Cancellation is therefore invisible to
+ingestion.
+
+(The only permitted transition into `cancelled` is `suspended → cancelled`, per
+`src/domain/organisations/status.js`, so a cancelled record always has a prior suspension date.)
+
+**Worked example — the asymmetry made concrete.** Accreditation valid `1 Jan → 31 Dec`,
+**suspended 1 Jun**, **cancelled 1 Aug**. `isSuspendedAtDate` finds the most recent status at or
+before a load's date and asks only "is it `suspended`?":
+
+| Load date | Most recent status at/before | Counted (ingestion date filter)? |
+| --------- | ---------------------------- | -------------------------------- |
+| 1 May     | approved                     | ✅ included                       |
+| 1 Jul     | suspended                    | ❌ excluded (dated cut works)     |
+| 1 Sep     | **cancelled**                | ⚠️ **included** — `cancelled` ≠ `suspended`, still within `validTo` |
+
+A load dated _after_ cancellation is **re-included** by the date filter, because `cancelled` is not
+`suspended`; only the separate whole-record status gate on the export path removes the cancelled
+accreditation. Suspension is applied **from a point in time**; cancellation is a **whole-record
+current-status switch** that the ingestion date filter ignores — an asymmetry the ledger migration
+must resolve.
 
 ### Rule 6 — `rejected` is not in use
 
