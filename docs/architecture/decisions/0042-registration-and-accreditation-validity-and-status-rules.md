@@ -1,0 +1,393 @@
+# 42. Registration and accreditation validity dates and status-management rules
+
+Date: 2026-07-08
+
+## Status
+
+Proposed
+
+## Context
+
+This ADR is a single record of two closely-related things:
+
+1. **What the validity dates (`validFrom` / `validTo`) mean and what they are set to** — the
+   business/statutory rules for the dates on every registration and accreditation sub-document.
+2. **How registration/accreditation status is managed, and how status transitions drive and
+   consume those dates** in the current system.
+
+It combines the outputs of the **PAE-1716** (validity dates) and **PAE-1718** (assessment of
+existing statuses/dates and migration approach) spikes into one document, and **supersedes the
+separate validity-dates ADR** — the two were companion records and are clearer merged, because the
+date rules and the status rules only make sense together. It is the prerequisite for migrating
+status onto the event-sourced waste-balance ledger
+([ADR 36](0036-event-sourced-waste-balance-stream.md),
+[ADR 37](0037-committed-row-states-with-summary-log-membership.md)), where a status change becomes
+an influencing event on the waste balance.
+
+### Why the dates exist
+
+Each registration and accreditation covers a **bounded annual period** (BR-E1, BR-E2).
+`validFrom`..`validTo` answers "was the operator entitled to do X on date D?" and gates the
+**waste balance** (loads only count within the window), **PRN/PERN issuance**, **reporting cadence**
+(registered = quarterly, accredited = monthly), and the **public register**.
+
+### Evidence base
+
+The rules below were checked against (a) the production admin data for **all 461 organisations** —
+status histories and `validFrom`/`validTo` for every registration and accreditation, extracted
+PII-free — and (b) the backend code that consumes status and dates
+(`src/common/helpers/dates/accreditation.js`, `src/domain/organisations/registration-utils.js`,
+`src/domain/organisations/status.js`, `src/repositories/organisations/schema/`).
+
+Only five status values occur in production: `created`, `approved`, `active` (organisation level
+only), `suspended`, `cancelled`. **No `rejected` status is present on any record.**
+
+## Decision
+
+**Adopt the current validity-date and status-management rules (Rules 1–6 below) as the go-forward
+baseline, with one change: cancellation must stop counting loads ([BUG-1](#known-defect)).** Rules
+1–4 and 6 are affirmed as the intended target behaviour; Rule 5 (cancellation) is a confirmed
+defect and its target is the effective-status-`approved`-at-date gate. Genuinely policy-dependent
+items are **deferred** to named owners rather than decided here (see
+[Target rules (going forward)](#target-rules-going-forward)). The rules below first record the
+behaviour as it exists today.
+
+### Rule 1 — `created → approved` sets **both** `validFrom` and `validTo`
+
+A registration or accreditation is **created first** (`created` status, with **no** validity
+dates — production confirms created-only records carry null `validFrom`/`validTo`) and **approved
+later** by the regulator. When it transitions from `created` to `approved`, **both** validity dates
+are set together:
+
+- **`validFrom`** is set to the **date of determination**, which may be **before, after, or equal
+  to** the day the approval was actually recorded. It is an independently-set business date, not a
+  copy of the transition timestamp (see Rule 3). Its statutory basis:
+  - **Accreditation** has a statutory start date: the regulations stipulate the date of
+    determination as the start.
+  - **Registration** has no statutory "start date" concept — a registration is granted and then
+    runs annually. DEFRA policy takes the **date of determination of the registration application**
+    as the de facto start date, and treats all pEPR requirements relating to registration as
+    applying from that date forward (never retrospectively to before registration). No data is
+    expected for any period before `validFrom`.
+- **`validTo`** is set to **31 December of the scheme year** in which the record was determined. The
+  scheme year is the calendar year: the annual RE/EX return is due _"by 28 February following the
+  accreditation year"_ and PRNs must be accepted _"by 31 January of the following year"_ — both
+  anchor the year end at 31 December.
+
+`validFrom` is therefore the exact determination date, not the first of the month.
+
+### Rule 2 — `approved → created` clears **both** validity dates
+
+When a registration or accreditation is sent **back to `created`** (an un-approve / re-edit),
+`validFrom` **and** `validTo` are **reset to null**. A record in `created` is not yet valid and
+therefore carries no validity window.
+
+Rules 1 and 2 are a matched pair: **the only transitions that touch the validity dates are
+`created → approved` (set both) and `approved → created` (clear both).** Suspension and cancellation
+never move them (Rules 4 and 5). This single principle reconciles the two apparently-conflicting
+intuitions about re-approval — see Rule 2a.
+
+_Observed exceptions (see [Data findings](#data-findings)): the clearing in this rule is **not
+applied consistently** — three currently-`created` entities still hold non-null validity dates._
+
+### Rule 2a — a repeated `created → approved` re-sets the dates from the **latest** approval
+
+Because each `approved → created` clears the dates (Rule 2), a subsequent `created → approved` sets
+them **afresh** (Rule 1). In a `created → approved → created → approved` sequence it is therefore
+the **second (latest) `created → approved`** whose determination date becomes `validFrom` — the
+validity window always reflects the **most recent** approval, never a superseded earlier one.
+
+This is distinct from re-activation **after a suspension** (`approved → suspended → approved`):
+suspension does **not** clear the dates (Rule 2's principle), so re-activation preserves the
+**original** `validFrom`. The rule of thumb: the dates follow the last `created → approved`, and a
+suspension→re-approval is _not_ a `created → approved`. (This corrects the earlier blanket
+statement that "re-approvals never change `validFrom`", which holds only for the suspension path.)
+
+### Rule 3 — the `approved` transition timestamp is a record only
+
+The `updatedAt` of an `approved` entry in `statusHistory` records **when the approval was
+performed** and is used for nothing else. It is **not** the effective start of validity and is
+**not** read by any date-filtering or waste-balance logic — `validFrom` (Rule 1) is the effective
+date. A consequence is that the determination date must be **captured and persisted** at approval
+time; it cannot be reconstructed from status history alone.
+
+### Rule 4 — suspension uses the transition timestamp as the effective suspension date
+
+When an accreditation is `suspended`, the `updatedAt` of the `suspended` `statusHistory` entry
+**is** used as the effective date of suspension. The waste-balance / accreditation-period gate
+(`isAccreditedAtDates` → `isSuspendedAtDate` in `src/common/helpers/dates/accreditation.js`)
+excludes any load whose date falls on or after the suspension timestamp, in addition to requiring
+the load date to be within `validFrom`..`validTo`. Suspension is therefore the one status whose
+transition timestamp carries date semantics — and the validity **window itself is unchanged**, so a
+lifted suspension reactivates with the original `validFrom`.
+
+"Was the operator live on day D?" is answered by combining the validity window (inside
+`validFrom`..`validTo`?) with status history (suspended on D?) — the window alone is not enough.
+
+### Rule 5 — cancellation does **not** derive an effective date; it is a coarse status gate
+
+Contrary to a natural expectation that cancellation would mirror suspension, the `updatedAt` of a
+`cancelled` entry is **not** used as an effective "date of cancellation" anywhere in the
+date-filtering or waste-balance path, and there is **no `cancelledAt` field**. Cancellation is
+handled by **status-set membership**, all-or-nothing rather than by date.
+
+**Where `cancelled` is checked.** For registrations/accreditations the _only_ place that acts on a
+`cancelled` status is `src/domain/organisations/registration-utils.js`, via two sets (all other
+references are the enum definition, JSDoc types, the transition validator, or the unrelated PRN
+domain):
+
+- `REPORTABLE_STATUSES = {approved, suspended, cancelled}` — `cancelled` **is** a member. Consumed
+  by `getReportableRegistrations`, so a cancelled registration/accreditation **still appears on the
+  public register / reporting output**. Cancellation does not block this.
+- `ACTIVE_ACCREDITATION_STATUSES = {approved, suspended}` — `cancelled` is **excluded**. Consumed by
+  `resolveAccreditation` (→ returns `null`), `resolveAccreditationNumber` (→ returns `''`), and
+  `isRegistrationAccredited` (→ returns `false`). So on the reporting/export resolution path a
+  cancelled accreditation is treated as **not live**: no accreditation number, and the registration
+  falls back to **registered-only**.
+
+**What it blocks — and does not.** Because `resolveAccreditation` returns `null` for a cancelled
+accreditation, and `isAccreditedAtDates(dates, null)` returns `true` (no gating), cancellation on
+the export path means "registered-only" (cannot issue PRNs), **not** a date-based exclusion of the
+loads. Critically, the primary waste-balance **ingestion** path (`sync-from-summary-log.js` →
+`findAccreditationById`) fetches the accreditation **by id regardless of status**, so it **never
+consults `cancelled` at all** — inclusion there is bounded only by `validFrom`/`validTo` and the
+suspension check. Cancellation is therefore invisible to ingestion.
+
+(The only permitted transition into `cancelled` is `suspended → cancelled`, per
+`src/domain/organisations/status.js`, so a cancelled record always has a prior suspension date.)
+
+**Worked example — the asymmetry made concrete.** Accreditation valid `1 Jan → 31 Dec`,
+**suspended 1 Jun**, **cancelled 1 Aug**. `isSuspendedAtDate` finds the most recent status at or
+before a load's date and asks only "is it `suspended`?":
+
+| Load date | Most recent status at/before | Counted (ingestion date filter)? |
+| --------- | ---------------------------- | -------------------------------- |
+| 1 May     | approved                     | ✅ included                       |
+| 1 Jul     | suspended                    | ❌ excluded (dated cut works)     |
+| 1 Sep     | **cancelled**                | ⚠️ **included** — `cancelled` ≠ `suspended`, still within `validTo` |
+
+A load dated _after_ cancellation is **re-included** by the date filter, because `cancelled` is not
+`suspended`; only the separate whole-record status gate on the export path removes the cancelled
+accreditation. Suspension is applied **from a point in time**; cancellation is a **whole-record
+current-status switch** that the ingestion date filter ignores.
+
+> **⚠️ Confirmed defect (not merely an asymmetry) — see [BUG-1](#known-defect).** This behaviour is
+> a live correctness bug, verified end-to-end and covered by **no test**: cancelling an
+> accreditation does **not** shorten `validTo`, the ingestion path (`sync-from-summary-log.js`)
+> fetches the accreditation **by id regardless of status**, and `isAccreditedAtDates` only excludes
+> the literal `suspended` — so a load dated after cancellation but on/before `validTo` is **credited
+> to the PRN-issuable balance**. Two production accreditations already have an open post-cancellation
+> window (suspended 2026-03-23, cancelled 2026-05-06, `validTo` 2026-12-31).
+
+### Rule 6 — `rejected` is not in use
+
+No production record carries a `rejected` status. Any status-management or migration logic can treat
+the live status vocabulary as `created`, `approved`, `active` (org only), `suspended`, `cancelled`.
+
+### Worked example — accreditation approved 3 February 2026
+
+An operator must already be registered to be accredited (SIP Part 1 is submitted at registration,
+Part 2 at accreditation — BR-E2), so there are **two separate determination events** with their own
+dates:
+
+| Record            | `validFrom`                                                    | `validTo`    |
+| ----------------- | -------------------------------------------------------------- | ------------ |
+| **Registration**  | Date the registration was determined (on or before 3 Feb 2026) | `2026-12-31` |
+| **Accreditation** | `2026-02-03` (date of determination)                           | `2026-12-31` |
+
+If registration and accreditation are determined on the same day, both `validFrom` are `2026-02-03`.
+
+Reporting cadence on a mid-period transition (e.g. quarterly for the part period up to the
+accreditation start, then monthly thereafter) is **out of scope** here and will be recorded in a
+separate reporting ADR.
+
+## Data findings
+
+From the all-461-organisation extract, the current data is **largely consistent** with the rules
+above, with a small number of anomalies that the migration must decide how to carry over:
+
+- **Validity not cleared on return to `created` (Rule 2 breach) — 3 entities.** Currently `created`
+  but still holding `validFrom`/`validTo`:
+  `6948753f6876dbb8043e219a` REG `69526974be70ee498facc64a`;
+  `68c9625b03f3b8ccb2b528a4` REG `68dbc6ddc9947d5a6fd51dd3`;
+  `68c9625b03f3b8ccb2b528a4` ACC `68dbdc89a1b11ef518e79e65`.
+  Because the waste-balance gate keys off `validFrom`/`validTo` (not status), these would still
+  contribute loads despite not being approved.
+- **Approved records with a prior-year validity window — 2 registrations.**
+  `6944f1ede9c561e653c0ebc1` REG `6949440a9d4d5dd8b28a29f7` and
+  `693812d0d29adae128a61f10` REG `6943dc4ee9c561e653c0ebbf` both have `validFrom = 2020-05-06`,
+  `validTo = 2020-12-31` — a validity window six years before the current scheme year (almost
+  certainly defaulted/erroneous test data). No loads would fall inside such a window.
+- **Every currently-`approved` record has both dates set** — no approved record is missing
+  `validFrom`/`validTo` (Rule 1 holds for live approvals).
+- **`created`-only records carry null dates** — confirming creation does not pre-populate the
+  validity window; the dates are set at approval (Rule 1), not at creation.
+- **Interruptions are rare:** 1 accreditation currently `suspended`; 5 records currently `cancelled`
+  (all via `created→approved→suspended→cancelled`); 1 accreditation re-approved after suspension
+  (`…→suspended→approved`); a handful of re-edit loops (`…→approved→created→approved…`).
+
+The full anomaly set is reproducible from the safe extract via the PAE-1718 analysis scripts.
+
+## Known defect
+
+### BUG-1 ([PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730)) — post-cancellation loads are credited to the waste balance
+
+The waste-balance date gate treats a **cancelled** accreditation as still covering dates up to
+`validTo`, so a load dated **after** the cancellation is wrongly counted toward the PRN/PERN-issuable
+balance. Confirmed end-to-end and **untested**:
+
+- Cancelling does not shorten `validFrom`/`validTo` (the write path spreads the record verbatim and
+  only appends a `statusHistory` entry; the validator permits but does not clear the dates for
+  `cancelled`). Production confirms all cancelled records keep `validTo = 2026-12-31`.
+- Ingestion (`src/application/waste-records/sync-from-summary-log.js`, `findAccreditationById`)
+  fetches the accreditation **by id regardless of status** and passes it to `isAccreditedAtDates`.
+- `isAccreditedAtDates` → `isSuspendedAtDate` (`src/common/helpers/dates/accreditation.js`) excludes
+  a date only when the effective status is the literal `'suspended'`. `cancelled` (and `created`) are
+  not `'suspended'`, so the date passes and the row is `INCLUDED`.
+
+The **same root cause** produces the Rule 2 leak: the three "returned to `created` but dates not
+cleared" records also pass the gate, because `created` ≠ `suspended`.
+
+**Fix direction:** change the gate to include a date only when the **effective status at that date is
+`approved`** (rather than "not `suspended`"). This single invariant fixes cancellation _and_ the
+un-cleared-`created` leak, and is more robust than enumerating exclusions. (Alternatively, shorten
+`validTo` to the cancellation date on cancel — but that does not fix the `created` leak and is more
+fragile.) Tracked as [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730) under epic PAE-1598,
+with regression tests for the post-cancellation and reverted-to-`created` cases.
+
+A further finding raises the exposure from latent to live: **cancelled/suspended operators are not
+blocked from submitting summary logs.** The only submission gate is _organisation_-level status ==
+`ACTIVE` (`get-defra-user-roles.js`); a registration/accreditation can be cancelled while its
+organisation stays `ACTIVE`, so the operator can submit post-cancellation loads and have them
+credited.
+
+## Target rules (going forward)
+
+The sections above record behaviour **as-is**. This is what the rules **should be** going forward —
+split into what we affirm, what we change, and what we defer.
+
+### Affirm (keep — these are correct; adopt as the target invariant)
+
+- **Rule 1 / 2 / 2a** — `created → approved` sets both `validFrom` (determination date) and `validTo`
+  (31 Dec); `approved → created` clears both; a repeated approval re-sets the dates from the
+  **latest** `created → approved`. The matched-pair mechanic is sound and is the intended target.
+- **Rule 3** — the `approved` transition timestamp remains a record only; `validFrom` is the
+  effective date, captured and persisted at approval.
+- **Rule 4** — suspension remains a **dated** effect (excluded from the suspension date onward), with
+  the window itself unchanged.
+- **Rule 6** — the live status vocabulary is `created`, `approved`, `active` (org), `suspended`,
+  `cancelled`; `rejected` is reachable in code but unused.
+
+### Change (decided here — because Rule 5 is a confirmed defect)
+
+- **Rule 5 → cancellation must stop counting loads.** The waste-balance gate must include a load only
+  when the **effective status at the load's date is `approved`**, rather than the current "within
+  `validFrom`..`validTo` and not the literal `suspended`" test. This single invariant makes
+  cancellation a dated terminal cut **and** closes the reverted-to-`created` leak, and is the target
+  behaviour this ADR adopts. Implementation and regression tests:
+  [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730).
+- **Data must match the rules.** The three un-cleared `created` records and the two `2020-05-06`
+  records are corrected so no `created` record holds dates and no approved record has a prior-year
+  window: [PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731).
+
+### Defer (not decided here — needs a policy owner / separate ADR)
+
+- **Registration `validTo` — roll-on vs hard annual expiry.** DEFRA policy describes registration as
+  _"for a year and then **rolls on** unless cancelled or withdrawn"_, whereas accreditation is an
+  unambiguous fixed annual grant. This leaves the registration `validTo` semantics unresolved:
+  - _Option A — hard annual expiry:_ `validTo` = 31 Dec; the registration lapses at year end unless a
+    renewal is determined (matches the accreditation model and the annual renewal fee, BR-E1).
+  - _Option B — roll-on:_ `validTo` is open-ended / auto-extended and only set when the registration
+    is actively cancelled or withdrawn (Reg 90), matching the "rolls on" wording.
+  Treat registration `validTo` as 31 December of the determination year (Option A) until a policy
+  owner confirms, but do not build hard-lapse enforcement that would be wrong under Option B. Interacts
+  with [ADR 34](0034-multi-year-accreditation-model.md) and
+  [ADR 30](0030-registered-only-edge-cases.md).
+- **Cancellation effective date.** The statutory/effective date of cancellation is an acknowledged
+  gap in the business rules (Confluence: _"the … effective date still need[s] confirmation"_). The
+  BUG-1 gate above uses the recorded cancellation transition as the cut; if policy requires a
+  different effective date, that refines the fix but does not change its direction.
+- **Whether cancellation is modelled as a discrete dated event in the ledger** (vs. derived from
+  status-at-date) — a migration-design decision for the event-sourced-ledger ADR.
+- **Registration suspension date semantics** — the dated-suspension gate exists on the accreditation
+  path; whether registrations need an equivalent is unresolved.
+
+## Consequences
+
+- The migration to the event-sourced ledger must model **suspension as a dated event** (from the
+  `suspended` transition timestamp) but **cancellation and approval as state/record changes** whose
+  transition timestamps carry no date semantics — matching current behaviour, or explicitly changing
+  it (BUG-1) as a conscious decision.
+- The determination date must be captured and persisted at approval time; consumers must always
+  evaluate the validity window **together with** status history — the window alone does not tell you
+  whether the operator was suspended on a given day.
+- `validFrom` being the source of the PRN accreditation year means an off-by-one determination date
+  (e.g. 1 January vs 31 December) changes the year a PRN is attributed to. Determination dates must be
+  recorded accurately.
+- Because the current waste-balance gate reads `validFrom`/`validTo` and suspension — but **not**
+  `created`-vs-`approved` status — a record whose dates were not cleared on return to `created` (Rule
+  2 breach) leaks into the balance. The migration should either enforce Rule 2 as a data-cleanup step
+  or make the ledger honour status directly.
+- Cancellation's status-set treatment means a cancelled accreditation contributes **nothing** from
+  the CSV-export path but is **not** truncated by date on the ingestion path — a confirmed correctness
+  bug ([BUG-1](#known-defect)), not merely a design choice, and the ledger design must make the
+  cancellation cut-off explicit.
+- The two prior-year (`2020`) approved registrations and the three un-cleared `created` records should
+  be triaged/cleaned before migration ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)).
+
+## Follow-ups
+
+Actionable tickets (both under epic PAE-1598):
+
+- **[PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730)** — [BUG-1](#known-defect): fix the
+  post-cancellation (and reverted-to-`created`) waste-balance leak by gating on
+  effective-status-`approved`-at-date; add regression tests; check whether any PRNs have already been
+  issued against post-cancellation balances.
+- **[PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)** — data cleanup for the three
+  un-cleared `created` records and the two `2020-05-06` records.
+
+Open decisions are listed under [Target rules → Defer](#target-rules-going-forward) (registration
+`validTo` semantics, cancellation effective date, ledger event modelling, registration suspension).
+
+## References
+
+### Confluence (MWR space, eaflood.atlassian.net)
+
+- **Reporting: mid-year registration / accreditation and suspensions** — page 6475481144. DEFRA
+  policy that accreditation's start is the statutory _date of determination_ and registration's start
+  is the _date of determination of the application_; the waste-balance-within-valid-dates rule; the
+  public-register display of suspended/cancelled.
+- **pEPR Packaging — Statutory Requirements and Business Rules** — page 6521095536. BR-E1 (annual
+  RE/EX registration), BR-E2 (only accredited operators may issue PRNs/PERNs; annual renewal; SIP
+  Part 1/Part 2 sequencing), BR-E5 (registered = quarterly, accredited = monthly + annual return by
+  28 Feb), BR-REG2 (public register). Notes cancellation's _"effective date still need[s]
+  confirmation"_.
+- **Data structure view – RREPW** — page 6546358726. Public-register column mapping: Active date →
+  `accreditations.validFrom`; Accreditation status → `accreditations.status`.
+
+### Regulations
+
+- **SI 2024/1332** — Producer Responsibility Obligations (Packaging and Packaging Waste) Regulations
+  2024, as amended by SI 2025/1369. Part 6 (Regs 84–100) — RE/EX registration and accreditation; Reg
+  90 — cancellation of RE/EX registration; Reg 91 — reporting duties of _registered_ operators (basis
+  for no pre-registration reporting obligation); Reg 129 — public register.
+
+### Related ADRs
+
+- [ADR 25 — Public Register of Registrations/Accreditations](0025-public-register-generation.md)
+- [ADR 28 — Reporting API and Due Rules](0028-reporting-api-and-due-rules.md)
+- [ADR 30 — Registered-only operator edge cases](0030-registered-only-edge-cases.md)
+- [ADR 34 — Multi-year accreditation model](0034-multi-year-accreditation-model.md)
+- [ADR 36 — Event-sourced waste-balance stream](0036-event-sourced-waste-balance-stream.md)
+- [ADR 37 — Committed row states with summary-log membership](0037-committed-row-states-with-summary-log-membership.md)
+
+### Code (behaviour verified against `epr-backend`)
+
+- `src/common/helpers/dates/accreditation.js` — `isAccreditedAtDates`, `isSuspendedAtDate`,
+  `isWithinAccreditationDateRange` (the waste-balance date gate; suspension-from-timestamp).
+- `src/domain/organisations/registration-utils.js` — `REPORTABLE_STATUSES`,
+  `ACTIVE_ACCREDITATION_STATUSES`, `resolveAccreditation` (cancellation status gating).
+- `src/domain/organisations/status.js` — permitted status transitions (`suspended → cancelled`).
+- `src/repositories/organisations/schema/accreditation.js`,
+  `src/repositories/organisations/schema/registration.js` — `validFrom`/`validTo` are the only date
+  fields; required when approved/suspended; no `cancelledAt`.
