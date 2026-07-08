@@ -60,11 +60,17 @@ independent use case emerges, is a low-cost move since the repository-port bound
 - **Ingestion**: the regulator-supplied workbook already contains both `OSRs` and `Interim Sites` as separate
   tabs in one file. The existing upload flow (single workbook upload, async processing, per-file progress and
   results) is extended to read both tables from that one file, with a second tab on the upload page for
-  Interim Sites — one upload, one place to track both.
+  Interim Sites — one upload, one place to track both. The `Interim Sites` tab is optional on any given
+  upload — a workbook with only `OSRs` rows is still a valid import, since not every ORS has an interim site.
 - **Errors during import**: each entry in the existing per-file `errors[]` array gains a `sheet` field to
   identify which table a row error belongs to, e.g. `{ "sheet": "Interim Sites", "row": 6, "field":
-  "finalOverseasReprocessingSite", "message": "ORS ID '042' not found in this file" }` — no new reporting
-  mechanism.
+  "finalOverseasReprocessingSite", "message": "ORS ID '042' not found in this file" }` for the referential
+  case (the row's ORS isn't present in this file). The same per-row validation also needs to catch duplicate
+  or conflicting pairings — the same Interim Site ID appearing twice for the same ORS with different details,
+  or the same interim site legitimately repeated for more than one ORS but with inconsistent name/address
+  across rows — surfaced the same way, e.g. `{ "sheet": "Interim Sites", "row": 9, "field":
+  "interimSiteId", "message": "Interim Site ID '101' already linked to ORS '042' with different details" }`.
+  No new reporting mechanism.
 - **Search and view**: the "Overseas reprocessing sites" search page gains one new column listing the
   three-digit Interim Site IDs linked to that ORS directly in the cell (e.g. `101, 102`, or "-"), rather than
   a count or a link to a separate detail page. This keeps the table's one-row-per-mapping shape intact — no
@@ -79,20 +85,15 @@ independent use case emerges, is a low-cost move since the repository-port bound
 
 ### 3. Interim Site ID validation and waste balance inclusion/exclusion on Summary Log upload
 
-The check only fires when `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE == Yes`; otherwise `INTERIM_SITE_ID` is
-ignored beyond its existing three-digit format check. When it does fire, the row's `OSR_ID` is resolved first
-(as today), then `INTERIM_SITE_ID` is checked against the interim sites linked to *that* ORS — never against
-a registration-wide or global list.
+The check only fires when `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE == Yes`. When it does, `OSR_ID` is resolved
+first as today; only if that succeeds is `INTERIM_SITE_ID` checked against the interim sites linked to *that*
+ORS, never against a registration-wide list. So a row is excluded for at most one reason: an ORS failure
+short-circuits before the interim-site check ever runs.
 
-Validation reuses the existing exclusion mechanism: a failed check excludes the row from the waste balance
-and warns the operator, but the upload still succeeds — the same warning-and-exclude behaviour `OSR_ID`
-failures already get, not a separate side channel.
-
-The failure condition is distinct from the existing `OSR_ID` failures — the ORS itself may be valid and
-approved, but the given `INTERIM_SITE_ID` isn't one of the interim sites recorded against it — so it gets its
-own exclusion reason code, `INTERIM_SITE_NOT_FOUND`. Unlike an ORS, an interim site carries no
-`validFrom`/approval-date concept of its own — it's simply linked to an ORS or it isn't — so there's no
-interim-site equivalent of `ORS_NOT_APPROVED`; one reason code covers the one failure condition.
+A failed interim-site check excludes the row from the waste balance and warns the operator, but the upload
+still succeeds — reusing the exact warn-and-exclude behaviour `OSR_ID` failures already get, under its own
+reason code, `INTERIM_SITE_NOT_FOUND`. Only one reason code is needed: unlike an ORS, an interim site has no
+`validFrom`/approval date — it's either linked to the ORS or it isn't.
 
 ### 4. Surfacing interim site data through the overseas-sites endpoints
 
@@ -103,9 +104,8 @@ so a regulator can manage an interim site record without going through a specifi
 **All existing `overseas-sites` read endpoints are extended to include linked interim sites**, rather than
 adding parallel interim-site-specific routes: `GET /v1/overseas-sites`, `GET /v1/overseas-sites/{id}`, and the
 accreditation-scoped `.../accreditations/{accreditationId}/overseas-sites` (`accreditation-list.js`). The
-last of these is used for external consumption by the registration service — the same consumer ADR 0035
-added Basic Auth for on `GET /v1/organisations` — and already supports both `access-token` and Basic Auth, so
-it's the natural place to give that consumer interim site detail too.
+last of these supports both `access-token` and Basic Auth, for external consumption by the registration
+service, so it's the natural place to give that consumer interim site detail too.
 
 A separate `.../accreditations/{accreditationId}/interim-sites` endpoint was considered and rejected: an
 interim site is never meaningful on its own in this model, only in relation to an ORS, so a consumer asking
