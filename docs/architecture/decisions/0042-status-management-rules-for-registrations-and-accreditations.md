@@ -42,22 +42,43 @@ level only), `suspended`, `cancelled`. **No `rejected` status is present on any 
 
 ## Decision
 
-### Rule 1 — on approval, `validFrom` is set to the determination date (not derived from the transition timestamp)
+### Rule 1 — `created → approved` sets **both** `validFrom` and `validTo`
 
-When a registration or accreditation transitions to `approved`, its `validFrom` is set to the
-**date of determination**, which may be **before, after, or equal to** the day the approval
-was actually recorded. `validFrom` is an independently-set business date, not a copy of the
-transition timestamp. (What that date _should_ be is governed by the validity-dates ADR,
-PAE-1716.)
+When a registration or accreditation transitions from `created` to `approved`, **both** validity
+dates are set together:
 
-### Rule 2 — returning to `created` clears the validity dates
+- **`validFrom`** is set to the **date of determination**, which may be **before, after, or equal
+  to** the day the approval was actually recorded. It is an independently-set business date, not
+  a copy of the transition timestamp.
+- **`validTo`** is set to the **end of the scheme year (31 December)**.
+
+(What those dates _should_ be is governed by the validity-dates ADR, PAE-1716.)
+
+### Rule 2 — `approved → created` clears **both** validity dates
 
 When a registration or accreditation is sent **back to `created`** (an un-approve / re-edit),
-its `validFrom` and `validTo` are expected to be **reset to null**. A record in `created` is
-not yet valid and should therefore carry no validity window.
+`validFrom` **and** `validTo` are **reset to null**. A record in `created` is not yet valid and
+therefore carries no validity window.
 
-_Observed exceptions (see [Data findings](#data-findings)): this clearing is **not applied
-consistently** — three currently-`created` entities still hold non-null validity dates._
+Rules 1 and 2 are a matched pair: the only transitions that touch the validity dates are
+`created → approved` (set both) and `approved → created` (clear both). Suspension and
+cancellation never move them (Rules 4 and 5).
+
+_Observed exceptions (see [Data findings](#data-findings)): the clearing in this rule is **not
+applied consistently** — three currently-`created` entities still hold non-null validity dates._
+
+### Rule 2a — a repeated `created → approved` re-sets the dates from the **latest** approval
+
+Because each `approved → created` clears the dates (Rule 2), a subsequent `created → approved`
+sets them **afresh** (Rule 1). In a `created → approved → created → approved` sequence it is
+therefore the **second (latest) `created → approved`** whose determination date becomes
+`validFrom` — the validity window always reflects the **most recent** approval, never a
+superseded earlier one.
+
+This is distinct from re-activation **after a suspension** (`approved → suspended → approved`):
+suspension does not clear the dates, so re-activation preserves the **original** `validFrom`
+(see Rule 4 and the validity-dates ADR, PAE-1716). The rule of thumb: the dates follow the last
+`created → approved`, and a suspension→re-approval is _not_ a `created → approved`.
 
 ### Rule 3 — the `approved` transition timestamp is a record only
 
