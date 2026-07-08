@@ -264,6 +264,13 @@ un-cleared-`created` leak, and is more robust than enumerating exclusions. (Alte
 fragile.) Tracked as [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730) under epic PAE-1598,
 with regression tests for the post-cancellation and reverted-to-`created` cases.
 
+**The effective date already exists in the data.** Every `cancelled` `statusHistory` entry carries an
+`updatedAt` (set at the transition — `helpers.js`), confirmed in production (e.g. cancelled
+`2026-05-06`). It is simply not read by the current gate. So no new field and no data loss is
+required: the effective-status-at-date gate uses that `updatedAt` as the cancellation cut-off
+automatically (the same lookup `isSuspendedAtDate` already does), and the ledger migration can use it
+directly as the cancellation event's `effectiveFrom`.
+
 A further finding raises the exposure from latent to live: **cancelled/suspended operators are not
 blocked from submitting summary logs.** The only submission gate is _organisation_-level status ==
 `ACTIVE` (`get-defra-user-roles.js`); a registration/accreditation can be cancelled while its
@@ -314,9 +321,11 @@ split into what we affirm, what we change, and what we defer.
   with [ADR 34](0034-multi-year-accreditation-model.md) and
   [ADR 30](0030-registered-only-edge-cases.md).
 - **Cancellation effective date.** The statutory/effective date of cancellation is an acknowledged
-  gap in the business rules (Confluence: _"the … effective date still need[s] confirmation"_). The
-  BUG-1 gate above uses the recorded cancellation transition as the cut; if policy requires a
-  different effective date, that refines the fix but does not change its direction.
+  gap in the business rules (Confluence: _"the … effective date still need[s] confirmation"_). This is
+  a policy question only, not a data one: the `cancelled` transition's `updatedAt` is present on every
+  record and is a sensible default effective date (used by the BUG-1 gate and available to the
+  migration as `effectiveFrom`). Policy needs only to confirm whether a _different_ effective date
+  (e.g. a backdated one) is ever required; if so, that refines the value used, not the mechanism.
 - **Whether cancellation is modelled as a discrete dated event in the ledger** (vs. derived from
   status-at-date) — a migration-design decision for the event-sourced-ledger ADR.
 - **Registration suspension date semantics** — the dated-suspension gate exists on the accreditation
@@ -324,10 +333,11 @@ split into what we affirm, what we change, and what we defer.
 
 ## Consequences
 
-- The migration to the event-sourced ledger must model **suspension as a dated event** (from the
-  `suspended` transition timestamp) but **cancellation and approval as state/record changes** whose
-  transition timestamps carry no date semantics — matching current behaviour, or explicitly changing
-  it (BUG-1) as a conscious decision.
+- The migration to the event-sourced ledger can model **every status change as a dated event** by
+  backfilling each event's `effectiveFrom` from the corresponding `statusHistory.updatedAt` — those
+  timestamps already exist on all records (including `cancelled`), they are simply unused by today's
+  gate. Suspension is already dated this way; cancellation should be too (BUG-1), which the backfill
+  makes a data-complete, no-new-field change rather than a behavioural guess.
 - The determination date must be captured and persisted at approval time; consumers must always
   evaluate the validity window **together with** status history — the window alone does not tell you
   whether the operator was suspended on a given day.
