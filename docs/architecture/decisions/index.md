@@ -40,3 +40,4 @@
 * [38. Derive report status and state in the backend](0038-derive-report-state-in-backend.md)
 * [39. Report resubmission for closed periods](0039-report-resubmission-for-closed-periods.md)
 * [40. Reset the SonarCloud new-code baseline per publish via the release tag](0040-reset-sonar-new-code-baseline-per-publish.md)
+* [42. Status-management rules for registrations and accreditations](0042-status-management-rules-for-registrations-and-accreditations.md)
