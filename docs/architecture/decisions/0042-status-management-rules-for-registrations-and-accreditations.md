@@ -42,6 +42,14 @@ level only), `suspended`, `cancelled`. **No `rejected` status is present on any 
 
 ## Decision
 
+**Adopt the current status-management rules (Rules 1–6 below) as the go-forward baseline, with one
+change: cancellation must stop counting loads ([BUG-1](#known-defect)).** Rules 1–4 and 6 are
+affirmed as the intended target behaviour; Rule 5 (cancellation) is a confirmed defect and its
+target is the effective-status-`approved`-at-date gate. Genuinely policy-dependent items are
+**deferred** to named owners rather than decided here. This is set out in
+[Target rules (going forward)](#target-rules-going-forward); the rules below first record the
+behaviour as it exists today.
+
 ### Rule 1 — `created → approved` sets **both** `validFrom` and `validTo`
 
 When a registration or accreditation transitions from `created` to `approved`, **both** validity
@@ -218,6 +226,47 @@ blocked from submitting summary logs.** The only submission gate is _organisatio
 organisation stays `ACTIVE`, so the operator can submit post-cancellation loads and have them
 credited.
 
+## Target rules (going forward)
+
+The sections above record behaviour **as-is**. This is what the rules **should be** going forward —
+split into what we affirm, what we change, and what we defer.
+
+### Affirm (keep — these are correct; adopt as the target invariant)
+
+- **Rule 1 / 2 / 2a** — `created → approved` sets both `validFrom` and `validTo`; `approved → created`
+  clears both; a repeated approval re-sets the dates from the **latest** `created → approved`. The
+  matched-pair mechanic is sound and is the intended target.
+- **Rule 3** — the `approved` transition timestamp remains a record only; `validFrom` is the
+  effective date.
+- **Rule 4** — suspension remains a **dated** effect (excluded from the suspension date onward).
+- **Rule 6** — the live status vocabulary is `created`, `approved`, `active` (org), `suspended`,
+  `cancelled`; `rejected` is reachable in code but unused.
+
+### Change (decided here — because Rule 5 is a confirmed defect)
+
+- **Rule 5 → cancellation must stop counting loads.** The waste-balance gate must include a load
+  only when the **effective status at the load's date is `approved`**, rather than the current
+  "within `validFrom`..`validTo` and not the literal `suspended`" test. This single invariant makes
+  cancellation a dated terminal cut **and** closes the reverted-to-`created` leak, and is the target
+  behaviour this ADR adopts. Implementation and regression tests:
+  [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730).
+- **Data must match the rules.** The three un-cleared `created` records and the two `2020-05-06`
+  records are corrected so no `created` record holds dates and no approved record has a prior-year
+  window: [PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731).
+
+### Defer (not decided here — needs a policy owner / separate ADR)
+
+- **Registration `validTo` — roll-on vs hard annual expiry.** Unresolved; owned by the validity-dates
+  ADR (PAE-1716) and a policy owner.
+- **Cancellation effective date.** The statutory/effective date of cancellation is an acknowledged
+  gap in the business rules (Confluence: _"the … effective date still need[s] confirmation"_). The
+  BUG-1 gate above uses the recorded cancellation transition as the cut; if policy requires a
+  different effective date, that refines the fix but does not change its direction.
+- **Whether cancellation is modelled as a discrete dated event in the ledger** (vs. derived from
+  status-at-date) — a migration-design decision for the event-sourced-ledger ADR.
+- **Registration suspension date semantics** — the dated-suspension gate exists on the accreditation
+  path; whether registrations need an equivalent is unresolved.
+
 ## Consequences
 
 - The migration to the event-sourced ledger must model **suspension as a dated event** (from
@@ -236,20 +285,19 @@ credited.
   should be triaged/cleaned before migration so they do not carry incorrect windows into the ledger
   ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731), under epic PAE-1598).
 
-## Open questions / follow-ups
+## Follow-ups
 
-- **[BUG-1](#known-defect) ([PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730))** — fix the
+Actionable tickets (both under epic PAE-1598):
+
+- **[PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730)** — [BUG-1](#known-defect): fix the
   post-cancellation (and reverted-to-`created`) waste-balance leak by gating on
-  effective-status-`approved`-at-date. Needs a check for whether any PRNs have already been issued
-  against post-cancellation balances.
-- **Data cleanup ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731))** — null the validity
-  dates on the three un-cleared `created` records and investigate/triage the two `2020-05-06`
-  records.
-- **Should cancellation become a dated event** (like suspension) in the ledger, rather than a
-  coarse status gate? A policy + design decision for the migration, informed by the BUG-1 fix.
-- **Registration suspension:** the dated-suspension gate is implemented on the accreditation
-  path; whether registration suspension needs equivalent date semantics is unresolved (only one
-  registration is currently suspended/cancelled in the data).
+  effective-status-`approved`-at-date; add regression tests; check whether any PRNs have already been
+  issued against post-cancellation balances.
+- **[PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)** — data cleanup for the three
+  un-cleared `created` records and the two `2020-05-06` records.
+
+Open decisions are listed under [Target rules → Defer](#target-rules-going-forward) (registration
+`validTo` semantics, cancellation effective date, ledger event modelling, registration suspension).
 
 ## References
 
