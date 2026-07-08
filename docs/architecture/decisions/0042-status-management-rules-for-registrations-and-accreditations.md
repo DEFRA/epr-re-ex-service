@@ -142,8 +142,15 @@ before a load's date and asks only "is it `suspended`?":
 A load dated _after_ cancellation is **re-included** by the date filter, because `cancelled` is not
 `suspended`; only the separate whole-record status gate on the export path removes the cancelled
 accreditation. Suspension is applied **from a point in time**; cancellation is a **whole-record
-current-status switch** that the ingestion date filter ignores — an asymmetry the ledger migration
-must resolve.
+current-status switch** that the ingestion date filter ignores.
+
+> **⚠️ Confirmed defect (not merely an asymmetry) — see [BUG-1](#known-defect).** This behaviour is
+> a live correctness bug, verified end-to-end and covered by **no test**: cancelling an
+> accreditation does **not** shorten `validTo`, the ingestion path (`sync-from-summary-log.js`)
+> fetches the accreditation **by id regardless of status**, and `isAccreditedAtDates` only excludes
+> the literal `suspended` — so a load dated after cancellation but on/before `validTo` is **credited
+> to the PRN-issuable balance**. Two production accreditations already have an open
+> post-cancellation window (suspended 2026-03-23, cancelled 2026-05-06, `validTo` 2026-12-31).
 
 ### Rule 6 — `rejected` is not in use
 
@@ -178,6 +185,33 @@ rules above, with a small number of anomalies that the migration must decide how
 
 The full anomaly set is reproducible from the safe extract via the PAE-1718 analysis scripts.
 
+## Known defect
+
+### BUG-1 — post-cancellation loads are credited to the waste balance
+
+The waste-balance date gate treats a **cancelled** accreditation as still covering dates up to
+`validTo`, so a load dated **after** the cancellation is wrongly counted toward the PRN/PERN-issuable
+balance. Confirmed end-to-end and **untested**:
+
+- Cancelling does not shorten `validFrom`/`validTo` (the write path spreads the record verbatim and
+  only appends a `statusHistory` entry; the validator permits but does not clear the dates for
+  `cancelled`). Production confirms all cancelled records keep `validTo = 2026-12-31`.
+- Ingestion (`src/application/waste-records/sync-from-summary-log.js`, `findAccreditationById`)
+  fetches the accreditation **by id regardless of status** and passes it to `isAccreditedAtDates`.
+- `isAccreditedAtDates` → `isSuspendedAtDate` (`src/common/helpers/dates/accreditation.js`) excludes
+  a date only when the effective status is the literal `'suspended'`. `cancelled` (and `created`) are
+  not `'suspended'`, so the date passes and the row is `INCLUDED`.
+
+The **same root cause** produces the Rule 2 leak: the three "returned to `created` but dates not
+cleared" records also pass the gate, because `created` ≠ `suspended`.
+
+**Fix direction:** change the gate to include a date only when the **effective status at that date is
+`approved`** (rather than "not `suspended`"). This single invariant fixes cancellation _and_ the
+un-cleared-`created` leak, and is more robust than enumerating exclusions. (Alternatively, shorten
+`validTo` to the cancellation date on cancel — but that does not fix the `created` leak and is more
+fragile.) Tracked as a bug against epic PAE-1598, with regression tests for the post-cancellation and
+reverted-to-`created` cases.
+
 ## Consequences
 
 - The migration to the event-sourced ledger must model **suspension as a dated event** (from
@@ -189,22 +223,25 @@ The full anomaly set is reproducible from the safe extract via the PAE-1718 anal
   (Rule 2 breach) leaks into the balance. The migration should either enforce Rule 2 as a
   data-cleanup step or make the ledger honour status directly.
 - Cancellation's status-set treatment means a cancelled accreditation contributes **nothing**
-  from the CSV-export path but is **not** truncated by date on the ingestion path; the ledger
-  design should make the cancellation cut-off explicit if a point-in-time cancellation is
-  intended.
+  from the CSV-export path but is **not** truncated by date on the ingestion path — this is a
+  confirmed correctness bug ([BUG-1](#known-defect)), not merely a design choice, and the ledger
+  design must make the cancellation cut-off explicit.
 - The two prior-year (`2020`) approved registrations and the three un-cleared `created` records
-  should be triaged before migration so they do not carry incorrect windows into the ledger.
+  should be triaged/cleaned before migration so they do not carry incorrect windows into the ledger
+  (data-cleanup ticket raised under epic PAE-1598).
 
 ## Open questions / follow-ups
 
+- **[BUG-1](#known-defect)** — fix the post-cancellation (and reverted-to-`created`) waste-balance
+  leak by gating on effective-status-`approved`-at-date. Raised as a bug under epic PAE-1598. Needs
+  a check for whether any PRNs have already been issued against post-cancellation balances.
+- **Data cleanup** — null the validity dates on the three un-cleared `created` records and
+  investigate/triage the two `2020-05-06` records. Raised under epic PAE-1598.
 - **Should cancellation become a dated event** (like suspension) in the ledger, rather than a
-  coarse status gate? This is a policy + design decision for the migration.
-- **Should Rule 2 (clear dates on return to `created`) be enforced retrospectively** to fix the
-  three inconsistent records, and guarded going forward?
+  coarse status gate? A policy + design decision for the migration, informed by the BUG-1 fix.
 - **Registration suspension:** the dated-suspension gate is implemented on the accreditation
   path; whether registration suspension needs equivalent date semantics is unresolved (only one
   registration is currently suspended/cancelled in the data).
-- Triage owner needed for the `2020-05-06` validity records.
 
 ## References
 
