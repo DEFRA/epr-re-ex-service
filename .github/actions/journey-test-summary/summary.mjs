@@ -5,8 +5,7 @@ import { join } from 'node:path'
  * @typedef {{
  *   name: string,
  *   status: string,
- *   start?: number,
- *   stop?: number,
+ *   durationMs: number | null,
  *   message?: string
  * }} Result
  */
@@ -37,14 +36,20 @@ export const readResults = (dir) => {
     .filter((name) => name.endsWith('-result.json'))
     .flatMap((name) => {
       try {
-        const parsed = JSON.parse(readFileSync(join(dir, name), 'utf8'))
+        const {
+          name: testName,
+          status,
+          start,
+          stop,
+          statusDetails
+        } = JSON.parse(readFileSync(join(dir, name), 'utf8'))
         return [
           {
-            name: parsed.name,
-            status: parsed.status,
-            start: parsed.start,
-            stop: parsed.stop,
-            message: parsed.statusDetails?.message
+            name: testName,
+            status,
+            durationMs:
+              start === undefined || stop === undefined ? null : stop - start,
+            message: statusDetails?.message
           }
         ]
       } catch {
@@ -63,32 +68,19 @@ export const formatDuration = (seconds) =>
     : `${seconds}s`
 
 /**
- * Duration of a result in ms, or null when it has no complete timing. Allure
- * writes `start` and `stop` together, so an incomplete pair means the test did
- * not run (e.g. skipped).
- * @param {Result} result
- * @returns {number | null}
- */
-const durationMs = (result) =>
-  result.start != null && result.stop != null
-    ? result.stop - result.start
-    : null
-
-/**
  * @param {Result[]} results
  * @returns {Array<{ name: string, seconds: number }>}
  */
 const slowest = (results) =>
   results
-    .flatMap((r) => {
-      const ms = durationMs(r)
-      return ms != null ? [{ name: r.name, ms }] : []
-    })
-    .sort((a, b) => b.ms - a.ms)
+    .flatMap((r) =>
+      r.durationMs === null ? [] : [{ name: r.name, durationMs: r.durationMs }]
+    )
+    .sort((a, b) => b.durationMs - a.durationMs)
     .slice(0, SLOWEST_LIMIT)
     .map((r) => ({
       name: r.name,
-      seconds: Math.round(r.ms / MS_PER_SECOND)
+      seconds: Math.round(r.durationMs / MS_PER_SECOND)
     }))
 
 /**
@@ -163,7 +155,7 @@ export const buildSummary = ({
     ...failedSection(results)
   ]
 
-  if (dockerSeconds != null && testSeconds != null) {
+  if (dockerSeconds !== null && testSeconds !== null) {
     lines.push(
       '',
       `Docker build: ${formatDuration(dockerSeconds)} | Tests: ${formatDuration(testSeconds)}`

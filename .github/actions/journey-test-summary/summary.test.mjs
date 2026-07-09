@@ -6,11 +6,20 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { buildSummary, formatDuration, readResults } from './summary.mjs'
 
-const result = (overrides) => ({
+/** A raw allure result file, as written to disk. */
+const allureResult = (overrides) => ({
   name: 'a test',
   status: 'passed',
   start: 1000,
   stop: 2000,
+  ...overrides
+})
+
+/** A normalised result, as returned by readResults / consumed by buildSummary. */
+const result = (overrides) => ({
+  name: 'a test',
+  status: 'passed',
+  durationMs: 1000,
   ...overrides
 })
 
@@ -47,19 +56,30 @@ describe('journey test summary', () => {
   })
 
   describe('readResults', () => {
-    it('should extract only the top-level fields from each result file', () => {
+    it('should normalise each result to name, status and duration', () => {
       const dir = withResults({
-        'a-result.json': result({ name: 'one', steps: [{ name: 'nested' }] })
+        'a-result.json': allureResult({
+          name: 'one',
+          steps: [{ name: 'nested' }]
+        })
       })
 
       expect(readResults(dir)).toEqual([
-        { name: 'one', status: 'passed', start: 1000, stop: 2000 }
+        { name: 'one', status: 'passed', durationMs: 1000 }
       ])
+    })
+
+    it('should set duration to null when timing is incomplete', () => {
+      const dir = withResults({
+        'a-result.json': { name: 'skipped one', status: 'skipped' }
+      })
+
+      expect(readResults(dir)[0].durationMs).toBeNull()
     })
 
     it('should ignore files that are not allure results', () => {
       const dir = withResults({
-        'a-result.json': result({ name: 'kept' }),
+        'a-result.json': allureResult({ name: 'kept' }),
         'categories.json': { irrelevant: true }
       })
 
@@ -69,7 +89,7 @@ describe('journey test summary', () => {
     it('should skip unparseable files rather than throwing', () => {
       const dir = withResults({
         'bad-result.json': '{ not valid json',
-        'good-result.json': result({ name: 'good' })
+        'good-result.json': allureResult({ name: 'good' })
       })
 
       expect(readResults(dir).map((r) => r.name)).toEqual(['good'])
@@ -83,13 +103,13 @@ describe('journey test summary', () => {
       })
 
       expect(readResults(dir)).toEqual([
-        { name: 'deep', status: 'passed', start: 0, stop: 3000 }
+        { name: 'deep', status: 'passed', durationMs: 3000 }
       ])
     })
 
     it('should capture the failure message from statusDetails', () => {
       const dir = withResults({
-        'a-result.json': result({
+        'a-result.json': allureResult({
           status: 'failed',
           statusDetails: { message: 'expected 200, got 500', trace: 'a\nb' }
         })
@@ -190,7 +210,7 @@ describe('journey test summary', () => {
 
     it('should list the slowest tests first, capped at five', () => {
       const results = [10, 50, 20, 5, 40, 30].map((secs, i) =>
-        result({ name: `t${i}`, start: 0, stop: secs * 1000 })
+        result({ name: `t${i}`, durationMs: secs * 1000 })
       )
 
       const { markdown } = buildSummary({ results })
@@ -214,7 +234,7 @@ describe('journey test summary', () => {
 
     it('should omit the slowest section when there are no timed results', () => {
       const { markdown } = buildSummary({
-        results: [result({ start: undefined, stop: undefined })]
+        results: [result({ durationMs: null })]
       })
 
       expect(markdown).not.toContain('### Slowest')
