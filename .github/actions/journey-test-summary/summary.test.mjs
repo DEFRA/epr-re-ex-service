@@ -1,10 +1,15 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { buildSummary, formatDuration, readResults } from './summary.mjs'
+import {
+  buildSummary,
+  formatDuration,
+  readResults,
+  writeCommentFile
+} from './summary.mjs'
 
 /** A raw allure result file, as written to disk. */
 const allureResult = (overrides) => ({
@@ -238,6 +243,22 @@ describe('journey test summary', () => {
       })
 
       expect(markdown).not.toContain('### Slowest')
+    })
+  })
+
+  describe('writeCommentFile', () => {
+    it('should write the markdown to the given path', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'allure-'))
+      tmpDirs.push(dir)
+      const file = join(dir, 'comment.md')
+
+      writeCommentFile(file, '## hello')
+
+      expect(readFileSync(file, 'utf8')).toBe('## hello')
+    })
+
+    it('should do nothing when no path is given', () => {
+      expect(() => writeCommentFile(undefined, '## hello')).not.toThrow()
     })
   })
 })

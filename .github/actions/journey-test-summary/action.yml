@@ -15,6 +15,11 @@ inputs:
   test-start:
     description: epoch seconds when the tests started (adds a duration line)
     default: ''
+  pr-comment:
+    description: >-
+      post the summary as a sticky PR comment (needs `pull-requests: write` on
+      the calling job); skipped on forks where the token is read-only
+    default: 'true'
 
 runs:
   using: composite
@@ -25,9 +30,19 @@ runs:
         RESULTS_DIR: ${{ inputs.results-dir }}
         BUILD_START: ${{ inputs.build-start }}
         TEST_START: ${{ inputs.test-start }}
+        COMMENT_FILE: ${{ runner.temp }}/journey-test-summary.md
       run: |
         if [ -n "$BUILD_START" ] && [ -n "$TEST_START" ]; then
           export DOCKER_SECONDS=$(( TEST_START - BUILD_START ))
           export TEST_SECONDS=$(( $(date +%s) - TEST_START ))
         fi
         node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY" || true
+
+    - name: Post sticky PR comment
+      if: >-
+        inputs.pr-comment == 'true' && github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.fork == false
+      uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+      with:
+        header: journey-tests
+        path: ${{ runner.temp }}/journey-test-summary.md

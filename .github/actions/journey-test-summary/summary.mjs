@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -178,6 +178,19 @@ export const buildSummary = ({
   return { markdown: lines.join('\n') }
 }
 
+/**
+ * Writes the summary markdown to a file for a sticky PR comment. No-op when no
+ * path is given (the caller may not want a comment).
+ * @param {string | undefined} commentFile
+ * @param {string} markdown
+ * @returns {void}
+ */
+export const writeCommentFile = (commentFile, markdown) => {
+  if (commentFile) {
+    writeFileSync(commentFile, markdown)
+  }
+}
+
 /* v8 ignore start */
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dir = process.env.RESULTS_DIR ?? 'allure-results'
@@ -194,5 +207,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     testSeconds
   })
   process.stdout.write(markdown)
+  writeCommentFile(process.env.COMMENT_FILE, markdown)
 }
 /* v8 ignore stop */
