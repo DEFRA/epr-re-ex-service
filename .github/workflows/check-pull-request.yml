@@ -71,10 +71,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Test and Scan
-        uses: ./.github/actions/test-and-scan
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sonar-token: ${{ secrets.SONAR_TOKEN }}
+        run: echo "Service checks run in the static-analysis job; test-and-scan is hosted here for the app repos"
 
   static-analysis:
     name: Static Analysis

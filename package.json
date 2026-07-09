@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "pEPR Re/Ex project",
   "engines": {
-    "node": ">=24.16.0 <25"
+    "node": "^24.18.0"
   },
   "scripts": {
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
@@ -22,14 +22,14 @@
   "license": "OGL-UK-3.0",
   "overrides": {},
   "devDependencies": {
-    "@dotenvx/dotenvx": "1.71.3",
+    "@dotenvx/dotenvx": "2.1.4",
     "@types/node": "25.9.3",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "mongodb": "7.3.0",
-    "prettier": "3.8.4",
-    "renovate": "43.220.0",
+    "mongodb": "7.4.0",
+    "prettier": "3.9.4",
+    "renovate": "43.252.5",
     "typescript": "5.9.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.10"
   }
 }

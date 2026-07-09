@@ -9,18 +9,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
       with:
         node-version: 24
         cache: npm
 
-    - uses: renovatebot/github-action@b67590ea780158ccd13192c22a3655a5231f869d # v46.1.8
+    - uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
       with:
         renovate-version: 43.206.0
         mount-docker-socket: false
         token: ${{ inputs.token }}
       env:
         RENOVATE_REPOSITORIES: ${{ github.repository }}
-        RENOVATE_ALLOWED_COMMANDS: '["^npm install --package-lock-only --ignore-scripts$"]'
+        RENOVATE_ALLOWED_COMMANDS: '["^install-tool node$", "^npm install --package-lock-only --ignore-scripts$"]'
