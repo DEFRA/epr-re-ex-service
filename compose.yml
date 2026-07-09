@@ -369,7 +369,7 @@ services:
 
   selenium-chrome:
     profiles: ['all', 'journey-test']
-    image: selenium/standalone-chrome:148.0@sha256:b4d4e3f64280c4cd69198c8eb2c1daa74b3d206ff87a647728fc070affee94b0
+    image: selenium/standalone-chrome:149.0@sha256:90fbfd0cec921daba37e87f92e0edbd2c1b6e03b14d3972dba6338dec3884b70
     platform: linux/amd64
     ports:
       - 4444:4444
