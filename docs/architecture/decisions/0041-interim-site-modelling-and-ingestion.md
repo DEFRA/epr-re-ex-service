@@ -1,10 +1,10 @@
 # 41. Interim Site modelling and ingestion
 
-Date: 2026-07-07
+Date: 2026-07-09
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -91,9 +91,42 @@ ORS, never against a registration-wide list. So a row is excluded for at most on
 short-circuits before the interim-site check ever runs.
 
 A failed interim-site check excludes the row from the waste balance and warns the operator, but the upload
-still succeeds — reusing the exact warn-and-exclude behaviour `OSR_ID` failures already get, under its own
-reason code, `INTERIM_SITE_NOT_FOUND`. Only one reason code is needed: unlike an ORS, an interim site has no
-`validFrom`/approval date — it's either linked to the ORS or it isn't.
+still succeeds — reusing the exact warn-and-exclude behaviour `OSR_ID` failures already get. Two reason codes
+are surfaced, not one:
+
+- `INTERIM_SITE_NOT_FOUND` — the `INTERIM_SITE_ID` doesn't match any interim site reference data at all.
+- `INTERIM_SITE_NOT_LINKED_TO_ORS` — the ID matches a real interim site, but not one linked to the `OSR_ID`
+  given on the same row.
+
+A single generic code was rejected: since one interim site can be linked to different ORSs on different
+workbook rows (section 1), pairing the right interim site with the wrong ORS is a distinct, likely-common
+mistake that deserves its own message rather than an indistinguishable "not found". The lookup already
+separates these two cases internally, so surfacing both costs nothing extra. Unlike `OSR_ID`, no third, approval-dated reason code is needed: an interim site has no `validFrom`, so
+linked-or-not-linked is the whole space.
+
+## Outstanding questions
+
+### Backdating validation to existing Summary Log uploads
+
+Section 3's `INTERIM_SITE_ID` validation applies prospectively, to new Summary Log uploads from go-live
+onward. Whether it should also apply retrospectively to rows already uploaded before this change — and if so,
+whether the system recalculates waste balance for affected rows automatically or requires the operator to
+re-upload — is an open business decision, not a technical one this ADR resolves. Automatic recalculation
+without an operator-initiated re-upload would also need an explanation to the operator of why their waste
+balance changed, which is itself undecided. Tracked in
+[PAE-1735](https://eaflood.atlassian.net/browse/PAE-1735), pending input from DEFRA/regulators on whether
+backdating is wanted at all. This ADR does not block on that decision: section 3's validation ships for new
+uploads regardless of how backdating is resolved. If backdating is decided to be needed, a new ADR will be
+created and the solution implemented as part of PAE-1735.
+
+### 2027 ORS data from the registration service
+
+Interim Site is keyed off the ORS record, not the registration (section 1), so this ADR's model needs no
+change to support 2027 ORS data — it simply inherits whatever ORS resolves to.
+
+This ADR doesn't solve 2027 on its own, though. ORS is currently linked to a registration, and moving that
+link to accreditation is still open, tracked in [ADR-0034](0034-multi-year-accreditation-model.md). Once
+that's resolved for ORS, interim sites follow automatically, with no further change needed here.
 
 ### 4. Surfacing interim site data through the overseas-sites endpoints
 
