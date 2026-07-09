@@ -47,7 +47,11 @@ only), `suspended`, `cancelled`. **No `rejected` status is present on any record
 **Adopt the current validity-date and status-management rules (Rules 1–6 below) as the go-forward
 baseline, with one change: cancellation must stop counting loads ([BUG-1](#known-defect)).** Rules
 1–4 and 6 are affirmed as the intended target behaviour; Rule 5 (cancellation) is a confirmed
-defect and its target is the effective-status-`approved`-at-date gate. Genuinely policy-dependent
+defect. The target waste-balance gate excludes a load whose effective status at its date is
+`suspended` or `cancelled` (keeping `validFrom` as the start), and PRN actions are gated on the
+current accreditation status — a **suspended** accreditation may **create but not issue** a PRN, a
+**cancelled** one may do **neither** (see [Target rules](#target-rules-going-forward)). Genuinely
+policy-dependent
 items are **deferred** to named owners rather than decided here (see
 [Target rules (going forward)](#target-rules-going-forward)). The rules below first record the
 behaviour as it exists today.
@@ -257,19 +261,22 @@ balance. Confirmed end-to-end and **untested**:
 The **same root cause** produces the Rule 2 leak: the three "returned to `created` but dates not
 cleared" records also pass the gate, because `created` ≠ `suspended`.
 
-**Fix direction:** change the gate to include a date only when the **effective status at that date is
-`approved`** (rather than "not `suspended`"). This single invariant fixes cancellation _and_ the
-un-cleared-`created` leak, and is more robust than enumerating exclusions. (Alternatively, shorten
-`validTo` to the cancellation date on cancel — but that does not fix the `created` leak and is more
-fragile.) Tracked as [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730) under epic PAE-1598,
-with regression tests for the post-cancellation and reverted-to-`created` cases.
+**Fix direction:** keep `validFrom`..`validTo` as the entitlement window and exclude a load whose
+effective status at that date is `suspended` **or** `cancelled` — generalising the existing
+`isSuspendedAtDate` check to `isSuspendedOrCancelledAtDate`. Do **not** switch to a positive
+"effective status is `approved`" test: `validFrom` (the determination date), not the `approved`
+transition timestamp, is the start of entitlement (Rule 3), so a positive gate would wrongly exclude
+determination-gap loads. The reverted-to-`created` leak is a data-integrity issue fixed by clearing
+the dates ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)), not by this gate. Tracked as
+[PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730) under epic PAE-1598, with regression tests
+for the post-cancellation and suspension cases.
 
 **The effective date already exists in the data.** Every `cancelled` `statusHistory` entry carries an
 `updatedAt` (set at the transition — `helpers.js`), confirmed in production (e.g. cancelled
 `2026-05-06`). It is simply not read by the current gate. So no new field and no data loss is
-required: the effective-status-at-date gate uses that `updatedAt` as the cancellation cut-off
-automatically (the same lookup `isSuspendedAtDate` already does), and the ledger migration can use it
-directly as the cancellation event's `effectiveFrom`.
+required: the date-exclusion gate uses that `updatedAt` as the cancellation cut-off automatically
+(the same most-recent-status-at-date lookup `isSuspendedOrCancelledAtDate` performs), and the ledger
+migration can use it directly as the cancellation event's `effectiveFrom`.
 
 A further finding raises the exposure from latent to live: **cancelled/suspended operators are not
 blocked from submitting summary logs.** The only submission gate is _organisation_-level status ==
@@ -297,12 +304,31 @@ split into what we affirm, what we change, and what we defer.
 
 ### Change (decided here — because Rule 5 is a confirmed defect)
 
-- **Rule 5 → cancellation must stop counting loads.** The waste-balance gate must include a load only
-  when the **effective status at the load's date is `approved`**, rather than the current "within
-  `validFrom`..`validTo` and not the literal `suspended`" test. This single invariant makes
-  cancellation a dated terminal cut **and** closes the reverted-to-`created` leak, and is the target
-  behaviour this ADR adopts. Implementation and regression tests:
+- **Rule 5 → suspension and cancellation stop counting loads, by date.** The waste-balance gate
+  includes a load only when it is within `validFrom`..`validTo` **and** the effective status at the
+  load's date is neither `suspended` nor `cancelled` (generalising `isSuspendedAtDate` to
+  `isSuspendedOrCancelledAtDate`). `validFrom` (the determination date) stays the start of
+  entitlement — a negative date-exclusion, not a positive `approved` test (Rule 3). The
+  reverted-to-`created` leak is corrected by data cleanup ([PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)),
+  not by this gate. Implementation and regression tests:
   [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730).
+- **PRN actions are gated on the accreditation's current status.** A **suspended** accreditation may
+  still **create (draft)** a PRN but may **not issue** one; a **cancelled** accreditation may do
+  **neither**. Issuing is the terminal, balance-debiting action, so the issuable check is hoisted
+  ahead of the ledger debit — a suspended or cancelled accreditation is never debited. Drafting a PRN
+  is not balance-affecting, so it is allowed while suspended and blocked only once cancelled.
+  Implementation: [PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730).
+
+  | Accreditation status | Loads counted (within window) | Create (draft) PRN | Issue PRN |
+  | -------------------- | ----------------------------- | ------------------ | --------- |
+  | `approved`           | ✅                             | ✅                  | ✅         |
+  | `suspended`          | ❌ from the suspension date     | ✅                  | ❌         |
+  | `cancelled`          | ❌ from the cancellation date   | ❌                  | ❌         |
+
+- **Registration cancellation applies the same dated exclusion at the registration level.** A
+  cancelled registration excludes registered-only waste records dated on/after the cancellation — the
+  registration-level analogue of the accreditation gate. Registration _suspension_ date semantics
+  remain deferred (below).
 - **Data must match the rules.** The three un-cleared `created` records and the two `2020-05-06`
   records are corrected so no `created` record holds dates and no approved record has a prior-year
   window: [PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731).
@@ -360,9 +386,10 @@ split into what we affirm, what we change, and what we defer.
 Actionable tickets (both under epic PAE-1598):
 
 - **[PAE-1730](https://eaflood.atlassian.net/browse/PAE-1730)** — [BUG-1](#known-defect): fix the
-  post-cancellation (and reverted-to-`created`) waste-balance leak by gating on
-  effective-status-`approved`-at-date; add regression tests; check whether any PRNs have already been
-  issued against post-cancellation balances.
+  post-cancellation waste-balance leak by excluding loads whose effective status at the load date is
+  `suspended` or `cancelled` (keeping `validFrom` as the start); block PRN issuance while suspended or
+  cancelled and PRN creation while cancelled; add regression tests; check whether any PRNs have
+  already been issued against post-cancellation balances.
 - **[PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731)** — data cleanup for the three
   un-cleared `created` records and the two `2020-05-06` records.
 
