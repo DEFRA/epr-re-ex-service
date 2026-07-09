@@ -1,0 +1,33 @@
+name: Journey Test Summary
+description: >-
+  Render a PR step-summary from allure results. Reads only top-level result
+  fields (so deeply nested results can't break parsing) and never fails the
+  job. Call with `if: always()` so the summary is written even when the suite
+  failed.
+
+inputs:
+  results-dir:
+    description: directory containing allure *-result.json files
+    default: allure-results
+  build-start:
+    description: epoch seconds when the docker build started (adds a duration line)
+    default: ''
+  test-start:
+    description: epoch seconds when the tests started (adds a duration line)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Write journey test summary
+      shell: bash
+      env:
+        RESULTS_DIR: ${{ inputs.results-dir }}
+        BUILD_START: ${{ inputs.build-start }}
+        TEST_START: ${{ inputs.test-start }}
+      run: |
+        if [ -n "$BUILD_START" ] && [ -n "$TEST_START" ]; then
+          export DOCKER_SECONDS=$(( TEST_START - BUILD_START ))
+          export TEST_SECONDS=$(( $(date +%s) - TEST_START ))
+        fi
+        node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY" || true
