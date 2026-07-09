@@ -2,13 +2,20 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * @typedef {{ name: string, status: string, start?: number, stop?: number }} Result
+ * @typedef {{
+ *   name: string,
+ *   status: string,
+ *   start?: number,
+ *   stop?: number,
+ *   message?: string
+ * }} Result
  */
 
 const SLOWEST_LIMIT = 5
 const FAILED_STATUSES = new Set(['failed', 'broken'])
 const SECONDS_PER_MINUTE = 60
 const MS_PER_SECOND = 1000
+const MESSAGE_MAX_LENGTH = 200
 
 /**
  * Reads allure `*-result.json` files, keeping only the top-level fields the
@@ -36,7 +43,8 @@ export const readResults = (dir) => {
             name: parsed.name,
             status: parsed.status,
             start: parsed.start,
-            stop: parsed.stop
+            stop: parsed.stop,
+            message: parsed.statusDetails?.message
           }
         ]
       } catch {
@@ -55,10 +63,16 @@ export const formatDuration = (seconds) =>
     : `${seconds}s`
 
 /**
+ * Duration of a result in ms, or null when it has no complete timing. Allure
+ * writes `start` and `stop` together, so an incomplete pair means the test did
+ * not run (e.g. skipped).
  * @param {Result} result
- * @returns {number}
+ * @returns {number | null}
  */
-const durationMs = (result) => (result.stop ?? 0) - (result.start ?? 0)
+const durationMs = (result) =>
+  result.start != null && result.stop != null
+    ? result.stop - result.start
+    : null
 
 /**
  * @param {Result[]} results
@@ -66,13 +80,59 @@ const durationMs = (result) => (result.stop ?? 0) - (result.start ?? 0)
  */
 const slowest = (results) =>
   results
-    .filter((r) => r.start != null && r.stop != null)
-    .sort((a, b) => durationMs(b) - durationMs(a))
+    .flatMap((r) => {
+      const ms = durationMs(r)
+      return ms != null ? [{ name: r.name, ms }] : []
+    })
+    .sort((a, b) => b.ms - a.ms)
     .slice(0, SLOWEST_LIMIT)
     .map((r) => ({
       name: r.name,
-      seconds: Math.round(durationMs(r) / MS_PER_SECOND)
+      seconds: Math.round(r.ms / MS_PER_SECOND)
     }))
+
+/**
+ * Renders a value for a markdown table cell: first line only, truncated, with
+ * pipes escaped so they can't break the table.
+ * @param {string | undefined} value
+ * @returns {string}
+ */
+const cell = (value) => {
+  const firstLine = (value ?? '').split('\n')[0].trim()
+  const clipped =
+    firstLine.length > MESSAGE_MAX_LENGTH
+      ? `${firstLine.slice(0, MESSAGE_MAX_LENGTH)}...`
+      : firstLine
+  return clipped.replace(/\|/g, '\\|')
+}
+
+/**
+ * @param {number} failed
+ * @returns {string}
+ */
+const statusLine = (failed) =>
+  failed > 0
+    ? `:x: **${failed} failed**`
+    : ':white_check_mark: All tests passed'
+
+/**
+ * @param {Result[]} results
+ * @returns {string[]}
+ */
+const failedSection = (results) => {
+  const failures = results.filter((r) => FAILED_STATUSES.has(r.status))
+  if (failures.length === 0) {
+    return []
+  }
+  return [
+    '',
+    '### Failed Tests',
+    '',
+    '| Test | Details |',
+    '|---|---|',
+    ...failures.map((r) => `| ${cell(r.name)} | ${cell(r.message)} |`)
+  ]
+}
 
 /**
  * @param {{
@@ -89,14 +149,18 @@ export const buildSummary = ({
 }) => {
   const passed = results.filter((r) => r.status === 'passed').length
   const failed = results.filter((r) => FAILED_STATUSES.has(r.status)).length
+  const skipped = results.filter((r) => r.status === 'skipped').length
   const total = results.length
 
   const lines = [
     '## Journey Tests',
     '',
-    '| | Passed | Failed | Total |',
-    '|---|---|---|---|',
-    `| Tests | ${passed} | ${failed} | ${total} |`
+    statusLine(failed),
+    '',
+    '| | Passed | Failed | Skipped | Total |',
+    '|---|---|---|---|---|',
+    `| Tests | ${passed} | ${failed} | ${skipped} | ${total} |`,
+    ...failedSection(results)
   ]
 
   if (dockerSeconds != null && testSeconds != null) {

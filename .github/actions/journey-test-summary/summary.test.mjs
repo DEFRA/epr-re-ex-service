@@ -87,13 +87,24 @@ describe('journey test summary', () => {
       ])
     })
 
+    it('should capture the failure message from statusDetails', () => {
+      const dir = withResults({
+        'a-result.json': result({
+          status: 'failed',
+          statusDetails: { message: 'expected 200, got 500', trace: 'a\nb' }
+        })
+      })
+
+      expect(readResults(dir)[0].message).toBe('expected 200, got 500')
+    })
+
     it('should return an empty array when the directory is missing', () => {
       expect(readResults(join(tmpdir(), 'does-not-exist-allure'))).toEqual([])
     })
   })
 
   describe('buildSummary', () => {
-    it('should count passed, failed and broken results', () => {
+    it('should count passed, failed, broken and skipped results', () => {
       const results = [
         result({ status: 'passed' }),
         result({ status: 'failed' }),
@@ -103,7 +114,62 @@ describe('journey test summary', () => {
 
       const { markdown } = buildSummary({ results })
 
-      expect(markdown).toContain('| Tests | 1 | 2 | 4 |')
+      expect(markdown).toContain('| | Passed | Failed | Skipped | Total |')
+      expect(markdown).toContain('| Tests | 1 | 2 | 1 | 4 |')
+    })
+
+    it('should show a failure status line when tests failed', () => {
+      const { markdown } = buildSummary({
+        results: [result({ status: 'passed' }), result({ status: 'failed' })]
+      })
+
+      expect(markdown).toContain(':x: **1 failed**')
+    })
+
+    it('should show a success status line when all tests passed', () => {
+      const { markdown } = buildSummary({ results: [result(), result()] })
+
+      expect(markdown).toContain(':white_check_mark: All tests passed')
+    })
+
+    it('should list failed and broken tests with their message', () => {
+      const results = [
+        result({ name: 'ok one' }),
+        result({
+          name: 'submit report',
+          status: 'failed',
+          message: 'expected 200, got 500\nstack trace here'
+        }),
+        result({ name: 'broken flow', status: 'broken', message: 'no element' })
+      ]
+
+      const { markdown } = buildSummary({ results })
+
+      expect(markdown).toContain('### Failed Tests')
+      expect(markdown).toContain('| submit report | expected 200, got 500 |')
+      expect(markdown).toContain('| broken flow | no element |')
+    })
+
+    it('should omit the failed section when nothing failed', () => {
+      const { markdown } = buildSummary({
+        results: [result(), result({ status: 'skipped' })]
+      })
+
+      expect(markdown).not.toContain('### Failed Tests')
+    })
+
+    it('should escape pipes and truncate long failure messages', () => {
+      const { markdown } = buildSummary({
+        results: [
+          result({
+            name: 'a | b',
+            status: 'failed',
+            message: `${'x'.repeat(250)}\nsecond line`
+          })
+        ]
+      })
+
+      expect(markdown).toContain(`| a \\| b | ${'x'.repeat(200)}... |`)
     })
 
     it('should include the duration line when both durations are given', () => {
