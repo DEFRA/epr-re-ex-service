@@ -36,7 +36,7 @@
 * [34. Multi-year accreditation model](0034-multi-year-accreditation-model.md)
 * [35. Read organisation data with Basic Auth](0035-read-organisation-data-with-basic-auth.md)
 * [36. Event-sourced waste balance stream](0036-event-sourced-waste-balance-stream.md)
-* [37. Committed row states with summary-log membership](0037-committed-row-states-with-summary-log-membership.md)
+* [37. Summary-log row states with membership](0037-summary-log-row-states-with-membership.md)
 * [38. Derive report status and state in the backend](0038-derive-report-state-in-backend.md)
 * [39. Report resubmission for closed periods](0039-report-resubmission-for-closed-periods.md)
 * [40. Reset the SonarCloud new-code baseline per publish via the release tag](0040-reset-sonar-new-code-baseline-per-publish.md)
