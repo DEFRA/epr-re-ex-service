@@ -228,6 +228,43 @@ describe('lint-types-tests summary', () => {
       })
     })
 
+    describe('exit code with failOnError', () => {
+      const unchangedFileError =
+        "src/server/other/other.test.js(1,1): error TS2304: Cannot find name 'a'."
+
+      it('should be 1 when any test file has errors even if none changed', () => {
+        const result = buildSummary({
+          tscOutput: unchangedFileError,
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnError: true
+        })
+
+        expect(result.exitCode).toBe(1)
+      })
+
+      it('should be 0 when no test file has errors', () => {
+        const result = buildSummary({
+          tscOutput: '',
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnError: true
+        })
+
+        expect(result.exitCode).toBe(0)
+      })
+
+      it('should stay diff-scoped when failOnError is not set', () => {
+        const result = buildSummary({
+          tscOutput: unchangedFileError,
+          changedFiles: [],
+          tsCodeLookup: noopLookup
+        })
+
+        expect(result.exitCode).toBe(0)
+      })
+    })
+
     describe('section 1 - errors in this PR', () => {
       it('should show the clean message exactly once when no test files changed', () => {
         const { markdown } = buildSummary({

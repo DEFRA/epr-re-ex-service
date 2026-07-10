@@ -12,6 +12,7 @@ import ts from 'typescript'
  *   tscOutput: string
  *   changedFiles: string[]
  *   tsCodeLookup: (code: number) => string
+ *   failOnError?: boolean
  * }} BuildSummaryInput
  *
  * @typedef {{
@@ -233,7 +234,12 @@ const allErrorsSection = (errors, byFile, tsCodeLookup) => {
  * @param {BuildSummaryInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
+export const buildSummary = ({
+  tscOutput,
+  changedFiles,
+  tsCodeLookup,
+  failOnError = false
+}) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
     changedFiles,
@@ -254,7 +260,9 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   lines.push('', section2, '')
   const markdown = lines.join('\n')
 
-  return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
+  const failingCount = failOnError ? errors.length : prErrorTotal
+
+  return { markdown, exitCode: failingCount > 0 ? 1 : 0 }
 }
 
 /**
@@ -315,7 +323,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup: tsCodeLookupFromPackage
+    tsCodeLookup: tsCodeLookupFromPackage,
+    failOnError: process.env.FAIL_ON_ERROR === 'true'
   })
   process.stdout.write(summary.markdown)
 

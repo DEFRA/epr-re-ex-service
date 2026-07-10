@@ -16,6 +16,13 @@ inputs:
     description: Header for the sticky PR comment, used to dedupe across runs
     required: false
     default: lint-types-tests
+  fail-on-error:
+    description: >-
+      When 'true', fail the step if there are ANY type errors on the test
+      surface, not just in files changed by the PR. Defaults to 'false' so
+      repos with a pre-existing backlog stay non-blocking and diff-scoped.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -47,6 +54,7 @@ runs:
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         # disable setup-node's tsc problem matcher: we summarise via the script
         echo "::remove-matcher owner=tsc::"
