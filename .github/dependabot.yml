@@ -5,7 +5,6 @@ updates:
   - package-ecosystem: npm
     directories:
       - /
-      - /.github/actions/lint-types-tests
     open-pull-requests-limit: 10
 
     # Group packages into shared PR

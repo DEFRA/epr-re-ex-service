@@ -38,6 +38,10 @@ runs:
       shell: bash
       run: npm run lint:types
 
+    - name: Lint types (tests)
+      shell: bash
+      run: npm run lint:types:tests
+
     - name: Build
       if: ${{ inputs.build-command != '' }}
       shell: bash
