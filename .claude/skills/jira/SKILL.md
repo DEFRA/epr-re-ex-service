@@ -23,6 +23,12 @@ Fetch, update, and comment on JIRA issues at `https://eaflood.atlassian.net` usi
 /jira search "project = PAE AND sprint in openSprints()"
 ```
 
+## Prerequisites
+
+Required env vars — also used by [release-notes](../release-notes/SKILL.md) to fetch PAE issue summaries:
+- `JIRA_TOKEN` — API token from https://id.atlassian.com/manage-profile/security/api-tokens
+- `JIRA_EMAIL` — your Atlassian account email address
+
 ## Auth setup
 
 Atlassian Cloud (`*.atlassian.net`) requires **Basic auth** with an API token, not Bearer:
@@ -31,10 +37,6 @@ Atlassian Cloud (`*.atlassian.net`) requires **Basic auth** with an API token, n
 Authorization: Basic base64($JIRA_EMAIL:$JIRA_TOKEN)
 Content-Type: application/json
 ```
-
-Required env vars:
-- `JIRA_TOKEN` — API token from https://id.atlassian.com/manage-profile/security/api-tokens
-- `JIRA_EMAIL` — your Atlassian account email address
 
 In bash, construct the header as:
 ```bash

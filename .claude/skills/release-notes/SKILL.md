@@ -11,6 +11,7 @@ Generate a combined Slack-ready release summary covering epr-backend, epr-fronte
 
 - [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated (`gh auth status`) with read access to the `DEFRA/epr-backend`, `DEFRA/epr-frontend`, `DEFRA/epr-re-ex-admin-frontend`, and `DEFRA/cdp-app-config` repositories
 - `jq` available on `PATH`
+- `JIRA_EMAIL` and `JIRA_TOKEN` environment variables set — used to fetch PAE issue summaries for the user-facing changes step (see the [jira skill](../jira/SKILL.md) for setup)
 - No local clone of any of the above repos is required — everything is fetched via the GitHub API
 
 ## Usage
