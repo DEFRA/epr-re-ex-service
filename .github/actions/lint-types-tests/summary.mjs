@@ -12,12 +12,14 @@ import ts from 'typescript'
  *   tscOutput: string
  *   changedFiles: string[]
  *   tsCodeLookup: (code: number) => string
+ *   failOnAll?: boolean
  * }} BuildSummaryInput
  *
  * @typedef {{
  *   tscOutput: string
  *   changedFiles: string[]
  *   runUrl?: string
+ *   failOnAll?: boolean
  * }} BuildPrCommentInput
  *
  * @typedef {{ markdown: string; exitCode: number }} BuildSummaryResult
@@ -170,9 +172,15 @@ const errorsByFileBlock = (byFile) => {
  * @param {BuildPrCommentInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
-  const { byFile } = parseErrors(tscOutput)
+export const buildPrComment = ({
+  tscOutput,
+  changedFiles,
+  runUrl,
+  failOnAll = false
+}) => {
+  const { errors, byFile } = parseErrors(tscOutput)
   const { section, prErrorTotal } = buildPrSection(changedFiles, byFile)
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
 
   const lines = [
     '## Lint Types - Tests',
@@ -189,7 +197,7 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
   }
   lines.push('')
 
-  return { markdown: lines.join('\n'), exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown: lines.join('\n'), exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -233,12 +241,18 @@ const allErrorsSection = (errors, byFile, tsCodeLookup) => {
  * @param {BuildSummaryInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
+export const buildSummary = ({
+  tscOutput,
+  changedFiles,
+  tsCodeLookup,
+  failOnAll = false
+}) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
     changedFiles,
     byFile
   )
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
   const section2 = allErrorsSection(errors, byFile, tsCodeLookup)
 
   const lines = [
@@ -254,7 +268,7 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   lines.push('', section2, '')
   const markdown = lines.join('\n')
 
-  return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown, exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -311,11 +325,13 @@ const changedFilesFromGit = (filterGlobs) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
+  const failOnAll = process.env.LINT_TYPES_TESTS_FAIL_ON === 'all'
 
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup: tsCodeLookupFromPackage
+    tsCodeLookup: tsCodeLookupFromPackage,
+    failOnAll
   })
   process.stdout.write(summary.markdown)
 
@@ -323,7 +339,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const comment = buildPrComment({
       tscOutput,
       changedFiles,
-      runUrl: process.env.RUN_URL
+      runUrl: process.env.RUN_URL,
+      failOnAll
     })
     writeFileSync(process.env.COMMENT_FILE, comment.markdown)
   }

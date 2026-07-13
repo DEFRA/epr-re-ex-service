@@ -16,6 +16,13 @@ inputs:
     description: Header for the sticky PR comment, used to dedupe across runs
     required: false
     default: lint-types-tests
+  fail-on:
+    description: >-
+      Which errors fail the check: "changed" (only test files changed in this
+      PR) or "all" (any test type error in the repo). Use "all" once the repo's
+      full test typecheck is green to keep it from regressing.
+    required: false
+    default: changed
 
 runs:
   using: composite
@@ -46,6 +53,7 @@ runs:
         COMMENT_FILE: ${{ runner.temp }}/lint-types-tests-comment.md
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
+        LINT_TYPES_TESTS_FAIL_ON: ${{ inputs.fail-on }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
       run: |
         # disable setup-node's tsc problem matcher: we summarise via the script

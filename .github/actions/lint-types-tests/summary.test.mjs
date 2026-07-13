@@ -228,6 +228,31 @@ describe('lint-types-tests summary', () => {
       })
     })
 
+    describe('exit code (fail-on: all)', () => {
+      it('should be 1 when an unchanged file has errors', () => {
+        const result = buildSummary({
+          tscOutput:
+            "src/server/x/x.test.js(1,1): error TS2304: Cannot find name 'a'.",
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnAll: true
+        })
+
+        expect(result.exitCode).toBe(1)
+      })
+
+      it('should be 0 when there are no errors anywhere', () => {
+        const result = buildSummary({
+          tscOutput: '',
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnAll: true
+        })
+
+        expect(result.exitCode).toBe(0)
+      })
+    })
+
     describe('section 1 - errors in this PR', () => {
       it('should show the clean message exactly once when no test files changed', () => {
         const { markdown } = buildSummary({
@@ -497,6 +522,16 @@ describe('lint-types-tests summary', () => {
         tscOutput:
           "src/server/foo/foo.test.js(1,1): error TS2304: Cannot find name 'a'.",
         changedFiles: ['src/server/foo/foo.test.js']
+      })
+
+      expect(result.exitCode).toBe(1)
+    })
+
+    it('should gate on all errors when failOnAll is set', () => {
+      const result = buildPrComment({
+        tscOutput: 'src/a.test.js(1,1): error TS2304: x.',
+        changedFiles: [],
+        failOnAll: true
       })
 
       expect(result.exitCode).toBe(1)
