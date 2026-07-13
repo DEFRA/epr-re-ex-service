@@ -176,7 +176,7 @@ export const buildPrComment = ({
   tscOutput,
   changedFiles,
   runUrl,
-  failOnAll = false
+  failOnAll
 }) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section, prErrorTotal } = buildPrSection(changedFiles, byFile)
@@ -245,7 +245,7 @@ export const buildSummary = ({
   tscOutput,
   changedFiles,
   tsCodeLookup,
-  failOnAll = false
+  failOnAll
 }) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
@@ -290,6 +290,24 @@ export const resolveFilterGlobs = () => {
   return globs
 }
 
+/**
+ * Maps the fail-on input to whether the whole run gates the check. Throws on
+ * anything but the two allowed values so a bad input fails loudly instead of
+ * silently defaulting.
+ *
+ * @param {string | undefined} value
+ * @returns {boolean}
+ */
+export const resolveFailOnAll = (value) => {
+  if (value === 'all') {
+    return true
+  }
+  if (value === 'changed') {
+    return false
+  }
+  throw new Error(`fail-on must be "changed" or "all", got: ${value}`)
+}
+
 /* v8 ignore start */
 const tsCodeLookupFromPackage = (() => {
   const tsInternals =
@@ -325,7 +343,7 @@ const changedFilesFromGit = (filterGlobs) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
-  const failOnAll = process.env.LINT_TYPES_TESTS_FAIL_ON === 'all'
+  const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_TESTS_FAIL_ON)
 
   const summary = buildSummary({
     tscOutput,

@@ -8,6 +8,7 @@ import {
   buildPrComment,
   buildSummary,
   filterTestFiles,
+  resolveFailOnAll,
   resolveFilterGlobs,
   tsconfigGlobs
 } from './summary.mjs'
@@ -188,6 +189,28 @@ describe('lint-types-tests summary', () => {
         include: ['src/**/*.test.js'],
         exclude: ['node_modules']
       })
+    })
+  })
+
+  describe(resolveFailOnAll, () => {
+    it('should map "all" to true', () => {
+      expect(resolveFailOnAll('all')).toBe(true)
+    })
+
+    it('should map "changed" to false', () => {
+      expect(resolveFailOnAll('changed')).toBe(false)
+    })
+
+    it('should throw on an unrecognised value', () => {
+      expect(() => resolveFailOnAll('nope')).toThrow(
+        'fail-on must be "changed" or "all"'
+      )
+    })
+
+    it('should throw when the value is undefined', () => {
+      expect(() => resolveFailOnAll(undefined)).toThrow(
+        'fail-on must be "changed" or "all"'
+      )
     })
   })
 
