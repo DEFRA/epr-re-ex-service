@@ -18,7 +18,7 @@ inputs:
     default: lint-types-tests
   fail-on:
     description: >-
-      Which errors fail the check (required). Allowed values:
+      Which errors fail the check. Allowed values:
       "all" - fail on any error in the whole typecheck run.
       "changed" - fail only on errors in test files changed in this PR; the
       sticky comment still reports every error in the run.
