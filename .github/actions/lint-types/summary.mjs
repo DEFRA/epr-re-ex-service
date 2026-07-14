@@ -12,12 +12,16 @@ import ts from 'typescript'
  *   tscOutput: string
  *   changedFiles: string[]
  *   tsCodeLookup: (code: number) => string
+ *   failOnAll?: boolean
+ *   label?: string
  * }} BuildSummaryInput
  *
  * @typedef {{
  *   tscOutput: string
  *   changedFiles: string[]
  *   runUrl?: string
+ *   failOnAll?: boolean
+ *   label?: string
  * }} BuildPrCommentInput
  *
  * @typedef {{ markdown: string; exitCode: number }} BuildSummaryResult
@@ -127,9 +131,9 @@ const buildPrSection = (changedFiles, byFile) => {
  */
 const prHeader = (prErrorTotal) => {
   if (prErrorTotal === 0) {
-    return ':white_check_mark: No type errors in test files changed in this PR'
+    return ':white_check_mark: No type errors in changed files in this PR'
   }
-  return `:warning: **${prErrorTotal} type error(s) in test files changed in this PR**`
+  return `:warning: **${prErrorTotal} type error(s) in changed files in this PR**`
 }
 
 /**
@@ -170,12 +174,19 @@ const errorsByFileBlock = (byFile) => {
  * @param {BuildPrCommentInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
-  const { byFile } = parseErrors(tscOutput)
+export const buildPrComment = ({
+  tscOutput,
+  changedFiles,
+  runUrl,
+  failOnAll,
+  label = 'Tests'
+}) => {
+  const { errors, byFile } = parseErrors(tscOutput)
   const { section, prErrorTotal } = buildPrSection(changedFiles, byFile)
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -189,7 +200,7 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
   }
   lines.push('')
 
-  return { markdown: lines.join('\n'), exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown: lines.join('\n'), exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -198,14 +209,14 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
  * @param {(code: number) => string} tsCodeLookup
  * @returns {string}
  */
-const allErrorsSection = (errors, byFile, tsCodeLookup) => {
+const allErrorsSection = (errors, byFile, tsCodeLookup, label) => {
   if (errors.length === 0) {
-    return '### All errors\n\n:white_check_mark: Test type check passed'
+    return `### All errors\n\n:white_check_mark: ${label} type check passed`
   }
   return [
     '### All errors',
     '',
-    `:warning: **${errors.length} type errors found in tests**`,
+    `:warning: **${errors.length} type errors found**`,
     '',
     '#### Top error codes',
     '',
@@ -233,16 +244,23 @@ const allErrorsSection = (errors, byFile, tsCodeLookup) => {
  * @param {BuildSummaryInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
+export const buildSummary = ({
+  tscOutput,
+  changedFiles,
+  tsCodeLookup,
+  failOnAll,
+  label = 'Tests'
+}) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
     changedFiles,
     byFile
   )
-  const section2 = allErrorsSection(errors, byFile, tsCodeLookup)
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
+  const section2 = allErrorsSection(errors, byFile, tsCodeLookup, label)
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -254,7 +272,7 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   lines.push('', section2, '')
   const markdown = lines.join('\n')
 
-  return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown, exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -274,6 +292,24 @@ export const resolveFilterGlobs = () => {
     throw new Error(`${tsconfig} declares no include globs`)
   }
   return globs
+}
+
+/**
+ * Maps the fail-on input to whether the whole run gates the check. Throws on
+ * anything but the two allowed values so a bad input fails loudly instead of
+ * silently defaulting.
+ *
+ * @param {string | undefined} value
+ * @returns {boolean}
+ */
+export const resolveFailOnAll = (value) => {
+  if (value === 'all') {
+    return true
+  }
+  if (value === 'changed') {
+    return false
+  }
+  throw new Error(`fail-on must be "changed" or "all", got: ${value}`)
 }
 
 /* v8 ignore start */
@@ -311,11 +347,15 @@ const changedFilesFromGit = (filterGlobs) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
+  const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_TESTS_FAIL_ON)
+  const label = process.env.LINT_TYPES_LABEL || 'Tests'
 
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup: tsCodeLookupFromPackage
+    tsCodeLookup: tsCodeLookupFromPackage,
+    failOnAll,
+    label
   })
   process.stdout.write(summary.markdown)
 
@@ -323,7 +363,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const comment = buildPrComment({
       tscOutput,
       changedFiles,
-      runUrl: process.env.RUN_URL
+      runUrl: process.env.RUN_URL,
+      failOnAll,
+      label
     })
     writeFileSync(process.env.COMMENT_FILE, comment.markdown)
   }
