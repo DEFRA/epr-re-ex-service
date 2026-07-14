@@ -57,7 +57,7 @@ export const categorise = ({ prod, tests }) => {
  * @returns {{ markdown: string }}
  */
 export const buildBurndown = (results, { runUrl } = {}) => {
-  const byCat = Map.groupBy(results, categorise)
+  const byCat = Map.groupBy(results, (result) => categorise(result))
   const readyAll = byCat.get('ready-all') ?? []
   const readyProd = byCat.get('ready-prod') ?? []
   const readyTests = byCat.get('ready-tests') ?? []
