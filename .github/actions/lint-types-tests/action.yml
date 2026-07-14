@@ -1,14 +1,14 @@
-name: Lint Types - Tests
-description: Run typecheck against tests and post a sticky PR summary comment
+name: Lint Types
+description: Run a typecheck for one surface and post a sticky PR summary comment
 
 inputs:
   npm-script:
-    description: npm script to run for the test typecheck (e.g. lint:types:tests, lint:types)
+    description: npm script to run for the typecheck (e.g. lint:types:tests, lint:types)
     required: false
     default: lint:types:tests
   tsconfig:
     description: >-
-      Path to the test-surface tsconfig/jsconfig the npm-script typechecks. Its
+      Path to the tsconfig/jsconfig the npm-script typechecks. Its
       include/exclude define which changed files are attributed to the PR.
     required: false
     default: jsconfig.typecheck.tests.json
@@ -16,12 +16,16 @@ inputs:
     description: Header for the sticky PR comment, used to dedupe across runs
     required: false
     default: lint-types-tests
+  label:
+    description: Surface label shown in the comment heading (e.g. Tests, Prod)
+    required: false
+    default: Tests
   fail-on:
     description: >-
       Which errors fail the check. Allowed values:
       "all" - fail on any error in the whole typecheck run.
-      "changed" - fail only on errors in test files changed in this PR; the
-      sticky comment still reports every error in the run.
+      "changed" - fail only on errors in files changed in this PR; the sticky
+      comment still reports every error in the run.
     required: true
 
 runs:
@@ -46,14 +50,15 @@ runs:
       shell: bash
       run: npm ci --prefix "${{ github.action_path }}" --no-audit --no-fund
 
-    - name: Lint types (tests)
+    - name: Lint types (${{ inputs.label }})
       shell: bash
       env:
         BASE_REF: ${{ github.event.pull_request.base.ref }}
-        COMMENT_FILE: ${{ runner.temp }}/lint-types-tests-comment.md
+        COMMENT_FILE: ${{ runner.temp }}/lint-types-comment.md
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
         LINT_TYPES_TESTS_FAIL_ON: ${{ inputs.fail-on }}
+        LINT_TYPES_LABEL: ${{ inputs.label }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
       run: |
         # disable setup-node's tsc problem matcher: we summarise via the script
@@ -71,4 +76,4 @@ runs:
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         header: ${{ inputs.comment-header }}
-        path: ${{ runner.temp }}/lint-types-tests-comment.md
+        path: ${{ runner.temp }}/lint-types-comment.md

@@ -13,6 +13,7 @@ import ts from 'typescript'
  *   changedFiles: string[]
  *   tsCodeLookup: (code: number) => string
  *   failOnAll?: boolean
+ *   label?: string
  * }} BuildSummaryInput
  *
  * @typedef {{
@@ -20,6 +21,7 @@ import ts from 'typescript'
  *   changedFiles: string[]
  *   runUrl?: string
  *   failOnAll?: boolean
+ *   label?: string
  * }} BuildPrCommentInput
  *
  * @typedef {{ markdown: string; exitCode: number }} BuildSummaryResult
@@ -129,9 +131,9 @@ const buildPrSection = (changedFiles, byFile) => {
  */
 const prHeader = (prErrorTotal) => {
   if (prErrorTotal === 0) {
-    return ':white_check_mark: No type errors in test files changed in this PR'
+    return ':white_check_mark: No type errors in changed files in this PR'
   }
-  return `:warning: **${prErrorTotal} type error(s) in test files changed in this PR**`
+  return `:warning: **${prErrorTotal} type error(s) in changed files in this PR**`
 }
 
 /**
@@ -176,14 +178,15 @@ export const buildPrComment = ({
   tscOutput,
   changedFiles,
   runUrl,
-  failOnAll
+  failOnAll,
+  label = 'Tests'
 }) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section, prErrorTotal } = buildPrSection(changedFiles, byFile)
   const gateTotal = failOnAll ? errors.length : prErrorTotal
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -206,14 +209,14 @@ export const buildPrComment = ({
  * @param {(code: number) => string} tsCodeLookup
  * @returns {string}
  */
-const allErrorsSection = (errors, byFile, tsCodeLookup) => {
+const allErrorsSection = (errors, byFile, tsCodeLookup, label) => {
   if (errors.length === 0) {
-    return '### All errors\n\n:white_check_mark: Test type check passed'
+    return `### All errors\n\n:white_check_mark: ${label} type check passed`
   }
   return [
     '### All errors',
     '',
-    `:warning: **${errors.length} type errors found in tests**`,
+    `:warning: **${errors.length} type errors found**`,
     '',
     '#### Top error codes',
     '',
@@ -245,7 +248,8 @@ export const buildSummary = ({
   tscOutput,
   changedFiles,
   tsCodeLookup,
-  failOnAll
+  failOnAll,
+  label = 'Tests'
 }) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
@@ -253,10 +257,10 @@ export const buildSummary = ({
     byFile
   )
   const gateTotal = failOnAll ? errors.length : prErrorTotal
-  const section2 = allErrorsSection(errors, byFile, tsCodeLookup)
+  const section2 = allErrorsSection(errors, byFile, tsCodeLookup, label)
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -344,12 +348,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
   const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_TESTS_FAIL_ON)
+  const label = process.env.LINT_TYPES_LABEL || 'Tests'
 
   const summary = buildSummary({
     tscOutput,
     changedFiles,
     tsCodeLookup: tsCodeLookupFromPackage,
-    failOnAll
+    failOnAll,
+    label
   })
   process.stdout.write(summary.markdown)
 
@@ -358,7 +364,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       tscOutput,
       changedFiles,
       runUrl: process.env.RUN_URL,
-      failOnAll
+      failOnAll,
+      label
     })
     writeFileSync(process.env.COMMENT_FILE, comment.markdown)
   }

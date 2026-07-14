@@ -284,7 +284,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
         const occurrences =
-          markdown.split('No type errors in test files changed in this PR')
+          markdown.split('No type errors in changed files in this PR')
             .length - 1
 
         expect(markdown).toContain('### Errors in this PR')
@@ -298,7 +298,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
         const occurrences =
-          markdown.split('No type errors in test files changed in this PR')
+          markdown.split('No type errors in changed files in this PR')
             .length - 1
 
         expect(occurrences).toBe(1)
@@ -360,7 +360,7 @@ describe('lint-types-tests summary', () => {
         })
 
         expect(markdown).toContain(
-          '**3 type error(s) in test files changed in this PR**'
+          '**3 type error(s) in changed files in this PR**'
         )
         expect(markdown).not.toContain('advisory')
       })
@@ -375,7 +375,7 @@ describe('lint-types-tests summary', () => {
         })
 
         expect(markdown).toContain('### All errors')
-        expect(markdown).toContain(':white_check_mark: Test type check passed')
+        expect(markdown).toContain(':white_check_mark: Tests type check passed')
       })
 
       it('should report total errors found', () => {
@@ -391,7 +391,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
 
-        expect(markdown).toContain('**3 type errors found in tests**')
+        expect(markdown).toContain('**3 type errors found**')
         expect(markdown).not.toContain('advisory')
       })
 
@@ -474,7 +474,7 @@ describe('lint-types-tests summary', () => {
           '<details><summary><code>test/features/login.js</code> (1 errors)</summary>'
         )
         expect(markdown).toContain(
-          '**1 type error(s) in test files changed in this PR**'
+          '**1 type error(s) in changed files in this PR**'
         )
       })
     })
@@ -525,7 +525,7 @@ describe('lint-types-tests summary', () => {
         runUrl: 'https://github.com/o/r/actions/runs/123'
       })
       const occurrences =
-        markdown.split('No type errors in test files changed in this PR')
+        markdown.split('No type errors in changed files in this PR')
           .length - 1
 
       expect(occurrences).toBe(1)
@@ -558,6 +558,32 @@ describe('lint-types-tests summary', () => {
       })
 
       expect(result.exitCode).toBe(1)
+    })
+  })
+
+  describe('label', () => {
+    const noopLookup = () => ''
+
+    it('should use the label in the heading and pass message', () => {
+      const { markdown } = buildSummary({
+        tscOutput: '',
+        changedFiles: [],
+        tsCodeLookup: noopLookup,
+        label: 'Prod'
+      })
+
+      expect(markdown).toContain('## Lint Types - Prod')
+      expect(markdown).toContain('Prod type check passed')
+    })
+
+    it('should default the label to Tests', () => {
+      const { markdown } = buildSummary({
+        tscOutput: '',
+        changedFiles: [],
+        tsCodeLookup: noopLookup
+      })
+
+      expect(markdown).toContain('## Lint Types - Tests')
     })
   })
 })

@@ -34,10 +34,6 @@ runs:
       shell: bash
       run: npm run lint
 
-    - name: Lint types
-      shell: bash
-      run: npm run lint:types
-
     - name: Build
       if: ${{ inputs.build-command != '' }}
       shell: bash
