@@ -3,8 +3,6 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { text } from 'node:stream/consumers'
 
-import ts from 'typescript'
-
 /**
  * @typedef {{ include: string[]; exclude?: string[] }} FilterGlobs
  *
@@ -12,12 +10,16 @@ import ts from 'typescript'
  *   tscOutput: string
  *   changedFiles: string[]
  *   tsCodeLookup: (code: number) => string
+ *   failOnAll?: boolean
+ *   label?: string
  * }} BuildSummaryInput
  *
  * @typedef {{
  *   tscOutput: string
  *   changedFiles: string[]
  *   runUrl?: string
+ *   failOnAll?: boolean
+ *   label?: string
  * }} BuildPrCommentInput
  *
  * @typedef {{ markdown: string; exitCode: number }} BuildSummaryResult
@@ -45,6 +47,25 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
   )
 
 /**
+ * Minimal JSONC parse: strips `//` line comments and trailing commas so a
+ * tsconfig parses with `JSON.parse`. Block comments are deliberately not
+ * stripped — the config surface is file globs, and a `**` glob embeds the
+ * block-comment delimiters, so stripping them would corrupt it; a config using
+ * block comments fails loudly here rather than parsing wrong. `//` never
+ * appears in a glob, so line stripping is safe.
+ *
+ * We hand-roll this because TypeScript 7's native compiler dropped the legacy
+ * programmatic API (`ts.parseConfigFileTextToJson`) and 7.0 ships no stable
+ * replacement — the new API is expected in 7.1. When it lands, this and
+ * `tsconfigGlobs` can be ported back to the official config parser if preferred.
+ *
+ * @param {string} jsonText
+ * @returns {{ include?: string[]; exclude?: string[] }}
+ */
+const parseTsconfig = (jsonText) =>
+  JSON.parse(jsonText.replace(/\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'))
+
+/**
  * Reads include/exclude globs from a tsconfig/jsconfig file's text. Tolerant of
  * comments and trailing commas; does not resolve `extends` (the test-surface
  * config declares its own include/exclude).
@@ -53,7 +74,7 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
  * @returns {FilterGlobs}
  */
 export const tsconfigGlobs = (jsonText) => {
-  const { config } = ts.parseConfigFileTextToJson('tsconfig.json', jsonText)
+  const config = parseTsconfig(jsonText)
   return { include: config?.include ?? [], exclude: config?.exclude ?? [] }
 }
 
@@ -127,9 +148,9 @@ const buildPrSection = (changedFiles, byFile) => {
  */
 const prHeader = (prErrorTotal) => {
   if (prErrorTotal === 0) {
-    return ':white_check_mark: No type errors in test files changed in this PR'
+    return ':white_check_mark: No type errors in changed files in this PR'
   }
-  return `:warning: **${prErrorTotal} type error(s) in test files changed in this PR**`
+  return `:warning: **${prErrorTotal} type error(s) in changed files in this PR**`
 }
 
 /**
@@ -170,12 +191,19 @@ const errorsByFileBlock = (byFile) => {
  * @param {BuildPrCommentInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
-  const { byFile } = parseErrors(tscOutput)
+export const buildPrComment = ({
+  tscOutput,
+  changedFiles,
+  runUrl,
+  failOnAll,
+  label = 'Tests'
+}) => {
+  const { errors, byFile } = parseErrors(tscOutput)
   const { section, prErrorTotal } = buildPrSection(changedFiles, byFile)
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -189,7 +217,7 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
   }
   lines.push('')
 
-  return { markdown: lines.join('\n'), exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown: lines.join('\n'), exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -198,14 +226,14 @@ export const buildPrComment = ({ tscOutput, changedFiles, runUrl }) => {
  * @param {(code: number) => string} tsCodeLookup
  * @returns {string}
  */
-const allErrorsSection = (errors, byFile, tsCodeLookup) => {
+const allErrorsSection = (errors, byFile, tsCodeLookup, label) => {
   if (errors.length === 0) {
-    return '### All errors\n\n:white_check_mark: Test type check passed'
+    return `### All errors\n\n:white_check_mark: ${label} type check passed`
   }
   return [
     '### All errors',
     '',
-    `:warning: **${errors.length} type errors found in tests**`,
+    `:warning: **${errors.length} type errors found**`,
     '',
     '#### Top error codes',
     '',
@@ -233,16 +261,23 @@ const allErrorsSection = (errors, byFile, tsCodeLookup) => {
  * @param {BuildSummaryInput} input
  * @returns {BuildSummaryResult}
  */
-export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
+export const buildSummary = ({
+  tscOutput,
+  changedFiles,
+  tsCodeLookup,
+  failOnAll,
+  label = 'Tests'
+}) => {
   const { errors, byFile } = parseErrors(tscOutput)
   const { section: section1, prErrorTotal } = buildPrSection(
     changedFiles,
     byFile
   )
-  const section2 = allErrorsSection(errors, byFile, tsCodeLookup)
+  const gateTotal = failOnAll ? errors.length : prErrorTotal
+  const section2 = allErrorsSection(errors, byFile, tsCodeLookup, label)
 
   const lines = [
-    '## Lint Types - Tests',
+    `## Lint Types - ${label}`,
     '',
     '### Errors in this PR',
     '',
@@ -254,7 +289,7 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
   lines.push('', section2, '')
   const markdown = lines.join('\n')
 
-  return { markdown, exitCode: prErrorTotal > 0 ? 1 : 0 }
+  return { markdown, exitCode: gateTotal > 0 ? 1 : 0 }
 }
 
 /**
@@ -264,9 +299,9 @@ export const buildSummary = ({ tscOutput, changedFiles, tsCodeLookup }) => {
  * @returns {FilterGlobs}
  */
 export const resolveFilterGlobs = () => {
-  const tsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+  const tsconfig = process.env.LINT_TYPES_TSCONFIG
   if (!tsconfig) {
-    throw new Error('LINT_TYPES_TESTS_TSCONFIG must be set')
+    throw new Error('LINT_TYPES_TSCONFIG must be set')
   }
 
   const globs = tsconfigGlobs(readFileSync(tsconfig, 'utf8'))
@@ -276,22 +311,31 @@ export const resolveFilterGlobs = () => {
   return globs
 }
 
+/**
+ * Maps the fail-on input to whether the whole run gates the check. Throws on
+ * anything but the two allowed values so a bad input fails loudly instead of
+ * silently defaulting.
+ *
+ * @param {string | undefined} value
+ * @returns {boolean}
+ */
+export const resolveFailOnAll = (value) => {
+  if (value === 'all') {
+    return true
+  }
+  if (value === 'changed') {
+    return false
+  }
+  throw new Error(`fail-on must be "changed" or "all", got: ${value}`)
+}
+
 /* v8 ignore start */
-const tsCodeLookupFromPackage = (() => {
-  const tsInternals =
-    /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
-      /** @type {unknown} */ (ts)
-    )
-  const diagnostics = tsInternals.Diagnostics ?? {}
-  const map = new Map(
-    Object.values(diagnostics).flatMap((d) =>
-      d?.code && d?.message
-        ? [/** @type {[number, string]} */ ([d.code, d.message])]
-        : []
-    )
-  )
-  return (/** @type {number} */ code) => map.get(code) ?? ''
-})()
+// TypeScript 7's native compiler dropped `ts.Diagnostics`, so there is no
+// canonical code->message table to draw on. The concrete message parsed from
+// each error line is used instead (see topCodesTable's `|| message` fallback),
+// which is more specific than the templated canonical text anyway. Restore a
+// real lookup here if the 7.1 programmatic API exposes the diagnostics table.
+const tsCodeLookup = () => ''
 
 /**
  * @param {FilterGlobs} filterGlobs
@@ -311,11 +355,15 @@ const changedFilesFromGit = (filterGlobs) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
+  const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_FAIL_ON)
+  const label = process.env.LINT_TYPES_LABEL || 'Tests'
 
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup: tsCodeLookupFromPackage
+    tsCodeLookup,
+    failOnAll,
+    label
   })
   process.stdout.write(summary.markdown)
 
@@ -323,7 +371,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const comment = buildPrComment({
       tscOutput,
       changedFiles,
-      runUrl: process.env.RUN_URL
+      runUrl: process.env.RUN_URL,
+      failOnAll,
+      label
     })
     writeFileSync(process.env.COMMENT_FILE, comment.markdown)
   }

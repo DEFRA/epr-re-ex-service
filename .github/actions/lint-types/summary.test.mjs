@@ -8,6 +8,7 @@ import {
   buildPrComment,
   buildSummary,
   filterTestFiles,
+  resolveFailOnAll,
   resolveFilterGlobs,
   tsconfigGlobs
 } from './summary.mjs'
@@ -21,7 +22,7 @@ const appGlobs = [
 
 const journeyGlobs = ['test/**/*.js', 'docker/mock/**/*.js']
 
-describe('lint-types-tests summary', () => {
+describe('lint-types summary', () => {
   describe(filterTestFiles, () => {
     describe('apps shape', () => {
       it('should include .test.js files', () => {
@@ -144,20 +145,20 @@ describe('lint-types-tests summary', () => {
   })
 
   describe(resolveFilterGlobs, () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'lint-types-tests-'))
-    const originalTsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+    const tmp = mkdtempSync(join(tmpdir(), 'lint-types-'))
+    const originalTsconfig = process.env.LINT_TYPES_TSCONFIG
 
     const writeTsconfig = (json) => {
       const file = join(tmp, 'jsconfig.typecheck.tests.json')
       writeFileSync(file, json)
-      process.env.LINT_TYPES_TESTS_TSCONFIG = file
+      process.env.LINT_TYPES_TSCONFIG = file
     }
 
     afterEach(() => {
       if (originalTsconfig === undefined) {
-        delete process.env.LINT_TYPES_TESTS_TSCONFIG
+        delete process.env.LINT_TYPES_TSCONFIG
       } else {
-        process.env.LINT_TYPES_TESTS_TSCONFIG = originalTsconfig
+        process.env.LINT_TYPES_TSCONFIG = originalTsconfig
       }
     })
 
@@ -166,10 +167,10 @@ describe('lint-types-tests summary', () => {
     })
 
     it('should throw when no tsconfig is configured', () => {
-      delete process.env.LINT_TYPES_TESTS_TSCONFIG
+      delete process.env.LINT_TYPES_TSCONFIG
 
       expect(() => resolveFilterGlobs()).toThrow(
-        'LINT_TYPES_TESTS_TSCONFIG must be set'
+        'LINT_TYPES_TSCONFIG must be set'
       )
     })
 
@@ -188,6 +189,28 @@ describe('lint-types-tests summary', () => {
         include: ['src/**/*.test.js'],
         exclude: ['node_modules']
       })
+    })
+  })
+
+  describe(resolveFailOnAll, () => {
+    it('should map "all" to true', () => {
+      expect(resolveFailOnAll('all')).toBe(true)
+    })
+
+    it('should map "changed" to false', () => {
+      expect(resolveFailOnAll('changed')).toBe(false)
+    })
+
+    it('should throw on an unrecognised value', () => {
+      expect(() => resolveFailOnAll('nope')).toThrow(
+        'fail-on must be "changed" or "all"'
+      )
+    })
+
+    it('should throw when the value is undefined', () => {
+      expect(() => resolveFailOnAll(undefined)).toThrow(
+        'fail-on must be "changed" or "all"'
+      )
     })
   })
 
@@ -228,6 +251,31 @@ describe('lint-types-tests summary', () => {
       })
     })
 
+    describe('exit code (fail-on: all)', () => {
+      it('should be 1 when an unchanged file has errors', () => {
+        const result = buildSummary({
+          tscOutput:
+            "src/server/x/x.test.js(1,1): error TS2304: Cannot find name 'a'.",
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnAll: true
+        })
+
+        expect(result.exitCode).toBe(1)
+      })
+
+      it('should be 0 when there are no errors anywhere', () => {
+        const result = buildSummary({
+          tscOutput: '',
+          changedFiles: [],
+          tsCodeLookup: noopLookup,
+          failOnAll: true
+        })
+
+        expect(result.exitCode).toBe(0)
+      })
+    })
+
     describe('section 1 - errors in this PR', () => {
       it('should show the clean message exactly once when no test files changed', () => {
         const { markdown } = buildSummary({
@@ -236,7 +284,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
         const occurrences =
-          markdown.split('No type errors in test files changed in this PR')
+          markdown.split('No type errors in changed files in this PR')
             .length - 1
 
         expect(markdown).toContain('### Errors in this PR')
@@ -250,7 +298,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
         const occurrences =
-          markdown.split('No type errors in test files changed in this PR')
+          markdown.split('No type errors in changed files in this PR')
             .length - 1
 
         expect(occurrences).toBe(1)
@@ -312,7 +360,7 @@ describe('lint-types-tests summary', () => {
         })
 
         expect(markdown).toContain(
-          '**3 type error(s) in test files changed in this PR**'
+          '**3 type error(s) in changed files in this PR**'
         )
         expect(markdown).not.toContain('advisory')
       })
@@ -327,7 +375,7 @@ describe('lint-types-tests summary', () => {
         })
 
         expect(markdown).toContain('### All errors')
-        expect(markdown).toContain(':white_check_mark: Test type check passed')
+        expect(markdown).toContain(':white_check_mark: Tests type check passed')
       })
 
       it('should report total errors found', () => {
@@ -343,7 +391,7 @@ describe('lint-types-tests summary', () => {
           tsCodeLookup: noopLookup
         })
 
-        expect(markdown).toContain('**3 type errors found in tests**')
+        expect(markdown).toContain('**3 type errors found**')
         expect(markdown).not.toContain('advisory')
       })
 
@@ -426,7 +474,7 @@ describe('lint-types-tests summary', () => {
           '<details><summary><code>test/features/login.js</code> (1 errors)</summary>'
         )
         expect(markdown).toContain(
-          '**1 type error(s) in test files changed in this PR**'
+          '**1 type error(s) in changed files in this PR**'
         )
       })
     })
@@ -477,7 +525,7 @@ describe('lint-types-tests summary', () => {
         runUrl: 'https://github.com/o/r/actions/runs/123'
       })
       const occurrences =
-        markdown.split('No type errors in test files changed in this PR')
+        markdown.split('No type errors in changed files in this PR')
           .length - 1
 
       expect(occurrences).toBe(1)
@@ -500,6 +548,42 @@ describe('lint-types-tests summary', () => {
       })
 
       expect(result.exitCode).toBe(1)
+    })
+
+    it('should gate on all errors when failOnAll is set', () => {
+      const result = buildPrComment({
+        tscOutput: 'src/a.test.js(1,1): error TS2304: x.',
+        changedFiles: [],
+        failOnAll: true
+      })
+
+      expect(result.exitCode).toBe(1)
+    })
+  })
+
+  describe('label', () => {
+    const noopLookup = () => ''
+
+    it('should use the label in the heading and pass message', () => {
+      const { markdown } = buildSummary({
+        tscOutput: '',
+        changedFiles: [],
+        tsCodeLookup: noopLookup,
+        label: 'Prod'
+      })
+
+      expect(markdown).toContain('## Lint Types - Prod')
+      expect(markdown).toContain('Prod type check passed')
+    })
+
+    it('should default the label to Tests', () => {
+      const { markdown } = buildSummary({
+        tscOutput: '',
+        changedFiles: [],
+        tsCodeLookup: noopLookup
+      })
+
+      expect(markdown).toContain('## Lint Types - Tests')
     })
   })
 })
