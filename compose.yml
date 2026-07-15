@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: nginxproxy/nginx-proxy:1.11@sha256:e06db5fb9586234e9c2bdef707c8b8d784caa4fb49fbe7285eb3730a501c3eaa
+    image: nginxproxy/nginx-proxy:1.11.5@sha256:e06db5fb9586234e9c2bdef707c8b8d784caa4fb49fbe7285eb3730a501c3eaa
     ports:
       - '7300:80'
     environment:
