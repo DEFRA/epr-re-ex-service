@@ -3,8 +3,6 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { text } from 'node:stream/consumers'
 
-import ts from 'typescript'
-
 /**
  * @typedef {{ include: string[]; exclude?: string[] }} FilterGlobs
  *
@@ -49,6 +47,25 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
   )
 
 /**
+ * Minimal JSONC parse: strips `//` line comments and trailing commas so a
+ * tsconfig parses with `JSON.parse`. Block comments are deliberately not
+ * stripped — the config surface is file globs, and a `**` glob embeds the
+ * block-comment delimiters, so stripping them would corrupt it; a config using
+ * block comments fails loudly here rather than parsing wrong. `//` never
+ * appears in a glob, so line stripping is safe.
+ *
+ * We hand-roll this because TypeScript 7's native compiler dropped the legacy
+ * programmatic API (`ts.parseConfigFileTextToJson`) and 7.0 ships no stable
+ * replacement — the new API is expected in 7.1. When it lands, this and
+ * `tsconfigGlobs` can be ported back to the official config parser if preferred.
+ *
+ * @param {string} jsonText
+ * @returns {{ include?: string[]; exclude?: string[] }}
+ */
+const parseTsconfig = (jsonText) =>
+  JSON.parse(jsonText.replace(/\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'))
+
+/**
  * Reads include/exclude globs from a tsconfig/jsconfig file's text. Tolerant of
  * comments and trailing commas; does not resolve `extends` (the test-surface
  * config declares its own include/exclude).
@@ -57,7 +74,7 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
  * @returns {FilterGlobs}
  */
 export const tsconfigGlobs = (jsonText) => {
-  const { config } = ts.parseConfigFileTextToJson('tsconfig.json', jsonText)
+  const config = parseTsconfig(jsonText)
   return { include: config?.include ?? [], exclude: config?.exclude ?? [] }
 }
 
@@ -313,21 +330,12 @@ export const resolveFailOnAll = (value) => {
 }
 
 /* v8 ignore start */
-const tsCodeLookupFromPackage = (() => {
-  const tsInternals =
-    /** @type {{ Diagnostics?: Record<string, { code?: number; message?: string }> }} */ (
-      /** @type {unknown} */ (ts)
-    )
-  const diagnostics = tsInternals.Diagnostics ?? {}
-  const map = new Map(
-    Object.values(diagnostics).flatMap((d) =>
-      d?.code && d?.message
-        ? [/** @type {[number, string]} */ ([d.code, d.message])]
-        : []
-    )
-  )
-  return (/** @type {number} */ code) => map.get(code) ?? ''
-})()
+// TypeScript 7's native compiler dropped `ts.Diagnostics`, so there is no
+// canonical code->message table to draw on. The concrete message parsed from
+// each error line is used instead (see topCodesTable's `|| message` fallback),
+// which is more specific than the templated canonical text anyway. Restore a
+// real lookup here if the 7.1 programmatic API exposes the diagnostics table.
+const tsCodeLookup = () => ''
 
 /**
  * @param {FilterGlobs} filterGlobs
@@ -353,7 +361,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup: tsCodeLookupFromPackage,
+    tsCodeLookup,
     failOnAll,
     label
   })
