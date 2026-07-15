@@ -41,3 +41,4 @@
 * [39. Report resubmission for closed periods](0039-report-resubmission-for-closed-periods.md)
 * [40. Reset the SonarCloud new-code baseline per publish via the release tag](0040-reset-sonar-new-code-baseline-per-publish.md)
 * [41. Interim Site modelling and ingestion](0041-interim-site-modelling-and-ingestion.md)
+* [42. Stale reports on PRN/PERN cancellation](0042-stale-reports-on-prn-cancellation.md)

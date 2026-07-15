@@ -1,0 +1,79 @@
+name: Lint Types
+description: Run a typecheck for one surface and post a sticky PR summary comment
+
+inputs:
+  npm-script:
+    description: npm script to run for the typecheck (e.g. lint:types:tests, lint:types)
+    required: false
+    default: lint:types:tests
+  tsconfig:
+    description: >-
+      Path to the tsconfig/jsconfig the npm-script typechecks. Its
+      include/exclude define which changed files are attributed to the PR.
+    required: false
+    default: jsconfig.typecheck.tests.json
+  comment-header:
+    description: Header for the sticky PR comment, used to dedupe across runs
+    required: false
+    default: lint-types-tests
+  label:
+    description: Surface label shown in the comment heading (e.g. Tests, Prod)
+    required: false
+    default: Tests
+  fail-on:
+    description: >-
+      Which errors fail the check. Allowed values:
+      "all" - fail on any error in the whole typecheck run.
+      "changed" - fail only on errors in files changed in this PR; the sticky
+      comment still reports every error in the run.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Install action dependencies
+      shell: bash
+      run: npm ci --prefix "${{ github.action_path }}" --no-audit --no-fund
+
+    - name: Lint types (${{ inputs.label }})
+      shell: bash
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        COMMENT_FILE: ${{ runner.temp }}/lint-types-comment.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
+        LINT_TYPES_TESTS_FAIL_ON: ${{ inputs.fail-on }}
+        LINT_TYPES_LABEL: ${{ inputs.label }}
+        NPM_SCRIPT: ${{ inputs.npm-script }}
+      run: |
+        # disable setup-node's tsc problem matcher: we summarise via the script
+        echo "::remove-matcher owner=tsc::"
+
+        OUTPUT=$(npm run "$NPM_SCRIPT" 2>&1) || true
+        echo "$OUTPUT"
+
+        echo "$OUTPUT" \
+          | node "${{ github.action_path }}/summary.mjs" \
+          >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Post PR comment
+      if: always()
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+      with:
+        header: ${{ inputs.comment-header }}
+        path: ${{ runner.temp }}/lint-types-comment.md
