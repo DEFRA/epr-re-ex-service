@@ -15,7 +15,7 @@ inputs:
   comment-header:
     description: Header for the sticky PR comment, used to dedupe across runs
     required: false
-    default: lint-types-tests
+    default: lint-types
   label:
     description: Surface label shown in the comment heading (e.g. Tests, Prod)
     required: false
@@ -56,8 +56,8 @@ runs:
         BASE_REF: ${{ github.event.pull_request.base.ref }}
         COMMENT_FILE: ${{ runner.temp }}/lint-types-comment.md
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        LINT_TYPES_TESTS_TSCONFIG: ${{ inputs.tsconfig }}
-        LINT_TYPES_TESTS_FAIL_ON: ${{ inputs.fail-on }}
+        LINT_TYPES_TSCONFIG: ${{ inputs.tsconfig }}
+        LINT_TYPES_FAIL_ON: ${{ inputs.fail-on }}
         LINT_TYPES_LABEL: ${{ inputs.label }}
         NPM_SCRIPT: ${{ inputs.npm-script }}
       run: |
