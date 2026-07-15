@@ -299,9 +299,9 @@ export const buildSummary = ({
  * @returns {FilterGlobs}
  */
 export const resolveFilterGlobs = () => {
-  const tsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+  const tsconfig = process.env.LINT_TYPES_TSCONFIG
   if (!tsconfig) {
-    throw new Error('LINT_TYPES_TESTS_TSCONFIG must be set')
+    throw new Error('LINT_TYPES_TSCONFIG must be set')
   }
 
   const globs = tsconfigGlobs(readFileSync(tsconfig, 'utf8'))
@@ -355,7 +355,7 @@ const changedFilesFromGit = (filterGlobs) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tscOutput = await text(process.stdin)
   const changedFiles = changedFilesFromGit(resolveFilterGlobs())
-  const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_TESTS_FAIL_ON)
+  const failOnAll = resolveFailOnAll(process.env.LINT_TYPES_FAIL_ON)
   const label = process.env.LINT_TYPES_LABEL || 'Tests'
 
   const summary = buildSummary({

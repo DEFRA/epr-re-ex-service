@@ -22,7 +22,7 @@ const appGlobs = [
 
 const journeyGlobs = ['test/**/*.js', 'docker/mock/**/*.js']
 
-describe('lint-types-tests summary', () => {
+describe('lint-types summary', () => {
   describe(filterTestFiles, () => {
     describe('apps shape', () => {
       it('should include .test.js files', () => {
@@ -145,20 +145,20 @@ describe('lint-types-tests summary', () => {
   })
 
   describe(resolveFilterGlobs, () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'lint-types-tests-'))
-    const originalTsconfig = process.env.LINT_TYPES_TESTS_TSCONFIG
+    const tmp = mkdtempSync(join(tmpdir(), 'lint-types-'))
+    const originalTsconfig = process.env.LINT_TYPES_TSCONFIG
 
     const writeTsconfig = (json) => {
       const file = join(tmp, 'jsconfig.typecheck.tests.json')
       writeFileSync(file, json)
-      process.env.LINT_TYPES_TESTS_TSCONFIG = file
+      process.env.LINT_TYPES_TSCONFIG = file
     }
 
     afterEach(() => {
       if (originalTsconfig === undefined) {
-        delete process.env.LINT_TYPES_TESTS_TSCONFIG
+        delete process.env.LINT_TYPES_TSCONFIG
       } else {
-        process.env.LINT_TYPES_TESTS_TSCONFIG = originalTsconfig
+        process.env.LINT_TYPES_TSCONFIG = originalTsconfig
       }
     })
 
@@ -167,10 +167,10 @@ describe('lint-types-tests summary', () => {
     })
 
     it('should throw when no tsconfig is configured', () => {
-      delete process.env.LINT_TYPES_TESTS_TSCONFIG
+      delete process.env.LINT_TYPES_TSCONFIG
 
       expect(() => resolveFilterGlobs()).toThrow(
-        'LINT_TYPES_TESTS_TSCONFIG must be set'
+        'LINT_TYPES_TSCONFIG must be set'
       )
     })
 
