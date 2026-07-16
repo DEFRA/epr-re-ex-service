@@ -28,7 +28,7 @@
     "lint-staged": "17.0.8",
     "mongodb": "7.5.0",
     "prettier": "3.9.5",
-    "renovate": "43.260.0",
+    "renovate": "43.260.2",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
