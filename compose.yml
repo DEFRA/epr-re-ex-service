@@ -202,13 +202,10 @@ services:
       - '3002:3002'
     extra_hosts:
       - 'localhost:host-gateway'
+    volumes:
+      - ./lib/epr-re-ex-admin-frontend/src:/app/src
     develop:
       watch:
-        - path: ./lib/epr-re-ex-admin-frontend/src/
-          action: sync
-          target: /app/src/
-          ignore:
-            - node_modules/
         - path: ./lib/epr-re-ex-admin-frontend/.browserslistrc
           action: rebuild
         - path: ./lib/epr-re-ex-admin-frontend/babel.config.cjs
@@ -252,13 +249,10 @@ services:
       - '3000:3000'
     extra_hosts:
       - 'localhost:host-gateway'
+    volumes:
+      - ./lib/epr-frontend/src:/app/src
     develop:
       watch:
-        - path: ./lib/epr-frontend/src/
-          action: sync
-          target: /app/src/
-          ignore:
-            - node_modules/
         - path: ./lib/epr-frontend/.browserslistrc
           action: rebuild
         - path: ./lib/epr-frontend/babel.config.cjs
