@@ -155,6 +155,10 @@ runs:
 
     - name: SonarCloud Scan
       if: ${{ github.actor != 'dependabot[bot]' }}
+      # TEMP (2026-07-16): non-blocking while SonarCloud is down (api.sonarcloud.io
+      # 504s during JRE provisioning). Revert once SonarCloud recovers — while this
+      # is in place the quality gate cannot block a merge.
+      continue-on-error: true
       uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
