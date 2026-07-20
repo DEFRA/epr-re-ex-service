@@ -23,7 +23,7 @@
   "overrides": {},
   "devDependencies": {
     "@dotenvx/dotenvx": "2.6.0",
-    "@types/node": "25.9.3",
+    "@types/node": "26.1.1",
     "husky": "9.1.7",
     "lint-staged": "17.0.8",
     "mongodb": "7.5.0",
