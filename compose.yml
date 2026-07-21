@@ -291,6 +291,7 @@ services:
       WASTE_ORGANISATIONS_API_USERNAME: testuser
       WASTE_ORGANISATIONS_API_PASSWORD: testpassword
       FEATURE_FLAG_CLOSED_PERIOD_ADJUSTMENTS: true
+      FEATURE_FLAG_OPERATOR_INITIATED_RESUBMISSION: true
     networks:
       - cdp-tenant
 
@@ -350,6 +351,7 @@ services:
       SUPPORT_EMAILS: ${SUPPORT_EMAILS:-["nrw@test.gov.uk"]}
       SQS_ENDPOINT: http://floci:4566
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
+      FEATURE_FLAG_CLOSED_PERIOD_ADJUSTMENTS: true
     secrets:
       - govuk_notify_api_key
     networks:
