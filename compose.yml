@@ -39,7 +39,7 @@ services:
       AWS_SECRET_ACCESS_KEY: test
     volumes:
       - ./compose/floci:/setup:ro
-      - ./lib/epr-backend-journey-tests/docker/scripts/floci/summarylogs:/summarylogs:ro
+      - ./lib/epr-re-ex-journey-tests/docker/scripts/floci/summarylogs:/summarylogs:ro
     networks:
       - cdp-tenant
 

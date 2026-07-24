@@ -9,20 +9,12 @@
       "path": "lib/epr-re-ex-admin-frontend"
     },
     {
-      "name": "admin-journey-tests",
-      "path": "lib/epr-re-ex-admin-frontend-tests"
-    },
-    {
       "name": "admin-performance-tests",
       "path": "lib/epr-re-ex-admin-fe-perf-tests"
     },
     {
       "name": "backend",
       "path": "lib/epr-backend"
-    },
-    {
-      "name": "backend-journey-tests",
-      "path": "lib/epr-backend-journey-tests"
     },
     {
       "name": "backend-performance-tests",
@@ -33,12 +25,12 @@
       "path": "lib/epr-frontend"
     },
     {
-      "name": "frontend-journey-tests",
-      "path": "lib/epr-frontend-journey-tests"
-    },
-    {
       "name": "frontend-performance-tests",
       "path": "lib/epr-frontend-performance-tests"
+    },
+    {
+      "name": "journey-tests",
+      "path": "lib/epr-re-ex-journey-tests"
     }
   ],
   "settings": {
