@@ -1,6 +1,6 @@
 # Running the journey tests (locally)
 
-Ensure that the `epr-backend-journey-tests` repository is cloned locally
+Ensure that the `epr-re-ex-journey-tests` repository is cloned locally
 
 In the repository folder, run the following command:
 
@@ -14,7 +14,7 @@ Then run
 npm run test
 ```
 
-More detailed instructions can be found in the [README.md](https://github.com/DEFRA/epr-backend-journey-tests/blob/main/README.md) of the `epr-backend-journey-tests` repository
+More detailed instructions can be found in the [README.md](https://github.com/DEFRA/epr-re-ex-journey-tests/blob/main/README.md) of the `epr-re-ex-journey-tests` repository
 
 ## Stale epr-backend Docker container
 

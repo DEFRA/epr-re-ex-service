@@ -5,8 +5,8 @@
       "path": "lib/epr-frontend"
     },
     {
-      "name": "frontend-journey-tests",
-      "path": "lib/epr-frontend-journey-tests"
+      "name": "journey-tests",
+      "path": "lib/epr-re-ex-journey-tests"
     },
     {
       "name": "frontend-performance-tests",

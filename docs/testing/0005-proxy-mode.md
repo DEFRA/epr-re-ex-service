@@ -1,6 +1,6 @@
 # Proxy Mode
 
-The `epr-backend-journey-tests` also includes a Proxy mode to allow you to see the Requests and Responses that are being made by the test against the application.
+The `epr-re-ex-journey-tests` also includes a Proxy mode to allow you to see the Requests and Responses that are being made by the test against the application.
 
 This is useful for debugging and understanding what is happening, as you may or may not want to inspect the actual requests or responses that are happening on the fly.
 
@@ -18,4 +18,4 @@ WITH_PROXY=true npm run test
 
 You can now navigate to the MITM Proxy frontend (Usually http://localhost:8081 with a Token attached, refer to the output of the MITM Proxy Docker container run) to inspect your requests and responses.
 
-Alternatively, you can also use `Postman` as a Proxy. Refer to the README in the `epr-backend-journey-tests` repository for more details.
+Alternatively, you can also use `Postman` as a Proxy. Refer to the README in the `epr-re-ex-journey-tests` repository for more details.
