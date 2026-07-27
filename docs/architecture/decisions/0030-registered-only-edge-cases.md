@@ -2,7 +2,7 @@
 
 Date: 2026-03-27
 
-Revised: 2026-07-07
+Revised: 2026-07-27
 
 ## Status
 
@@ -14,6 +14,7 @@ Retained as a historical record of the original spike, not as a living specifica
 
 - **2026-03-27** — original spike findings recorded.
 - **2026-07-07** — revised to reconcile with code that changed after the original draft. Two things shifted the picture materially: reporting and cadence classification moved from a simple `Boolean(registration.accreditationId)` check to a status-based `isRegistrationAccredited` check (approved/suspended only), and diagnostics plus a warning log were added for the silent report data loss. The template-validation axis was left unchanged, so the two axes now diverge for cancelled operators. Findings 2, 3 and 4 are updated below to match; the underlying risks are unchanged, but two of the specific failure modes are now different from what was first recorded.
+- **2026-07-27** — corrected Finding 1's "Current behaviour" for PAE-1705: registrations can no longer be suspended, so nothing cascades a suspension onto an accreditation. Suspension is now applied directly to the accreditation, and the registration→accreditation cascade covers cancellation only.
 
 ## Executive summary
 
@@ -71,7 +72,7 @@ This axis is enforced by `isRegisteredOnlyMismatch` in `src/application/summary-
 
 **Current behaviour**
 
-When a registration is suspended, `applyRegistrationStatusToLinkedAccreditations` (`repositories/organisations/schema/status-transition.js`) cascades the suspension to the linked accreditation. The accreditation retains its `accreditationNumber` — the `AccreditationApproved` typedef covers both `approved` and `suspended` status.
+Registrations cannot be suspended; suspension is applied directly to the accreditation (via the accreditation status-history endpoint). The registration→accreditation cascade in `applyRegistrationStatusToLinkedAccreditations` (`repositories/organisations/schema/status-transition.js`) covers **cancellation only**: cancelling a registration force-cancels its linked accreditation, moving it to `cancelled` from either `approved` or `suspended`. A suspended accreditation retains its `accreditationNumber` — the `AccreditationApproved` typedef covers both `approved` and `suspended` status.
 
 Consequently, a suspended accredited operator is still classified as accredited. They must continue using the accredited template. There is no upload-initiation guard on status — a suspended operator can still call the `POST /summary-logs` endpoint and upload a file.
 
