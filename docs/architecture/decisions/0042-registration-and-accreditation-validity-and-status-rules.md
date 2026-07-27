@@ -151,7 +151,10 @@ domain):
 
 - `REPORTABLE_STATUSES = {approved, suspended, cancelled}` — `cancelled` **is** a member. Consumed
   by `getReportableRegistrations`, so a cancelled registration/accreditation **still appears on the
-  public register / reporting output**. Cancellation does not block this.
+  public register / reporting output**. Cancellation does not block this. (Under
+  [PAE-1705](https://eaflood.atlassian.net/browse/PAE-1705) `suspended` leaves this set —
+  registrations cannot be suspended — so it becomes `{approved, cancelled}`; the `cancelled`
+  membership decided here is unchanged.)
 - `ACTIVE_ACCREDITATION_STATUSES = {approved, suspended}` — `cancelled` is **excluded**. Consumed by
   `resolveAccreditation` (→ returns `null`), `resolveAccreditationNumber` (→ returns `''`), and
   `isRegistrationAccredited` (→ returns `false`). So on the reporting/export resolution path a
@@ -327,8 +330,8 @@ split into what we affirm, what we change, and what we defer.
 
 - **Registration cancellation applies the same dated exclusion at the registration level.** A
   cancelled registration excludes registered-only waste records dated on/after the cancellation — the
-  registration-level analogue of the accreditation gate. Registration _suspension_ date semantics
-  remain deferred (below).
+  registration-level analogue of the accreditation gate. Registration _suspension_ is resolved:
+  registrations cannot be suspended at all (below).
 - **Data must match the rules.** The three un-cleared `created` records and the two `2020-05-06`
   records are corrected so no `created` record holds dates and no approved record has a prior-year
   window: [PAE-1731](https://eaflood.atlassian.net/browse/PAE-1731).
@@ -354,8 +357,15 @@ split into what we affirm, what we change, and what we defer.
   (e.g. a backdated one) is ever required; if so, that refines the value used, not the mechanism.
 - **Whether cancellation is modelled as a discrete dated event in the ledger** (vs. derived from
   status-at-date) — a migration-design decision for the event-sourced-ledger ADR.
-- **Registration suspension date semantics** — the dated-suspension gate exists on the accreditation
-  path; whether registrations need an equivalent is unresolved.
+- **Registration suspension date semantics** — RESOLVED by
+  [PAE-1705](https://eaflood.atlassian.net/browse/PAE-1705) (2026-07-27): registrations **cannot be
+  suspended** — suspension is an accreditation-only concept, applied directly to the accreditation.
+  The registration lifecycle is `created → approved → cancelled` (with `cancelled → approved`
+  reinstatement), so no registration dated-suspension gate is needed. Cancelling a registration
+  **force-cancels** its linked accreditation from `approved` _or_ `suspended` — a system-driven
+  exception to the accreditation's suspended-first cancellation rule; user-driven
+  `approved → cancelled` remains forbidden. See
+  [ADR 30](0030-registered-only-edge-cases.md) for the cascade detail.
 
 ## Consequences
 
@@ -394,7 +404,8 @@ Actionable tickets (both under epic PAE-1598):
   un-cleared `created` records and the two `2020-05-06` records.
 
 Open decisions are listed under [Target rules → Defer](#target-rules-going-forward) (registration
-`validTo` semantics, cancellation effective date, ledger event modelling, registration suspension).
+`validTo` semantics, cancellation effective date, ledger event modelling; registration suspension is
+resolved — removed by [PAE-1705](https://eaflood.atlassian.net/browse/PAE-1705)).
 
 ## References
 
