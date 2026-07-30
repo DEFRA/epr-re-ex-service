@@ -56,7 +56,7 @@ async function main() {
     }
 
     const response = await fetch(
-      `${STUB_URL}/cdp-defra-id-stub/API/register`,
+      `${STUB_URL}/epr-re-ex-defra-id-stub/API/register`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
