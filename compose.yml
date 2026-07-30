@@ -108,7 +108,7 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    image: defradigital/cdp-defra-id-stub:0.36.0@sha256:ad65e553ffd03f1f9ef6bc6a82d665a1643f7efa2daeb00775d6c20b0132dfa3
+    image: defradigital/epr-re-ex-defra-id-stub:latest
     ports:
       - '3200:3200'
     depends_on:
@@ -117,7 +117,7 @@ services:
     environment:
       APP_BASE_URL: http://defra-id-stub:3200
       NODE_ENV: development
-      OIDC_BASE_PATH: /cdp-defra-id-stub
+      OIDC_BASE_PATH: /epr-re-ex-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
       OIDC_CLIENT_SECRET: test_value
       OIDC_SHOW_LOGIN: true
@@ -277,7 +277,7 @@ services:
     environment:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
-      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       EPR_BACKEND_URL: http://epr-backend:3001
       LOG_FORMAT: ${LOG_FORMAT:-ecs}
@@ -327,7 +327,7 @@ services:
       CDP_UPLOADER_URL: http://cdp-uploader:7337
       COPY_FILES_UPLOADED_FROM_DATE: ${COPY_FILES_UPLOADED_FROM_DATE:-2025-12-01T00:00:00.000Z}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
-      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/cdp-defra-id-stub/.well-known/openid-configuration}
+      DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-http://entra-stub:3010/.well-known/openid-configuration}
       FEATURE_FLAG_COPY_FORM_FILES_TO_S3: ${FEATURE_FLAG_COPY_FORM_FILES_TO_S3:-true}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
