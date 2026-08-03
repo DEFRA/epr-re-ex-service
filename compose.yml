@@ -109,7 +109,7 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    image: defradigital/epr-re-ex-defra-id-stub:0.5.0@sha256:67d262bda0be0e2d3d26a54e149c77966836924d22acfd06378fec5604776644
+    image: defradigital/epr-re-ex-defra-id-stub:0.6.0@sha256:a98160ed5fe0c594fc5acfddb46594348624fb768b4e8cf06aa9b3c750981464
     ports:
       - '${DEFRA_ID_STUB_PORT:-3200}:3200'
     depends_on:
