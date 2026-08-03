@@ -109,14 +109,15 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    image: defradigital/epr-re-ex-defra-id-stub:latest@sha256:e56faa55f3e95cbde699485d956f7dc25f02b1a24816c314141bf4e589e6545e
+    image: defradigital/epr-re-ex-defra-id-stub:0.5.0@sha256:67d262bda0be0e2d3d26a54e149c77966836924d22acfd06378fec5604776644
     ports:
       - '${DEFRA_ID_STUB_PORT:-3200}:3200'
     depends_on:
       redis:
         condition: service_healthy
     environment:
-      APP_BASE_URL: http://defra-id-stub:3200
+      APP_BASE_URL: http://localhost:${DEFRA_ID_STUB_PORT:-3200}
+      STUB_INTERNAL_URL: http://defra-id-stub:3200
       NODE_ENV: development
       OIDC_BASE_PATH: /epr-re-ex-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
@@ -137,13 +138,13 @@ services:
       redis:
         condition: service_healthy
     environment:
-      CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:3002}
+      CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:${ADMIN_PORT:-3002}}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       NODE_ENV: development
       PORT: 3010
       REDIS_HOST: redis
-      STUB_EXTERNAL_URL: http://localhost:3010
+      STUB_EXTERNAL_URL: http://localhost:${ENTRA_STUB_PORT:-3010}
       STUB_INTERNAL_URL: http://entra-stub:3010
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
