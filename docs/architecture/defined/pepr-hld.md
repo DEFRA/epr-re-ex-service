@@ -233,8 +233,7 @@ Note that updating an entity _may_ include changing its `status`. See a summary 
 1. `created`: registration has been created but has not yet been approved by the regulator
 2. `approved`: registration has been approved by the regulator
 3. `rejected`: registration has been rejected by the regulator
-4. `suspended`: registration has been suspended by the regulator
-5. `archived`: registration has been archived and can no longer be used
+4. `archived`: registration has been archived and can no longer be used
 
 ### Accreditation
 

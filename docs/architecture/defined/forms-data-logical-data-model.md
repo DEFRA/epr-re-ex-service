@@ -43,7 +43,7 @@ erDiagram
     enum submittedToRegulator "ea,nrw,sepa,niea"
     ISO8601 validFrom "regulator provided date from which registration is valid"
     ISO8601 validTo "regulator provided date till which registration is valid"
-    enum status "created,approved,rejected,suspended,archived.The initial status created is system generated but afterwards driven by regulator decisions"
+    enum status "created,approved,rejected,archived.The initial status created is system generated but afterwards driven by regulator decisions"
     string orgName "Name of organisation"
     STATUS-HISTORY[] statusHistory "Status change history"
     SITE site "applicable only for reprocessor"
