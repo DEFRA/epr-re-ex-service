@@ -79,6 +79,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${UPLOADER_PORT:-7337}
       CONSUMER_BUCKETS: re-ex-summary-logs,re-ex-overseas-sites
       MOCK_VIRUS_RESULT_DELAY: 3
       MOCK_VIRUS_SCAN_ENABLED: true
