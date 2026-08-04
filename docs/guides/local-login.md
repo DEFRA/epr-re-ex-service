@@ -129,9 +129,9 @@ Also consider running the DefraId stub container locally, instead of the latest 
 ```yaml
 # ...
 defra-id-stub:
-  # image: defradigital/cdp-defra-id-stub:0.34.0
+  # image: defradigital/epr-re-ex-defra-id-stub:0.2.0
   build:
-    context: ./cdp-defra-id-stub
+    context: ./epr-re-ex-defra-id-stub
     dockerfile: Dockerfile
 # ...
 ```

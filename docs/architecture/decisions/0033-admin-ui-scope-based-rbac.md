@@ -176,7 +176,7 @@ sequenceDiagram
 1. `cdp-app-config`: add `SERVICE_MAINTAINER_WRITE_EMAILS` (empty in prod; populated for dev/test) and `SUPPORT_EMAILS`. Leave `SERVICE_MAINTAINER_EMAILS` untouched.
 2. `epr-backend`: remove `service_maintainer` from the existing `ROLES` enum, add new `SCOPES` and `ADMIN_ROLES` constants, re-scope every admin route to the new `SCOPES.*` values, add `/v1/admin/me`, add integration tests. Operator-side `ROLES` references are left untouched.
 3. `epr-re-ex-admin-frontend`: extend session shape, fetch `/v1/admin/me`, add view-context plumbing, add template hide-guards, add tier label.
-4. `epr-re-ex-admin-frontend-tests`: update existing journeys to the write tier; add a read-only journey.
+4. `epr-re-ex-journey-tests`: update existing journeys to the write tier; add a read-only journey.
 
 PRs 2 and 3 can ship together or 2-then-3 (3 with no prod write users is harmless — every admin user is read-only until prod gets write users added). PR 1 must precede PR 2 to avoid a brief window where service maintainers temporarily have no access.
 

@@ -12,7 +12,7 @@ A reporting period is "closed" the moment a report for it has been submitted. Th
 
 Two domain facts collide to create the problem this ADR addresses:
 
-1. **Cumulative restatement.** Every summary log restates all loads to date (see [ADR-0037](./0037-committed-row-states-with-summary-log-membership.md)). A summary log uploaded in, say, May can therefore contain loads dated into February, a period whose report was already submitted in March.
+1. **Cumulative restatement.** Every summary log restates all loads to date (see [ADR-0037](./0037-summary-log-row-states-with-membership.md)). A summary log uploaded in, say, May can therefore contain loads dated into February, a period whose report was already submitted in March.
 2. **Closure is irreversible through the normal flow.** The report lifecycle is strictly linear and terminal at `submitted`: `in_progress -> ready_to_submit -> submitted`, with no forward edge out of `submitted` (`report-transitions.js`). Reports are frozen once submitted: PATCH is blocked, DELETE is blocked.
 
 So when a later summary log restates loads into an already-submitted period, the submitted report no longer reflects the operator's own data, and there is currently no route to correct it. Today this is doubly blocked: the route schema pins `submissionNumber` to `valid(1)` (`reports/routes/shared.js`), and the API enforces effectively one report per period.
@@ -171,7 +171,7 @@ The public register CSV embeds a submitted date per period, sourced from `genera
 
 - [ADR-0038](./0038-derive-report-state-in-backend.md) - derives report status and state in the backend as first-class API fields; settles where the resubmission labels are derived
 - [ADR-0028](./0028-reporting-api-and-due-rules.md) - the reporting API, report lifecycle, and due rules this builds on
-- [ADR-0037](./0037-committed-row-states-with-summary-log-membership.md) - cumulative restatement, the property that lets a later summary log restate loads into a closed period
+- [ADR-0037](./0037-summary-log-row-states-with-membership.md) - cumulative restatement, the property that lets a later summary log restate loads into a closed period
 - [ADR-0036](./0036-event-sourced-waste-balance-stream.md) - the event-sourced stream that records each summary-log submission
 - [PAE-1649](https://eaflood.atlassian.net/browse/PAE-1649) - operator sees reports that require resubmission on the Reports landing page, the most direct consumer of this ADR's label derivation
 - [PAE-1650](https://eaflood.atlassian.net/browse/PAE-1650) - operator creates a draft for a report that requires resubmission, the lazy-create CTA this ADR describes

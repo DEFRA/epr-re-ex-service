@@ -209,7 +209,7 @@ flowchart TD
     RPT_P --> RPT_FIX["Delete and recreate\naffected Reports"]:::manual
 ```
 
-### Accreditation or Registration suspended
+### Accreditation suspended
 
 ```mermaid
 flowchart TD
@@ -219,10 +219,7 @@ flowchart TD
     classDef manual fill:#4a90d9,color:#fff,stroke:none
     classDef blocked fill:#333,color:#fff,stroke:none
 
-    T1["Registration\nsuspended"]:::trigger
     T2["Accreditation\nsuspended"]:::trigger
-
-    T1 -->|"cascades to\nlinked Accreditation"| T2
 
     T2 --> CLASS["Rows during suspended\nperiod become Ignored\n(no balance effect)"]:::stale
     T2 --> WB["Waste Balance is stale\n(credits for suspended\nperiod not yet reversed)"]:::stale
@@ -331,7 +328,6 @@ flowchart TD
 | **PRN cancelled**                 | —                         | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
 | **Accreditation dates changed**   | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
 | **Accreditation suspended**       | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
-| **Registration suspended**        | Via accreditation cascade | Via accreditation cascade                               | Via cascade                      | Via cascade          | Via cascade            |
 | **Accreditation granted/removed** | Schema changes            | Created or removed                                      | Cadence changes                  | Historical           | —                      |
 | **Registration details changed**  | Unaffected (IDs only)     | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
 | **Organisation details changed**  | Unaffected (IDs only)     | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
