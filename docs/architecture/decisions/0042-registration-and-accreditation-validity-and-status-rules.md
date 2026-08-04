@@ -17,10 +17,17 @@ rules.
 ## Decision
 
 **Status transitions are performed through explicit per-transition actions (buttons) in the admin
-UI.** Each action calls a dedicated endpoint for that one transition, which checks the record is in
-the expected from-status, checks the transition is permitted, applies exactly that transition's
-field changes, and appends the change to the record's status history. Editing status through the
-admin JSON editor is blocked.
+UI.** Each action posts to one of two status-history endpoints — one for registrations, one for
+accreditations:
+
+- `POST /v1/organisations/{organisationId}/registrations/{registrationId}/status-history`
+- `POST /v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/status-history`
+
+The payload names the transition explicitly (`fromStatus` → `toStatus`) together with exactly the
+parameters that transition needs; only the supported transitions are accepted. The endpoint checks
+the record really is in the stated from-status, checks the transition is permitted, applies exactly
+that transition's field changes, and appends the change to the record's status history. Editing
+status through the admin JSON editor is blocked.
 
 ### Validity dates
 
