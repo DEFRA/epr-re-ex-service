@@ -227,6 +227,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${ADMIN_PORT:-3002}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-tenantId}
@@ -279,6 +280,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
       DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
