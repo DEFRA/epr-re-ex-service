@@ -248,7 +248,7 @@ if (baseline !== current) {
 
 ### Repository port design
 
-The operations the submission path uses from the row states repository:
+The operations the submission path uses from the row states repository, plus the row history read the same documents serve (the port also carries a read the CSV export uses to compose its dynamic header):
 
 ```javascript
 interface SummaryLogRowStateRepository {
@@ -269,7 +269,7 @@ interface SummaryLogRowStateRepository {
 - Application layer: business logic (classification, change detection)
 - Repository layer: persistence (deduplication against existing states, bulk operations)
 - `ledgerId` is `(organisationId, registrationId, accreditationId)` — the same identity the waste balance ledger uses, so a row state cannot drift from the balance it contributed to
-- The whole submission goes in one call, so the round-trip cost does not scale with the row count
+- The whole submission goes in one call, so a submission costs one round trip rather than one per row
 - Reads are keyed either by submission (what this log reported) or by row identity (how one row has changed over time)
 
 ### Shared transformation logic
@@ -281,10 +281,10 @@ flowchart TD
     A[Transform Summary Log] --> B[Extract & parse file]
     B --> C[Read row states at the latest submitted log]
     C --> D[Build lookup Map by type:rowId]
-    D --> E[Project each row to its row state]
-    E --> F{Submitted state exists?}
-    F -->|Yes| G{Data or classification differs?}
+    D --> F{Submitted state exists?}
     F -->|No| H[Change: ADDED]
+    F -->|Yes| E[Project the row to its row state]
+    E --> G{Data or classification differs?}
     G -->|Yes| I[Change: ADJUSTED]
     G -->|No| J[Change: UNCHANGED]
     H --> M[Classify loads]
@@ -300,7 +300,7 @@ Each row is classified on two dimensions:
 1. **Change type** (comparison against the latest submitted log's row states):
    - `added` - No submitted state for this row identity
    - `adjusted` - A submitted state exists, but its data or its classification differs
-   - `unchanged` - A submitted state exists and matches exactly
+   - `unchanged` - A submitted state exists and both its data and its classification match
 
 2. **Validity** (based on validation issues):
    - `valid` - No validation issues
@@ -323,7 +323,7 @@ loads: {
 
 - Single source of truth for transformation logic
 - Both phases use identical code path - no divergence possible
-- The comparison uses the same projection the write deduplicates on, so a row the preview called unchanged is exactly a row the write folds onto its existing state
+- The comparison uses the same projection the write deduplicates on, so a row the preview calls unchanged is one the write folds onto its existing state — with one gap: the write's identity also covers the template the row reported under, so a registration that switches template between logs writes a new state for a row the preview called unchanged
 - Anchoring to the latest submitted log, rather than to whatever was written last, keeps a failed or raced earlier write from showing up as a phantom adjustment
 - Returns both waste records (for submission) and loads (for preview)
 - Recalculation prevents possiblity of partially-stored preview data
@@ -368,12 +368,11 @@ flowchart TD
     end
 
     subgraph "6. Classification (classifyLoads)"
-        T -->|No| L[Project row and look up<br/>submitted state by type:rowId]
-        L --> U{Matches<br/>submitted state?}
-        U -->|Yes| V[unchanged]
-        U -->|No| W{Any submitted<br/>state?}
+        T -->|No| W{Submitted state<br/>for type:rowId?}
         W -->|No| X[added]
-        W -->|Yes| Y[adjusted]
+        W -->|Yes| U{Projected row matches<br/>submitted state?}
+        U -->|Yes| V[unchanged]
+        U -->|No| Y[adjusted]
         V --> Z["loads<br/>{added, unchanged, adjusted}<br/>× {valid, invalid}"]
         X --> Z
         Y --> Z
@@ -511,7 +510,7 @@ The adapter writes the whole submission as one `bulkWrite` of content-addressed 
 1. `data` and `classification` are never rewritten once stored, and `summaryLogIds` only grows — a stored state is what was submitted, and stays that way
 2. A row's history is every state document carrying its `(organisationId, registrationId, rowId, wasteRecordType)`, served by the `row_history` index
 3. Loads stored in summary log: `{ loads: { added: {valid: {count, rowIds}, invalid: {count, rowIds}}, unchanged: {...}, adjusted: {...} } }`
-4. The write is one round trip plus one read-back regardless of row count, so cost does not scale with the number of rows
+4. The write is one `bulkWrite` plus one read-back however many rows a submission carries, rather than a round trip per row. The operation list and the read-back still grow with the rows, so memory above 15k rows is worth watching
 5. Multiple validated logs can coexist - staleness checked at submission time
 6. Baseline (`validatedAgainstSummaryLogId`) recorded at upload time, compared to current at submission
 7. The `superseded` status is a terminal state for stale previews (no further transitions allowed)

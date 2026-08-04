@@ -113,7 +113,7 @@ TBD
 
 #### Disambiguation
 
-The Waste Record is the entity used to track key reporting data uploaded by Summary Logs. It has no document of its own to update: a submission writes one row state per row, holding that row's data and its waste balance classification, and the row's history is the set of states carrying its identity. A state is written once and never edited, so two submissions reporting the same content for a row share one state document, which records the submissions that reported it.
+The Waste Record is the entity used to track key reporting data uploaded by Summary Logs. It has no document of its own to update: a submission writes one row state per row, holding that row's data and its waste balance classification, and the row's history is the set of states carrying its identity. A state is written once and never edited, so two submissions reporting the same content for a row under the same template share one state document, which records the submissions that reported it.
 
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued. It is held as a per-accreditation append-only event stream: each balance-affecting business operation (a summary log submission, a PRN transition) appends one immutable event carrying the resulting `closingBalance`. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no separately materialised total to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the design rationale.
 
@@ -173,9 +173,9 @@ erDiagram
     ObjectId registrationId FK
     ObjectId accreditationId FK "null when the registration has no accreditation"
     enum wasteRecordType "received, processed, sentOn, exported"
-    string rowId "the operator's row identifier, unique within org+reg+type"
+    string rowId "the operator's row identifier within the registration's records of that type"
     string processingType "the template the row reported under"
-    json data "reporting fields as submitted, tonnages coerced to two decimal places"
+    json data "the row's reporting fields, less ROW_ID and processingType, tonnages held to two decimal places"
     ROW-CLASSIFICATION classification
     string[] summaryLogIds "every submission that reported this exact state"
     string contentHash "sha256 over processingType, data and classification"
@@ -274,7 +274,7 @@ erDiagram
 
   SUMMARY-LOG-ROW-STATE ||--|| ROW-CLASSIFICATION : contains
   ROW-CLASSIFICATION ||--o{ CLASSIFICATION-REASON : contains
-  SUMMARY-LOG }o--o{ SUMMARY-LOG-ROW-STATE : "submitted"
+  SUMMARY-LOG }|--o{ SUMMARY-LOG-ROW-STATE : "submitted"
   SUMMARY-LOG ||--|{ USER-SUMMARY : contains
   SUMMARY-LOG ||--|| SUMMARY-LOG-FILE : contains
   SUMMARY-LOG ||--o| SUMMARY-LOG-VALIDATION : contains
@@ -295,7 +295,7 @@ The examples below all report under the `REPROCESSOR_INPUT` template, so `data` 
 
 #### Waste Record Type: Received
 
-Row `1001` was reported in two submissions: the first gave a gross weight of 1.0, the second corrected it to 10.0. The tonnage claimed for recycling did not change, so both readings classify the same way — but the data differs, so the row has two state documents.
+Row `1001` was reported in two submissions: the first named the supplier as `Acme Waste`, the second corrected it to `Acme Waste Ltd`. No weight changed, so both readings classify the same way — but the data differs, so the row has two state documents.
 
 ```json5
 {
@@ -309,17 +309,24 @@ Row `1001` was reported in two submissions: the first gave a gross weight of 1.0
   data: {
     DATE_RECEIVED_FOR_REPROCESSING: '2026-01-01',
     EWC_CODE: '15 01 01',
-    DESCRIPTION_WASTE: 'Paper and board',
+    DESCRIPTION_WASTE: 'Paper - sorted mixed paper or board',
     WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE: 'No',
     GROSS_WEIGHT: 1.0,
+    TARE_WEIGHT: 0.15,
+    PALLET_WEIGHT: 0.05,
     NET_WEIGHT: 0.8,
-    TONNAGE_RECEIVED_FOR_RECYCLING: 0.5
+    BAILING_WIRE_PROTOCOL: 'No',
+    WEIGHT_OF_NON_TARGET_MATERIALS: 0.05,
+    HOW_DID_YOU_CALCULATE_RECYCLABLE_PROPORTION: 'National protocol percentage',
+    RECYCLABLE_PROPORTION_PERCENTAGE: 0.8,
+    TONNAGE_RECEIVED_FOR_RECYCLING: 0.6,
+    SUPPLIER_NAME: 'Acme Waste'
     // ...
   },
   classification: {
     outcome: 'INCLUDED',
     reasons: [],
-    transactionAmount: 0.5
+    transactionAmount: 0.6
   },
   summaryLogIds: ['s1234567890a12345a01']
 }
@@ -337,23 +344,32 @@ Row `1001` was reported in two submissions: the first gave a gross weight of 1.0
   data: {
     DATE_RECEIVED_FOR_REPROCESSING: '2026-01-01',
     EWC_CODE: '15 01 01',
-    DESCRIPTION_WASTE: 'Paper and board',
+    DESCRIPTION_WASTE: 'Paper - sorted mixed paper or board',
     WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE: 'No',
-    GROSS_WEIGHT: 10.0,
-    NET_WEIGHT: 8.0,
-    TONNAGE_RECEIVED_FOR_RECYCLING: 0.5
+    GROSS_WEIGHT: 1.0,
+    TARE_WEIGHT: 0.15,
+    PALLET_WEIGHT: 0.05,
+    NET_WEIGHT: 0.8,
+    BAILING_WIRE_PROTOCOL: 'No',
+    WEIGHT_OF_NON_TARGET_MATERIALS: 0.05,
+    HOW_DID_YOU_CALCULATE_RECYCLABLE_PROPORTION: 'National protocol percentage',
+    RECYCLABLE_PROPORTION_PERCENTAGE: 0.8,
+    TONNAGE_RECEIVED_FOR_RECYCLING: 0.6,
+    SUPPLIER_NAME: 'Acme Waste Ltd'
     // ...
   },
   classification: {
     outcome: 'INCLUDED',
     reasons: [],
-    transactionAmount: 0.5
+    transactionAmount: 0.6
   },
   summaryLogIds: ['s1234567890a12345a02']
 }
 ```
 
-A third submission repeating the corrected figures writes no third document: the row's `data` and `classification` hash to the same identity, so that submission's id joins the second document's `summaryLogIds`.
+The weights hold two identities the upload validates and the write preserves: `NET_WEIGHT` is `GROSS_WEIGHT` less `TARE_WEIGHT` and `PALLET_WEIGHT`, and `TONNAGE_RECEIVED_FOR_RECYCLING` is `NET_WEIGHT` less `WEIGHT_OF_NON_TARGET_MATERIALS`, times the recyclable proportion.
+
+A third submission repeating the corrected row writes no third document: under the same template, the row's `data` and `classification` hash to the same identity, so that submission's id joins the second document's `summaryLogIds`.
 
 #### Waste Record Type: processed
 
@@ -402,7 +418,7 @@ Waste sent on leaves the reprocessor, so an included sent-on row carries a negat
     TONNAGE_OF_UK_PACKAGING_WASTE_SENT_ON: 0.2,
     FINAL_DESTINATION_NAME: 'name',
     EWC_CODE: '15 01 01',
-    DESCRIPTION_WASTE: 'Paper and board'
+    DESCRIPTION_WASTE: 'Paper - sorted mixed paper or board'
     // ...
   },
   classification: {
