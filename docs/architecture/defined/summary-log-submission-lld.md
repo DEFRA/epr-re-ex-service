@@ -39,7 +39,7 @@ For related context, see:
 1. Accept summary log uploads containing up to 15,000 waste records
 2. Validate uploaded data and calculate preview statistics (created/updated/unchanged records) and summary
 3. Allow users to review preview before confirming submission
-4. Submit validated data by appending new versions to waste record version history
+4. Submit validated data by recording the submitted state of every row
 5. Prevent concurrent submissions for the same organisation/registration pair
 6. Detect and reject stale previews at submission time
 
@@ -62,7 +62,7 @@ sequenceDiagram
     participant CDPUploader
     participant API
     participant SummaryLogs
-    participant WasteRecords
+    participant RowStates
 
     User->>CDPUploader: Upload summary log
     CDPUploader->>API: Upload complete
@@ -70,7 +70,7 @@ sequenceDiagram
     API->>SummaryLogs: Create new (record baseline)
 
     API->>SummaryLogs: Extract & validate file
-    API->>WasteRecords: Read existing records
+    API->>RowStates: Read row states at the latest submitted log
     API->>API: Classify loads (added/unchanged/adjusted × valid/invalid)
     API->>SummaryLogs: Store loads (status: validated)
 
@@ -84,9 +84,9 @@ sequenceDiagram
         API->>SummaryLogs: Mark as superseded
         API-->>User: Error: Preview is stale, re-upload required
     else Fresh
-        API->>WasteRecords: Read existing records
-        API->>API: Recalculate using same timestamp
-        API->>WasteRecords: Bulk append versions
+        API->>RowStates: Read row states at the latest submitted log
+        API->>API: Reclassify each row
+        API->>RowStates: Bulk upsert row states
         API->>SummaryLogs: Mark as submitted
         API-->>User: Submission complete
     end
@@ -248,25 +248,29 @@ if (baseline !== current) {
 
 ### Repository port design
 
-The waste records repository provides a focused interface:
+The operations the submission path uses from the row states repository, plus the row history read the same documents serve (the port also carries a read the CSV export uses to compose its dynamic header):
 
 ```javascript
-interface WasteRecordsRepository {
-  // Read all waste records for an organisation/registration
-  findByRegistration(organisationId, registrationId): Promise<WasteRecord[]>
+interface SummaryLogRowStateRepository {
+  // Write a whole submission's row states, returning the resulting state per entry
+  upsertSummaryLogRowStates(ledgerId, entries: SummaryLogRowStateEntry[],
+                            summaryLogId): Promise<SummaryLogRowState[]>
 
-  // Append versions in bulk (Map keyed by "type:rowId")
-  appendVersions(organisationId, registrationId, accreditationId,
-                 versionsByKey: Map<string, VersionAppend>): Promise<void>
+  // Read the row states a ledger holds at one submission
+  findRowStatesForSummaryLog(ledgerId, summaryLogId): Promise<SummaryLogRowState[]>
+
+  // Read every state ever recorded for one row identity
+  findRowHistory(organisationId, registrationId, rowId, wasteRecordType): Promise<SummaryLogRowState[]>
 }
 ```
 
 **Rationale:**
 
-- Application layer: business logic (delta calculation, change detection)
-- Repository layer: persistence (version appending, bulk operations)
-- Single Map parameter groups all updates for one org/registration batch
-- Map key `"type:rowId"` handles multiple waste record types in one summary log
+- Application layer: business logic (classification, change detection)
+- Repository layer: persistence (deduplication against existing states, bulk operations)
+- `ledgerId` is `(organisationId, registrationId, accreditationId)` — the same identity the waste balance ledger uses, so a row state cannot drift from the balance it contributed to
+- The whole submission goes in one call, so it costs one `bulkWrite` and one read-back rather than a round trip per row
+- Reads are keyed either by submission (what this log reported) or by row identity (how one row has changed over time)
 
 ### Shared transformation logic
 
@@ -275,19 +279,17 @@ Both validation and submission use identical transformation logic to ensure dete
 ```mermaid
 flowchart TD
     A[Transform Summary Log] --> B[Extract & parse file]
-    B --> C[Read existing waste records]
+    B --> C[Read row states at the latest submitted log]
     C --> D[Build lookup Map by type:rowId]
-    D --> E[Calculate deltas for each row]
-    E --> F{Record exists?}
-    F -->|Yes| G{Data changed?}
-    F -->|No| H[Status: CREATED]
-    G -->|Yes| I[Status: UPDATED]
-    G -->|No| J[Status: UNCHANGED]
-    H --> K[Build version with versionTimestamp]
-    I --> K
-    J --> L[No new version]
-    K --> M[Classify loads]
-    L --> M
+    D --> F{Submitted state exists?}
+    F -->|No| H[Change: ADDED]
+    F -->|Yes| E[Project the row to its row state]
+    E --> G{Data or classification differs?}
+    G -->|Yes| I[Change: ADJUSTED]
+    G -->|No| J[Change: UNCHANGED]
+    H --> M[Classify loads]
+    I --> M
+    J --> M
     M --> N[Return wasteRecords + loads]
 ```
 
@@ -295,10 +297,10 @@ flowchart TD
 
 Each row is classified on two dimensions:
 
-1. **Change type** (based on version status):
-   - `added` - New record (status: CREATED)
-   - `adjusted` - Existing record modified (status: UPDATED)
-   - `unchanged` - No version added this upload
+1. **Change type** (comparison against the latest submitted log's row states):
+   - `added` - No submitted state for this row identity
+   - `adjusted` - A submitted state exists, but its data or its classification differs
+   - `unchanged` - A submitted state exists and both its data and its classification match
 
 2. **Validity** (based on validation issues):
    - `valid` - No validation issues
@@ -321,13 +323,14 @@ loads: {
 
 - Single source of truth for transformation logic
 - Both phases use identical code path - no divergence possible
-- Submission captures a timestamp at the start and uses it for all versions
+- The comparison uses the same projection the write deduplicates on, so a row the preview calls unchanged is one the write folds onto its existing state — with one gap: the write's identity also covers the template the row reported under, so a registration that switches template between logs writes a new state for a row the preview called unchanged
+- Anchoring to the latest submitted log, rather than to whatever was written last, keeps a failed or raced earlier write from showing up as a phantom adjustment
 - Returns both waste records (for submission) and loads (for preview)
 - Recalculation prevents possiblity of partially-stored preview data
 
 ### Row transformation detail
 
-The following diagram shows the journey a single row takes from the spreadsheet through validation and transformation to become a persisted waste record:
+The following diagram shows the journey a single row takes from the spreadsheet through validation and transformation to become a persisted row state:
 
 ```mermaid
 flowchart TD
@@ -354,15 +357,8 @@ flowchart TD
     end
 
     subgraph "4. Transformation (transformFromSummaryLog)"
-        K --> L[Lookup existing record by type:rowId]
-        L --> M{Exists?}
-        M -->|No| N["Create new record<br/>status: CREATED"]
-        M -->|Yes| O{Data changed?}
-        O -->|No| P["Skip version<br/>status: UNCHANGED"]
-        O -->|Yes| Q["Add version<br/>status: UPDATED"]
+        K --> N[Build waste record from row values]
         N --> R["ValidatedWasteRecord<br/>{ record, issues[] }"]
-        Q --> R
-        P --> R
     end
 
     subgraph "5. Data Business Validation"
@@ -372,20 +368,20 @@ flowchart TD
     end
 
     subgraph "6. Classification (classifyLoads)"
-        T -->|No| U{Version added<br/>this upload?}
-        U -->|No| V[unchanged]
-        U -->|Yes| W{CREATED?}
-        W -->|Yes| X[added]
-        W -->|No| Y[adjusted]
+        T -->|No| W{Submitted state<br/>for type:rowId?}
+        W -->|No| X[added]
+        W -->|Yes| U{Projected row matches<br/>submitted state?}
+        U -->|Yes| V[unchanged]
+        U -->|No| Y[adjusted]
         V --> Z["loads<br/>{added, unchanged, adjusted}<br/>× {valid, invalid}"]
         X --> Z
         Y --> Z
     end
 
     subgraph "7. Persistence (on submit)"
-        Z --> AA[Build versionsByKey Map]
-        AA --> AB[wasteRecordsRepository.appendVersions]
-        AB --> AC[(MongoDB<br/>waste_records)]
+        Z --> AA[Project each row to its row state]
+        AA --> AB[summaryLogRowStateRepository.upsertSummaryLogRowStates]
+        AB --> AC[(MongoDB<br/>summary-log-row-states)]
     end
 
     style STOP1 fill:#f66
@@ -395,13 +391,13 @@ flowchart TD
 
 **Key data structures through the pipeline:**
 
-| Stage       | Structure              | Key Fields                                                       |
-| ----------- | ---------------------- | ---------------------------------------------------------------- |
-| Parsing     | Raw row                | `[value1, value2, ...]` array matching header order              |
-| Data Syntax | `ValidatedRow`         | `{ values: {ROW_ID, DATE_RECEIVED, ...}, rowId, issues[] }`      |
-| Transform   | `ValidatedWasteRecord` | `{ record: WasteRecord, issues[] }`                              |
-| Classify    | `Loads`                | `{ added: {valid, invalid}, unchanged: {...}, adjusted: {...} }` |
-| Persist     | `WasteRecord`          | `{ type, rowId, data, versions[] }`                              |
+| Stage       | Structure              | Key Fields                                                                          |
+| ----------- | ---------------------- | ----------------------------------------------------------------------------------- |
+| Parsing     | Raw row                | `[value1, value2, ...]` array matching header order                                 |
+| Data Syntax | `ValidatedRow`         | `{ values: {ROW_ID, DATE_RECEIVED, ...}, rowId, issues[] }`                         |
+| Transform   | `ValidatedWasteRecord` | `{ record: WasteRecord, issues[] }`                                                 |
+| Classify    | `Loads`                | `{ added: {valid, invalid}, unchanged: {...}, adjusted: {...} }`                    |
+| Persist     | `SummaryLogRowState`   | `{ wasteRecordType, rowId, processingType, data, classification, summaryLogIds[] }` |
 
 **Issue attachment flow:**
 
@@ -447,18 +443,16 @@ flowchart TD
     E --> F{Stale?}
     F -->|Yes| G[Mark as superseded]
     G --> H[Error: Preview stale, re-upload required]
-    F -->|No| I[Transform using submission timestamp]
-    I --> J[Filter: only versions from this summary log]
-    J --> K[Build versionsByKey Map]
-    K --> L[Bulk append versions to waste records]
-    L --> M[Mark summary log as submitted]
-    M --> N[Complete]
+    F -->|No| I[Transform every row]
+    I --> J[Project each row to its row state]
+    J --> K[Bulk upsert row states]
+    K --> L[Mark summary log as submitted]
+    L --> M[Complete]
 ```
 
 **Key points:**
 
 - Uses same transformation logic as validation phase
-- Captures timestamp at submission start for consistent times across all rows
 - Atomic transition prevents concurrent submissions for same org/reg
 - Staleness check compares baseline (`validatedAgainstSummaryLogId`) to current latest submitted
 - Stale previews marked as `superseded` - user must re-upload
@@ -467,46 +461,34 @@ flowchart TD
 
 **Idempotency implementation:**
 
+There is no idempotency check to run. A row state's identity is its ledger identity plus its row identity plus a hash of its content, so re-running a submission upserts onto the documents it wrote the first time and re-adds a summary log id already in the set. The write is idempotent by construction rather than by inspection.
+
 ```javascript
-// Before appending version, check if it already exists
-const existingVersionFromThisSummaryLog = wasteRecord.versions.find(
-  v => v.summaryLogId === currentSummaryLog.id
-)
-
-if (existingVersionFromThisSummaryLog) {
-  // Skip - already processed
-  continue
+// Identity of a row state — also the unique index the upsert filters on
+const identityFilter = {
+  organisationId,
+  registrationId,
+  accreditationId,
+  rowId,
+  wasteRecordType,
+  contentHash // sha256 over { processingType, data, classification }
 }
-
-// Otherwise, append the new version
-versionsByKey.set(`${type}:${rowId}`, {
-  data: newData,
-  version: {
-    summaryLogId: currentSummaryLog.id,
-    createdAt: submissionTimestamp,
-    // ... other version fields
-  }
-})
 ```
 
 ### MongoDB adapter implementation
 
-The MongoDB adapter uses bulk operations for efficient version appending:
+The adapter writes the whole submission as one `bulkWrite` of content-addressed upserts:
 
 ```javascript
-// For each waste record in versionsByKey Map:
+// For each projected row state:
 {
   updateOne: {
-    filter: {
-      organisationId: "org",
-      registrationId: "reg",
-      type: "type",
-      rowId: "rowId"
-    },
+    filter: identityFilter, // the unique index fields above
     update: {
-      $setOnInsert: { /* static fields (only on create) */ },
-      $set: { data: currentData },
-      $push: { versions: version }
+      // Identity fields materialise from the filter on insert, so they stay
+      // out of $setOnInsert to avoid the filter/setOnInsert path conflict
+      $setOnInsert: { processingType, data, classification },
+      $addToSet: { summaryLogIds: summaryLogId }
     },
     upsert: true
   }
@@ -517,24 +499,22 @@ The MongoDB adapter uses bulk operations for efficient version appending:
 
 **Key MongoDB operations:**
 
-- `$setOnInsert`: Static fields only when creating new document
-- `$set`: Update top-level data on every operation
-- `$push`: Append version to versions array
-- `upsert: true`: Create document if doesn't exist
+- `$setOnInsert`: Content written once, on the insert that creates the state
+- `$addToSet`: Record this submission in the state's membership without duplicating it
+- `upsert: true`: Create the state document if this content has not been reported before
 - `ordered: false`: Continue processing if one operation fails
+- Unique index on the identity fields: concurrent writers converge on one document, because MongoDB retries the upsert against the winning insert rather than surfacing a duplicate key error
 
 **Implementation notes:**
 
-1. Capturing timestamp at submission start keeps version timestamps consistent across all rows
-2. The `versions` array in waste records naturally supports idempotency via `summaryLog.id` checking
+1. `data` and `classification` are never rewritten once stored, and `summaryLogIds` only grows — a stored state is what was submitted, and stays that way
+2. A row's history is every state document carrying its `(organisationId, registrationId, rowId, wasteRecordType)`, served by the `row_history` index
 3. Loads stored in summary log: `{ loads: { added: {valid: {count, rowIds}, invalid: {count, rowIds}}, unchanged: {...}, adjusted: {...} } }`
-4. Idempotency check happens in application layer before building the Map (avoids unnecessary writes)
-5. Map key format `"type:rowId"` naturally groups versions by waste record
-6. Multiple validated logs can coexist - staleness checked at submission time
-7. Baseline (`validatedAgainstSummaryLogId`) recorded at upload time, compared to current at submission
-8. The `superseded` status is a terminal state for stale previews (no further transitions allowed)
-9. Atomic `transitionToSubmittingExclusive` prevents concurrent submissions via MongoDB unique partial index
-10. If memory usage becomes a concern with >15k records, batch the Map building and multiple `appendVersions` calls
+4. The write is one `bulkWrite` plus one read-back however many rows a submission carries, rather than a round trip per row. The operation list and the read-back still grow with the rows, so memory above 15k rows is worth watching
+5. Multiple validated logs can coexist - staleness checked at submission time
+6. Baseline (`validatedAgainstSummaryLogId`) recorded at upload time, compared to current at submission
+7. The `superseded` status is a terminal state for stale previews (no further transitions allowed)
+8. Atomic `transitionToSubmittingExclusive` prevents concurrent submissions via MongoDB unique partial index
 
 ## Incremental delivery
 
@@ -547,7 +527,7 @@ The MongoDB adapter uses bulk operations for efficient version appending:
 - Deferred staleness detection at submission time
 - Atomic transition to `submitting` prevents concurrent submissions
 - Two-phase workflow (validate/preview + submit)
-- Idempotent version appending
+- Idempotent row state writes
 - Summary log status transitions: `preprocessing` → `validating` → `validated` → `submitting` → `submitted`
 - `superseded` state for stale previews detected at submission
 - Manual recovery for stuck submissions (left in `submitting` state)
