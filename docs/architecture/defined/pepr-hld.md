@@ -278,11 +278,11 @@ stateDiagram-v2
 
 ### Waste Record
 
-A waste record has no lifecycle of its own. Each submitted row is stamped with the outcome of its waste balance classification, decided at submission from the row's data, the accreditation in force at the time and the overseas site approvals then current. The stamp is never rewritten.
+A waste record has no status of its own. Each submitted row is stamped with the outcome of its waste balance classification, decided at submission from the row's data, the accreditation in force at the time and the overseas site approvals then current. The stamp is never rewritten.
 
 1. `INCLUDED`: the row contributes its tonnage to the waste balance
 2. `EXCLUDED`: the row was evaluated and contributes nothing — for example a PRN or PERN had already been issued on the waste, a required field is missing, the load was stopped or refused, or the overseas site was not approved at the date of export
-3. `IGNORED`: the row falls outside the accreditation's effective period, either by date or because the accreditation was suspended or cancelled at the load date. Ignored rows also drop out of the valid and invalid load counts and the closed period checks; in the included and excluded counts they show as excluded
+3. `IGNORED`: the row falls outside the accreditation's effective period, either by date or because the accreditation was suspended or cancelled at the load date. Ignored rows are not merely outside the balance: they also drop out of the valid and invalid load counts and the closed period checks
 4. `NOT_APPLICABLE`: the row cannot carry a per-row balance decision at all — the registration has no accreditation, or the template it reported under has no waste balance, which also covers registered-only templates
 
 ### PRN
