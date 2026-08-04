@@ -8,13 +8,13 @@ Proposed
 
 ## Context
 
-**The question this ADR answers: how should status transitions for registrations and
-accreditations be handled?** **The answer: put buttons on the admin UI** — one explicit action per
-supported transition, backed by a dedicated per-transition endpoint that enforces the transition
-tables and date rules recorded here, replacing free-form status edits through the admin JSON editor.
-Everything else in this document is the background that grounds that answer: what the validity
-dates mean, how each transition drives and consumes them, and what the production data and code
-showed when the rules were derived.
+This ADR answers the question: **how should registration and accreditation status transitions be
+handled?** The decision is to manage them through **explicit, purpose-built transition actions in
+the admin UI**, each backed by a dedicated endpoint that enforces the transition tables and date
+rules recorded here — replacing free-form status edits through the admin JSON editor. The rest of
+this document is the background that grounds that decision: what the validity dates mean, how each
+transition drives and consumes them, and what the production data and code showed when the rules
+were derived.
 
 As that background, this ADR is a single record of two closely-related things:
 
@@ -65,9 +65,9 @@ see Rule 6.)
 
 We decide:
 
-1. **Registration and accreditation status is managed through explicit per-transition actions
-   (buttons) in the admin UI, backed by dedicated status-transition endpoints** — one endpoint arm
-   per supported transition, each enforcing the transition tables and carrying exactly the
+1. **Registration and accreditation status is managed through explicit per-transition actions in
+   the admin UI, backed by dedicated status-transition endpoints** — one endpoint arm per
+   supported transition, each enforcing the transition tables and carrying exactly the
    parameters that transition needs (see
    [Implemented status transitions](#implemented-status-transitions-epic-pae-1598)). Editing status
    through the admin JSON editor is blocked
