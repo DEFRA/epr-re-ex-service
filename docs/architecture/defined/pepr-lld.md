@@ -113,7 +113,7 @@ TBD
 
 #### Disambiguation
 
-The Waste Record is the entity used to track key reporting data uploaded by Summary Logs. It has no document of its own to update: a submission writes one row state per row, holding that row's data and its waste balance classification, and the row's history is the set of states carrying its identity. A state is written once and never edited, so two submissions reporting the same content for a row under the same template share one state document, which records the submissions that reported it.
+The Waste Record is the entity used to track key reporting data uploaded by Summary Logs. Updating a row does not rewrite a stored document: a submission writes one row state per row, holding that row's data and its waste balance classification, and the row's history is the set of states carrying its identity. A state is written once and never edited, so two submissions reporting the same content for a row under the same template share one state document, which records the submissions that reported it.
 
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued. It is held as a per-accreditation append-only event stream: each balance-affecting business operation (a summary log submission, a PRN transition) appends one immutable event carrying the resulting `closingBalance`. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no separately materialised total to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the design rationale.
 
@@ -175,7 +175,7 @@ erDiagram
     enum wasteRecordType "received, processed, sentOn, exported"
     string rowId "the operator's row identifier within the registration's records of that type"
     string processingType "the template the row reported under"
-    json data "the row's reporting fields, less ROW_ID and processingType, tonnages held to two decimal places"
+    json data "the row's reporting fields, less ROW_ID and processingType, weights and tonnages at two decimal places"
     ROW-CLASSIFICATION classification
     string[] summaryLogIds "every submission that reported this exact state"
     string contentHash "sha256 over processingType, data and classification"
@@ -367,7 +367,7 @@ Row `1001` was reported in two submissions: the first named the supplier as `Acm
 }
 ```
 
-The weights hold two identities the upload validates and the write preserves: `NET_WEIGHT` is `GROSS_WEIGHT` less `TARE_WEIGHT` and `PALLET_WEIGHT`, and `TONNAGE_RECEIVED_FOR_RECYCLING` is `NET_WEIGHT` less `WEIGHT_OF_NON_TARGET_MATERIALS`, times the recyclable proportion.
+Where all their constituent fields are present and valid, the upload validates two identities across these weights, on the values as submitted: `NET_WEIGHT` is `GROSS_WEIGHT` less `TARE_WEIGHT` and `PALLET_WEIGHT`, and `TONNAGE_RECEIVED_FOR_RECYCLING` is `NET_WEIGHT` less `WEIGHT_OF_NON_TARGET_MATERIALS`, times the recyclable proportion, less a further 0.15% where the bailing wire protocol applies. The write then rounds each stored weight to two decimal places and re-derives `NET_WEIGHT` from its rounded components, so the first identity still holds exactly in the stored row; the second holds only to the rounding.
 
 A third submission repeating the corrected row writes no third document: under the same template, the row's `data` and `classification` hash to the same identity, so that submission's id joins the second document's `summaryLogIds`.
 

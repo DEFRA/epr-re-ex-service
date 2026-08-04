@@ -269,7 +269,7 @@ interface SummaryLogRowStateRepository {
 - Application layer: business logic (classification, change detection)
 - Repository layer: persistence (deduplication against existing states, bulk operations)
 - `ledgerId` is `(organisationId, registrationId, accreditationId)` — the same identity the waste balance ledger uses, so a row state cannot drift from the balance it contributed to
-- The whole submission goes in one call, so a submission costs one round trip rather than one per row
+- The whole submission goes in one call, so it costs one `bulkWrite` and one read-back rather than a round trip per row
 - Reads are keyed either by submission (what this log reported) or by row identity (how one row has changed over time)
 
 ### Shared transformation logic
