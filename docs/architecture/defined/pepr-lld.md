@@ -113,7 +113,7 @@ TBD
 
 #### Disambiguation
 
-The Waste Record is the entity used to track key reporting data uploaded by Summary Logs.
+The Waste Record is the entity used to track key reporting data uploaded by Summary Logs. It has no document of its own to update: a submission writes one row state per row, holding that row's data and its waste balance classification, and the row's history is the set of states carrying its identity. A state is written once and never edited, so two submissions reporting the same content for a row share one state document, which records the submissions that reported it.
 
 The Waste Balance is the running total in tonnes of waste received minus PRNs issued. It is held as a per-accreditation append-only event stream: each balance-affecting business operation (a summary log submission, a PRN transition) appends one immutable event carrying the resulting `closingBalance`. The current balance is the `closingBalance` on the highest-numbered event — a single indexed read, with no separately materialised total to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the design rationale.
 
@@ -163,39 +163,33 @@ For detailed Summary Log LLDs, see the following:
 #### Entity Relationships
 
 > [!NOTE]
-> `accreditationId` is optional on waste records to support organisations that have a registration but no accreditation.
+> `accreditationId` is `null` rather than absent on a row state whose registration has no accreditation, so registered-only reporting has the same identity shape as accredited reporting.
 
 ```mermaid
 erDiagram
-  WASTE-RECORD {
+  SUMMARY-LOG-ROW-STATE {
     ObjectId _id PK
     ObjectId organisationId FK
     ObjectId registrationId FK
-    ObjectId accreditationId FK "optional - only present for accredited entities"
-    string rowId "unique identifier within type+org+reg"
-    int schemaVersion
-    ISO8601 createdAt
-    USER-SUMMARY createdBy
-    ISO8601 updatedAt
-    USER-SUMMARY updatedBy
-    enum type "received, processed, sentOn, exported"
-    json data "reporting fields only"
-    WASTE-RECORD-VERSION[] versions
+    ObjectId accreditationId FK "null when the registration has no accreditation"
+    enum wasteRecordType "received, processed, sentOn, exported"
+    string rowId "the operator's row identifier, unique within org+reg+type"
+    string processingType "the template the row reported under"
+    json data "reporting fields as submitted, tonnages coerced to two decimal places"
+    ROW-CLASSIFICATION classification
+    string[] summaryLogIds "every submission that reported this exact state"
+    string contentHash "sha256 over processingType, data and classification"
   }
 
-  WASTE-RECORD-VERSION {
-    ObjectId _id PK
-    ObjectId notificationId FK "required if status is 'pending', otherwise undefined"
-    ISO8601 createdAt
-    USER-SUMMARY createdBy FK
-    enum status "created, updated, pending"
-    SUMMARY-LOG-REF summaryLog "reference to the summary log that created this version"
-    json data "status: 'created' contains all fields required for reporting, status: 'updated'/'pending' contains only changed fields"
+  ROW-CLASSIFICATION {
+    enum outcome "INCLUDED, EXCLUDED, IGNORED, NOT_APPLICABLE"
+    CLASSIFICATION-REASON[] reasons "why a row is not INCLUDED"
+    number transactionAmount "tonnes contributed, zero unless INCLUDED"
   }
 
-  SUMMARY-LOG-REF {
-    string id "summary log ID"
-    string uri "S3 object URI"
+  CLASSIFICATION-REASON {
+    string code "e.g. PRN_ISSUED, OUTSIDE_ACCREDITATION_PERIOD, ORS_NOT_APPROVED"
+    string field "optional - the reporting field the reason refers to"
   }
 
   USER-SUMMARY {
@@ -278,10 +272,9 @@ erDiagram
     Decimal128 availableAmount "amount minus ringfenced (pending) debits"
   }
 
-  WASTE-RECORD ||--|{ WASTE-RECORD-VERSION : contains
-  WASTE-RECORD ||--|{ USER-SUMMARY : contains
-  WASTE-RECORD-VERSION ||--|{ USER-SUMMARY : contains
-  WASTE-RECORD-VERSION ||--|| SUMMARY-LOG-REF : contains
+  SUMMARY-LOG-ROW-STATE ||--|| ROW-CLASSIFICATION : contains
+  ROW-CLASSIFICATION ||--o{ CLASSIFICATION-REASON : contains
+  SUMMARY-LOG }o--o{ SUMMARY-LOG-ROW-STATE : "submitted"
   SUMMARY-LOG ||--|{ USER-SUMMARY : contains
   SUMMARY-LOG ||--|| SUMMARY-LOG-FILE : contains
   SUMMARY-LOG ||--o| SUMMARY-LOG-VALIDATION : contains
@@ -298,190 +291,126 @@ erDiagram
   WASTE-BALANCE-EVENT ||--|| STREAM-BALANCE-SNAPSHOT : "closingBalance"
 ```
 
+The examples below all report under the `REPROCESSOR_INPUT` template, so `data` is keyed by that template's column names. `contentHash` is omitted throughout: it is derived from `processingType`, `data` and `classification`, and is stripped again on read.
+
 #### Waste Record Type: Received
 
-In this example:
-
-1. Alice has created a `received` waste record
-2. Bob has updated the waste record, but introduced a mistake
-3. Alice has corrected the mistake, but the reporting period is closed and the record is now pending
+Row `1001` was reported in two submissions: the first gave a gross weight of 1.0, the second corrected it to 10.0. The tonnage claimed for recycling did not change, so both readings classify the same way — but the data differs, so the row has two state documents.
 
 ```json5
 {
   _id: 'a1234567890a12345a01',
   organisationId: 'e1234567890a12345a01',
   registrationId: 'f1234567890a12345a01',
-  accreditationId: 'b1234567890a12345a01', // optional
-  rowId: '12345678910',
-  type: 'received',
-  createdAt: '2026-01-08T12:00:00.000Z',
-  createdBy: {
-    _id: 'c1234567890a12345a01',
-    name: 'Alice'
-  },
-  updatedAt: '2026-01-09T12:00:00.000Z',
-  updatedBy: {
-    _id: 'c1234567890a12345a02',
-    name: 'Bob'
-  },
+  accreditationId: 'b1234567890a12345a01',
+  wasteRecordType: 'received',
+  rowId: '1001',
+  processingType: 'REPROCESSOR_INPUT',
   data: {
-    dateReceived: '2026-01-01',
-    grossWeight: 10.0,
-    tonnageForPrn: 0.5
+    DATE_RECEIVED_FOR_REPROCESSING: '2026-01-01',
+    EWC_CODE: '15 01 01',
+    DESCRIPTION_WASTE: 'Paper and board',
+    WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE: 'No',
+    GROSS_WEIGHT: 1.0,
+    NET_WEIGHT: 0.8,
+    TONNAGE_RECEIVED_FOR_RECYCLING: 0.5
     // ...
   },
-  versions: [
-    {
-      id: 'd1234567890a12345a01',
-      status: 'created',
-      createdAt: '2026-01-08T12:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      summaryLog: {
-        id: 's1234567890a12345a01',
-        uri: 's3://bucket/path/to/summary/log/upload/1'
-      },
-      data: {
-        dateReceived: '2026-01-01',
-        grossWeight: 1.0,
-        tonnageForPrn: 0.5
-        // ...
-      }
-    },
-    {
-      id: 'd1234567890a12345a02',
-      status: 'updated',
-      createdAt: '2026-01-09T12:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a02',
-        name: 'Bob'
-      },
-      summaryLog: {
-        id: 's1234567890a12345a02',
-        uri: 's3://bucket/path/to/summary/log/upload/2'
-      },
-      data: {
-        grossWeight: 10.0
-      }
-    },
-    {
-      id: 'd1234567890a12345a03',
-      notificationId: 'e1234567890a12345a01',
-      status: 'pending',
-      createdAt: '2026-02-28T12:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      summaryLog: {
-        id: 's1234567890a12345a03',
-        uri: 's3://bucket/path/to/summary/log/upload/3'
-      },
-      data: {
-        grossWeight: 1.0
-      }
-    }
-  ]
+  classification: {
+    outcome: 'INCLUDED',
+    reasons: [],
+    transactionAmount: 0.5
+  },
+  summaryLogIds: ['s1234567890a12345a01']
 }
 ```
-
-#### Waste Record Type: processed
-
-In this example Alice has created a `processed` waste record
 
 ```json5
 {
   _id: 'a1234567890a12345a02',
   organisationId: 'e1234567890a12345a01',
   registrationId: 'f1234567890a12345a01',
-  accreditationId: 'b1234567890a12345a01', // optional
-  rowId: '12345678911',
-  type: 'processed',
-  createdAt: '2026-01-08T12:00:00.000Z',
-  createdBy: {
-    _id: 'c1234567890a12345a01',
-    name: 'Alice'
-  },
-  updatedAt: null,
-  updatedBy: null,
+  accreditationId: 'b1234567890a12345a01',
+  wasteRecordType: 'received',
+  rowId: '1001',
+  processingType: 'REPROCESSOR_INPUT',
   data: {
-    dateLoadLeftSite: '2026-01-01',
-    sentTo: 'name',
-    weight: 1.0
+    DATE_RECEIVED_FOR_REPROCESSING: '2026-01-01',
+    EWC_CODE: '15 01 01',
+    DESCRIPTION_WASTE: 'Paper and board',
+    WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE: 'No',
+    GROSS_WEIGHT: 10.0,
+    NET_WEIGHT: 8.0,
+    TONNAGE_RECEIVED_FOR_RECYCLING: 0.5
     // ...
   },
-  versions: [
-    {
-      id: 'd1234567890a12345a01',
-      status: 'created',
-      createdAt: '2026-01-08T12:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      summaryLog: {
-        id: 's1234567890a12345a01',
-        uri: 's3://bucket/path/to/summary/log/upload/1'
-      },
-      data: {
-        dateLoadLeftSite: '2026-01-01',
-        sentTo: 'name',
-        weight: 1.0
-        // ...
-      }
-    }
-  ]
+  classification: {
+    outcome: 'INCLUDED',
+    reasons: [],
+    transactionAmount: 0.5
+  },
+  summaryLogIds: ['s1234567890a12345a02']
 }
 ```
 
-#### Waste Record Type: sentOn
+A third submission repeating the corrected figures writes no third document: the row's `data` and `classification` hash to the same identity, so that submission's id joins the second document's `summaryLogIds`.
 
-In this example Alice has created a `sentOn` waste record
+#### Waste Record Type: processed
+
+The reprocessed loads table on a reprocessor input template feeds no waste balance decision, so its rows are stamped `NOT_APPLICABLE` even under a live accreditation.
 
 ```json5
 {
   _id: 'a1234567890a12345a03',
   organisationId: 'e1234567890a12345a01',
   registrationId: 'f1234567890a12345a01',
-  accreditationId: 'b1234567890a12345a01', // optional
-  rowId: '12345678912',
-  type: 'sentOn',
-  createdAt: '2026-01-08T12:00:00.000Z',
-  createdBy: {
-    _id: 'c1234567890a12345a01',
-    name: 'Alice'
-  },
-  updatedAt: null,
-  updatedBy: null,
+  accreditationId: 'b1234567890a12345a01',
+  wasteRecordType: 'processed',
+  rowId: '4001',
+  processingType: 'REPROCESSOR_INPUT',
   data: {
-    dateLoadLeftSite: '2026-01-01',
-    sentTo: 'name',
-    weight: 1.0
+    DATE_LOAD_LEFT_SITE: '2026-01-01',
+    PRODUCT_DESCRIPTION: 'Baled board',
+    PRODUCT_TONNAGE: 1.0,
+    CUSTOMER_NAME: 'name'
     // ...
   },
-  versions: [
-    {
-      id: 'd1234567890a12345a01',
-      status: 'created',
-      createdAt: '2026-01-08T12:00:00.000Z',
-      createdBy: {
-        _id: 'c1234567890a12345a01',
-        name: 'Alice'
-      },
-      summaryLog: {
-        id: 's1234567890a12345a01',
-        uri: 's3://bucket/path/to/summary/log/upload/1'
-      },
-      data: {
-        dateLoadLeftSite: '2026-01-01',
-        sentTo: 'name',
-        weight: 1.0
-        // ...
-      }
-    }
-  ]
+  classification: {
+    outcome: 'NOT_APPLICABLE',
+    reasons: [],
+    transactionAmount: 0
+  },
+  summaryLogIds: ['s1234567890a12345a01']
+}
+```
+
+#### Waste Record Type: sentOn
+
+Waste sent on leaves the reprocessor, so an included sent-on row carries a negative `transactionAmount` and debits the balance the received loads credited.
+
+```json5
+{
+  _id: 'a1234567890a12345a04',
+  organisationId: 'e1234567890a12345a01',
+  registrationId: 'f1234567890a12345a01',
+  accreditationId: 'b1234567890a12345a01',
+  wasteRecordType: 'sentOn',
+  rowId: '5001',
+  processingType: 'REPROCESSOR_INPUT',
+  data: {
+    DATE_LOAD_LEFT_SITE: '2026-01-01',
+    TONNAGE_OF_UK_PACKAGING_WASTE_SENT_ON: 0.2,
+    FINAL_DESTINATION_NAME: 'name',
+    EWC_CODE: '15 01 01',
+    DESCRIPTION_WASTE: 'Paper and board'
+    // ...
+  },
+  classification: {
+    outcome: 'INCLUDED',
+    reasons: [],
+    transactionAmount: -0.2
+  },
+  summaryLogIds: ['s1234567890a12345a01']
 }
 ```
 
@@ -493,14 +422,14 @@ The waste balance is an **event-sourced stream**. The authoritative design — t
 
 PRN status is a projection of the stream: each balance-affecting PRN transition appends one event, and the two-phase lifecycle is why `amount` and `availableAmount` are separate fields. The event kinds are defined in [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md#event-taxonomy-v1); their balance effects:
 
-| PRN transition                                    | Stream event                | Balance effect                                                     |
-| ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------ |
-| `DRAFT → AWAITING_AUTHORISATION`                  | `prn-created`               | Ringfence: `availableAmount −= amount`                             |
-| `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE`    | `prn-issued`                | Confirm debit: `amount −= amount` (`availableAmount` already down) |
-| `AWAITING_AUTHORISATION → DELETED`                | `prn-creation-cancelled`    | Release ringfence: `availableAmount += amount`                     |
-| `AWAITING_CANCELLATION → CANCELLED`               | `prn-cancelled-after-issue` | Reverse both: `amount += amount`, `availableAmount += amount`      |
-| `AWAITING_ACCEPTANCE → ACCEPTED`                  | `prn-accepted`              | None — lifecycle only                                              |
-| Rejection of an issued PRN                        | `prn-rejected`              | None — lifecycle only                                              |
+| PRN transition                                 | Stream event                | Balance effect                                                     |
+| ---------------------------------------------- | --------------------------- | ------------------------------------------------------------------ |
+| `DRAFT → AWAITING_AUTHORISATION`               | `prn-created`               | Ringfence: `availableAmount −= amount`                             |
+| `AWAITING_AUTHORISATION → AWAITING_ACCEPTANCE` | `prn-issued`                | Confirm debit: `amount −= amount` (`availableAmount` already down) |
+| `AWAITING_AUTHORISATION → DELETED`             | `prn-creation-cancelled`    | Release ringfence: `availableAmount += amount`                     |
+| `AWAITING_CANCELLATION → CANCELLED`            | `prn-cancelled-after-issue` | Reverse both: `amount += amount`, `availableAmount += amount`      |
+| `AWAITING_ACCEPTANCE → ACCEPTED`               | `prn-accepted`              | None — lifecycle only                                              |
+| Rejection of an issued PRN                     | `prn-rejected`              | None — lifecycle only                                              |
 
 This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend`, so it can track the PRN state machine without amending the design.
 
@@ -776,7 +705,7 @@ sequenceDiagram
     BackendWorker->>S3: fetch: s3Bucket/s3Key
     S3-->>BackendWorker: S3 file
     loop each row
-      Note over BackendWorker: parse row<br>compare to WASTE-RECORD for rowId<br>update SUMMARY-LOG.validation in batches
+      Note over BackendWorker: parse row<br>compare to SUMMARY-LOG-ROW-STATE for rowId<br>at the latest submitted SUMMARY-LOG<br>update SUMMARY-LOG.validation in batches
     end
     alt validation successful
       BackendWorker->>Backend: update SUMMARY-LOG entity<br>{ status: 'validated', data }
@@ -843,7 +772,7 @@ sequenceDiagram
   Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/submit
   Note over Backend: lookup SUMMARY-LOG entity
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitting' }
-  Note over Backend: sync WASTE-RECORD entities from SUMMARY-LOG
+  Note over Backend: write a SUMMARY-LOG-ROW-STATE per row of the SUMMARY-LOG
   Note over Backend: update WASTE-BALANCE
   Note over Backend: update SUMMARY-LOG<br>{ status: 'submitted' }
   Backend-->>Frontend: 202: { status: 'submitting' }
