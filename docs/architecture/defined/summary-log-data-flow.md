@@ -113,7 +113,7 @@ The waste balance is an **event-sourced stream** per registration phase, partiti
 Two consequences matter for data flow:
 
 - **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor (e.g. an amended accreditation date range) does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
-- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the waste-records version chain (versions tagged with the submission's `summaryLogId`), but the balance reads only the stream; the version chain is consulted only at the next submission's write time and by rare audit queries.
+- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the summary log row states collection (each row state carries the `summaryLogIds` of every submission that produced it), but the balance reads only the stream; the row states are read at the next submission's write time, by reports and exports, and by audit queries.
 
 ## Invalidation Map
 
@@ -320,19 +320,19 @@ flowchart TD
 
 ## Invalidation Summary
 
-| Change                            | Waste Records             | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
-| --------------------------------- | ------------------------- | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
-| **Summary Log submitted**         | Updated (new versions)    | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN created**                   | —                         | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
-| **PRN issued**                    | —                         | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN cancelled**                 | —                         | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
-| **Accreditation dates changed**   | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
-| **Accreditation suspended**       | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
-| **Accreditation granted/removed** | Schema changes            | Created or removed                                      | Cadence changes                  | Historical           | —                      |
-| **Registration details changed**  | Unaffected (IDs only)     | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
-| **Organisation details changed**  | Unaffected (IDs only)     | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
-| **ORS data changed**              | Retain old snapshot       | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
-| **Pending Report exists**         | —                         | —                                                       | —                                | —                    | — (submission blocked) |
+| Change                            | Waste Records          | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
+| --------------------------------- | ---------------------- | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
+| **Summary Log submitted**         | Updated (new versions) | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN created**                   | —                      | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
+| **PRN issued**                    | —                      | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN cancelled**                 | —                      | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
+| **Accreditation dates changed**   | Classification changes | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
+| **Accreditation suspended**       | Classification changes | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
+| **Accreditation granted/removed** | Schema changes         | Created or removed                                      | Cadence changes                  | Historical           | —                      |
+| **Registration details changed**  | Unaffected (IDs only)  | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
+| **Organisation details changed**  | Unaffected (IDs only)  | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
+| **ORS data changed**              | Retain old snapshot    | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
+| **Pending Report exists**         | —                      | —                                                       | —                                | —                    | — (submission blocked) |
 
 ## Key Architectural Insight
 

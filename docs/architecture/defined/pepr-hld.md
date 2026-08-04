@@ -488,16 +488,16 @@ sequenceDiagram
     Backend-->>CDP: 200 OK
     SQS->>Worker: trigger validation
     Worker->>S3: fetch summaryLog.xlsx
-    Note over Worker: parse summary log + compare against WASTE-RECORDS
+    Note over Worker: parse summary log + compare against WASTE-RECORD entities
     Worker->>Backend: update SUMMARY-LOG entity (status: validated)
     User->>Frontend: view progress page
     Frontend->>Backend: GET summary log
     Backend-->>Frontend: status & validation results
-    Frontend-->>User: displays how uploaded summaryLog.xlsx<br> will affect WASTE-RECORDS when submitted
+    Frontend-->>User: displays how uploaded summaryLog.xlsx<br> will affect WASTE-RECORD entities when submitted
     User->>Frontend: submit SUMMARY-LOG
     Frontend->>Backend: submit
-    Backend->>Backend: create new WASTE-RECORDS
-    Backend->>Backend: update existing WASTE-RECORDS
+    Backend->>Backend: create new WASTE-RECORD entities
+    Backend->>Backend: update existing WASTE-RECORD entities
     Backend->>Backend: update WASTE-BALANCE
     Backend-->>Frontend: 200 OK
 ```
