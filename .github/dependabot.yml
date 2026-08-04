@@ -5,7 +5,7 @@ updates:
   - package-ecosystem: npm
     directories:
       - /
-      - /.github/actions/lint-types-tests
+      - /.github/actions/lint-types
     open-pull-requests-limit: 10
 
     # Group packages into shared PR
@@ -56,7 +56,9 @@ updates:
 
   # Update GitHub Actions
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
 
     # Schedule run nightly
     schedule:

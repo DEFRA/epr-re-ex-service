@@ -46,7 +46,7 @@ We will implement an **on-demand** public register generation that:
 
 Find all organisations in the `epr-organisations` database and generate the public register file as follows:
 
-1. Read all registrations with status: approved, suspended, or cancelled
+1. Read all registrations with status: approved or cancelled
 2. Read any corresponding accreditations with status: approved, suspended, or cancelled
 3. Create a row for each registration/accreditation and populate the relevant fields. Process in batches to keep the event loop responsive during generation.
 4. Apply mapping logic as required (e.g., mapping Plastic to R3 for "Annex II Process")
@@ -66,7 +66,7 @@ sequenceDiagram
     User->>AdminUI: Click "Generate Public Register"
     AdminUI->>Backend: POST /v1/public-register/generate
 
-    Backend->>DB: Query approved/suspended/cancelled<br/>registrations/accreditations
+    Backend->>DB: Query registrations (approved/cancelled) and<br/>accreditations (approved/suspended/cancelled)
     DB-->>Backend: Return data
 
     Backend->>Backend: Transform data to CSV format<br/>Apply mapping logic (e.g., Plastic → R3)

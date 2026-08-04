@@ -2,7 +2,7 @@
 set -eu
 
 # Keep bucket/queue setup in sync with
-# https://github.com/DEFRA/epr-backend-journey-tests/blob/main/docker/scripts/floci/init.sh
+# https://github.com/DEFRA/epr-re-ex-journey-tests/blob/main/docker/scripts/floci/init.sh
 
 echo "[floci-init] Waiting for Floci to be ready..." >&2
 until aws sqs list-queues >/dev/null 2>&1; do
@@ -13,44 +13,69 @@ echo "[floci-init] Floci is ready" >&2
 mk_bucket() {
   local bucket=$1
   aws s3api create-bucket --bucket "$bucket" >/dev/null 2>&1 || true
-  return 0
 }
 
 mk_queue() {
   local queue_name=$1
   aws sqs create-queue --queue-name "$queue_name" >/dev/null 2>&1 || true
-  return 0
 }
 
+# `set -e` doesn't fail the script on a backgrounded job's own exit status -
+# only `wait` on that job's pid does. Used below for calls that must succeed
+# (unlike mk_bucket/mk_queue, which already swallow their own errors since
+# they're idempotent and may legitimately already exist).
+wait_all() {
+  status=0
+  for pid in "$@"; do
+    wait "$pid" || status=1
+  done
+  return $status
+}
+
+# Each `aws` invocation costs ~700ms of CLI startup overhead regardless of
+# the (here, trivially fast/local) network call underneath, so running the
+# ~36 independent calls in this script sequentially was the dominant cost of
+# the whole docker-compose startup. Backgrounding each phase cuts it to
+# roughly the slowest single call per phase instead of the sum of all of them.
+
 echo "[floci-init] Creating buckets" >&2
-mk_bucket cdp-uploader-quarantine
-mk_bucket re-ex-summary-logs
-mk_bucket re-ex-overseas-sites
-mk_bucket re-ex-public-register
-mk_bucket re-ex-form-uploads
+mk_bucket cdp-uploader-quarantine &
+mk_bucket re-ex-summary-logs &
+mk_bucket re-ex-overseas-sites &
+mk_bucket re-ex-public-register &
+mk_bucket re-ex-form-uploads &
+wait
 
 echo "[floci-init] Creating queues" >&2
-mk_queue cdp-clamav-results
-mk_queue cdp-uploader-download-requests
-aws sqs create-queue \
-  --queue-name cdp-uploader-scan-results-callback.fifo \
-  --attributes '{"FifoQueue":"true","ContentBasedDeduplication":"true"}' >/dev/null 2>&1 || true
-mk_queue epr_backend_commands_dlq
+mk_queue cdp-clamav-results &
+mk_queue cdp-uploader-download-requests &
+(
+  aws sqs create-queue \
+    --queue-name cdp-uploader-scan-results-callback.fifo \
+    --attributes '{"FifoQueue":"true","ContentBasedDeduplication":"true"}' >/dev/null 2>&1 || true
+) &
+mk_queue epr_backend_commands_dlq &
+mk_queue mock-clamav &
+wait
+
+# Depends on epr_backend_commands_dlq existing (its redrive policy references
+# that queue's ARN), so this can't join the parallel batch above.
 aws sqs create-queue \
   --queue-name epr_backend_commands \
   --attributes '{"RedrivePolicy":"{\"deadLetterTargetArn\":\"arn:aws:sqs:eu-west-2:000000000000:epr_backend_commands_dlq\",\"maxReceiveCount\":\"3\"}"}' >/dev/null 2>&1 || true
-mk_queue mock-clamav
 
 echo "[floci-init] Configuring quarantine bucket notifications" >&2
+# Depends on the cdp-uploader-quarantine bucket and mock-clamav queue above.
 aws s3api put-bucket-notification-configuration \
   --bucket cdp-uploader-quarantine \
   --notification-configuration '{"QueueConfigurations":[{"QueueArn":"arn:aws:sqs:eu-west-2:000000000000:mock-clamav","Events":["s3:ObjectCreated:*"]}]}'
 
 echo "[floci-init] Uploading summary log fixtures" >&2
-# Fixtures are bind-mounted from the epr-backend-journey-tests submodule at a
+# Fixtures are bind-mounted from the epr-re-ex-journey-tests submodule at a
 # separate path from this script, so SL_DIR points at /summarylogs here whereas
 # the referenced upstream init uses /setup/summarylogs.
 SL_DIR=/summarylogs
+pids=""
 for pair in \
   "test-upload.xlsx:test-upload-key" \
   "valid-summary-log-input.xlsx:valid-summary-log-input-key" \
@@ -83,14 +108,21 @@ do
   aws s3api put-object \
     --bucket re-ex-summary-logs \
     --key "$key" \
-    --body "$SL_DIR/$file" >/dev/null
+    --body "$SL_DIR/$file" >/dev/null &
+  pids="$pids $!"
 done
+wait_all $pids
 
 echo "[floci-init] Seeding test files in re-ex-form-uploads for Forms API testing" >&2
+pids=""
 for i in $(seq -f "%03g" 1 20); do
-  printf 'Mock file content for test-file-%s\nTimestamp: %s\nThis is test data for file copy functionality from Forms Submission API.\n' \
-    "$i" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  | aws s3 cp - "s3://re-ex-form-uploads/defra-forms-stub/test-file-$i.txt" >/dev/null
+  (
+    printf 'Mock file content for test-file-%s\nTimestamp: %s\nThis is test data for file copy functionality from Forms Submission API.\n' \
+      "$i" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    | aws s3 cp - "s3://re-ex-form-uploads/defra-forms-stub/test-file-$i.txt" >/dev/null
+  ) &
+  pids="$pids $!"
 done
+wait_all $pids
 
 echo "[floci-init] Done" >&2

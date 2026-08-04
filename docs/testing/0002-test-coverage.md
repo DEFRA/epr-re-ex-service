@@ -16,4 +16,4 @@ The benefit of running these tests on lower environments is that we get to test 
 
 On top of that, we also ensure that connectivity to other services (Such as S3, Mongo, Cognito auth) is working as expected.
 
-We also get the Allure reporting on the [CDP Portal](https://portal.cdp-int.defra.cloud/test-suites/epr-backend-journey-tests) after each test run.
+We also get the Allure reporting on the [CDP Portal](https://portal.cdp-int.defra.cloud/test-suites/epr-re-ex-journey-tests) after each test run.

@@ -1,0 +1,42 @@
+name: Typecheck strictness burndown
+description: >-
+  Measure the marginal cost of each candidate strictness lever (soft config vs
+  base) and post a ranked, non-blocking sticky PR comment showing which levers
+  are ready to enforce and which still need chipping away.
+
+inputs:
+  comment-header:
+    description: Header for the sticky PR comment, used to dedupe across runs
+    required: false
+    default: typecheck-burndown
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Typecheck strictness burndown
+      shell: bash
+      env:
+        COMMENT_FILE: ${{ runner.temp }}/typecheck-burndown-comment.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        node "${{ github.action_path }}/burndown.mjs" | tee -a "$GITHUB_STEP_SUMMARY"
+
+    - name: Post PR comment
+      if: always()
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+      with:
+        header: ${{ inputs.comment-header }}
+        path: ${{ runner.temp }}/typecheck-burndown-comment.md

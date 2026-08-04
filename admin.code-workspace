@@ -5,8 +5,8 @@
       "path": "lib/epr-re-ex-admin-frontend"
     },
     {
-      "name": "admin-journey-tests",
-      "path": "lib/epr-re-ex-admin-frontend-tests"
+      "name": "journey-tests",
+      "path": "lib/epr-re-ex-journey-tests"
     },
     {
       "name": "admin-performance-tests",
