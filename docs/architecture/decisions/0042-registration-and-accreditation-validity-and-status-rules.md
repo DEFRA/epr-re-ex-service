@@ -8,7 +8,15 @@ Proposed
 
 ## Context
 
-This ADR is a single record of two closely-related things:
+**The question this ADR answers: how should status transitions for registrations and
+accreditations be handled?** **The answer: put buttons on the admin UI** — one explicit action per
+supported transition, backed by a dedicated per-transition endpoint that enforces the transition
+tables and date rules recorded here, replacing free-form status edits through the admin JSON editor.
+Everything else in this document is the background that grounds that answer: what the validity
+dates mean, how each transition drives and consumes them, and what the production data and code
+showed when the rules were derived.
+
+As that background, this ADR is a single record of two closely-related things:
 
 1. **What the validity dates (`validFrom` / `validTo`) mean and what they are set to** — the
    business/statutory rules for the dates on every registration and accreditation sub-document.
