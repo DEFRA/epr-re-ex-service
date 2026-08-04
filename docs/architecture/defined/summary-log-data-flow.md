@@ -113,7 +113,7 @@ The waste balance is an **event-sourced stream** per registration phase, partiti
 Two consequences matter for data flow:
 
 - **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor (e.g. an amended accreditation date range) does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
-- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the summary log row states collection (each row state carries the `summaryLogIds` of every submission that produced it), but the balance reads only the stream; the row states are read at the next submission's write time, by reports and exports, and by audit queries.
+- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the summary log row states collection (`summary-log-row-states`), where each row state carries the `summaryLogIds` of every submission that left row R in that state. The balance reads only the stream. The row states are read when the next upload is validated and again when it is submitted, by reports and exports at the latest submitted summary log, and by audit queries.
 
 ## Invalidation Map
 

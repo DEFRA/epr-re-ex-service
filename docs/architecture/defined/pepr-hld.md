@@ -21,7 +21,7 @@
     * [Accreditation](#accreditation)
     * [User](#user)
     * [Summary Log](#summary-log)
-    * [Waste Record Version](#waste-record-version)
+    * [Waste Record](#waste-record)
     * [PRN](#prn)
     * [Report](#report)
   * [Workflows](#workflows)
@@ -276,11 +276,14 @@ stateDiagram-v2
 6. `submitting`: user has submitted the summary log, waste record sync in progress
 7. `submitted`: waste records have been synced successfully
 
-### Waste Record Version
+### Waste Record
 
-1. `created`: the first version of a waste record that created the entity, this version can be used to understand the original data
-2. `updated`: subsequent updates to the waste record, this version can be used to understand the changes made to the original data
-3. `pending`: updates that are not yet approved by the regulator because they affect closed reporting periods
+A waste record has no lifecycle of its own. Each submitted row is stamped with the outcome of its waste balance classification, decided at submission from the data and the accreditation in force at the time, and never revised afterwards:
+
+1. `INCLUDED`: the row contributes its tonnage to the waste balance
+2. `EXCLUDED`: the row was evaluated and contributes nothing — a PRN or PERN had already been issued on the waste, a required field is missing, the overseas site was not approved at the date of export, or the template section does not feed the balance by design
+3. `IGNORED`: the row falls outside the accreditation's effective period, either by date or because the accreditation was suspended at the load date. Ignored rows are also left out of load counts and closed period checks, not just the balance
+4. `NOT_APPLICABLE`: the row cannot carry a per-row balance decision at all — the registration has no accreditation, or the template it reported under has no waste balance
 
 ### PRN
 
