@@ -5,6 +5,10 @@
       "path": "."
     },
     {
+      "name": "entra-stub",
+      "path": "lib/epr-re-ex-entra-stub"
+    },
+    {
       "name": "admin",
       "path": "lib/epr-re-ex-admin-frontend"
     },
