@@ -108,12 +108,12 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Waste Balance — the event-sourced stream
 
-The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-version writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). The balance shifts by the delta between this submission's `creditTotal` and the prior submission's; the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic.
+The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-state writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). The balance shifts by the delta between this submission's `creditTotal` and the prior submission's; the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic.
 
 Two consequences matter for data flow:
 
 - **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor (e.g. an amended accreditation date range) does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
-- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the waste-records version chain (versions tagged with the submission's `summaryLogId`), but the balance reads only the stream; the version chain is consulted only at the next submission's write time and by rare audit queries.
+- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the summary log row states collection (`summary-log-row-states`), where each row state carries the `summaryLogIds` of the submissions that wrote it. A membership entry is provenance once that submission's event is on the stream; a submission that failed between the two writes leaves an entry no read ever asks for. Everything that needs per-row detail reads this collection: validating the next upload, submitting it, reports, exports and admin queries. The balance itself reads only the stream. See [ADR-0037](../decisions/0037-summary-log-row-states-with-membership.md).
 
 ## Invalidation Map
 
@@ -146,7 +146,7 @@ flowchart TD
 
     T["Summary Log\nsubmitted"]:::trigger
 
-    T --> WR["Waste Records\nupdated with\nnew versions"]:::auto
+    T --> WR["Waste Records\nupdated with\nnew row states"]:::auto
     T --> WB["summary-log-submitted\nevent appended;\nbalance shifts by\ncreditTotal delta"]:::auto
     T --> PREV["Previous unsubmitted\nSummary Logs for\nsame Registration\nbecome superseded"]:::stale
     T --> RPT_C["Computed Reports\nautomatically reflect\nnew data on next read"]:::auto
@@ -320,19 +320,19 @@ flowchart TD
 
 ## Invalidation Summary
 
-| Change                            | Waste Records             | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
-| --------------------------------- | ------------------------- | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
-| **Summary Log submitted**         | Updated (new versions)    | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN created**                   | —                         | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
-| **PRN issued**                    | —                         | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN cancelled**                 | —                         | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
-| **Accreditation dates changed**   | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
-| **Accreditation suspended**       | Classification changes    | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
-| **Accreditation granted/removed** | Schema changes            | Created or removed                                      | Cadence changes                  | Historical           | —                      |
-| **Registration details changed**  | Unaffected (IDs only)     | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
-| **Organisation details changed**  | Unaffected (IDs only)     | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
-| **ORS data changed**              | Retain old snapshot       | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
-| **Pending Report exists**         | —                         | —                                                       | —                                | —                    | — (submission blocked) |
+| Change                            | Waste Records            | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
+| --------------------------------- | ------------------------ | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
+| **Summary Log submitted**         | Updated (new row states) | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN created**                   | —                        | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
+| **PRN issued**                    | —                        | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
+| **PRN cancelled**                 | —                        | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
+| **Accreditation dates changed**   | Classification changes   | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
+| **Accreditation suspended**       | Classification changes   | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
+| **Accreditation granted/removed** | Schema changes           | Created or removed                                      | Cadence changes                  | Historical           | —                      |
+| **Registration details changed**  | Unaffected (IDs only)    | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
+| **Organisation details changed**  | Unaffected (IDs only)    | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
+| **ORS data changed**              | Retain old snapshot      | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
+| **Pending Report exists**         | —                        | —                                                       | —                                | —                    | — (submission blocked) |
 
 ## Key Architectural Insight
 
