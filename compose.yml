@@ -314,6 +314,9 @@ services:
       WASTE_ORGANISATIONS_API_URL: http://wire-mock:8080/waste-organisations/organisations
       WASTE_ORGANISATIONS_API_USERNAME: testuser
       WASTE_ORGANISATIONS_API_PASSWORD: testpassword
+      REAPPLY_ACCREDITATION_BASE_URL: https://epr-register-enrol-frontend.dev.cdp-int.defra.cloud
+      REAPPLY_ACCREDITATION_WINDOW_START_MONTH: 1
+      REAPPLY_ACCREDITATION_WINDOW_END_MONTH: 12
     networks:
       - cdp-tenant
 
