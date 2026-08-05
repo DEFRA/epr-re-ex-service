@@ -400,5 +400,6 @@ networks:
     name: ${STACK_NETWORK:-cdp-tenant}
 
 secrets:
+  # Deliberately empty so Notify no-ops locally; override with GOVUK_NOTIFY_API_KEY_FILE.
   govuk_notify_api_key:
-    environment: GOVUK_NOTIFY_API_KEY
+    file: ${GOVUK_NOTIFY_API_KEY_FILE:-./compose/secrets/govuk-notify-api-key}
