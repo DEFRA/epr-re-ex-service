@@ -127,6 +127,11 @@ services:
       SESSION_CACHE_ENGINE: redis
       STUB_INTERNAL_URL: http://defra-id-stub:3200
       USE_SINGLE_INSTANCE_CACHE: true
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3200/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
     networks:
       - cdp-tenant
 
@@ -148,6 +153,11 @@ services:
       STUB_EXTERNAL_URL: http://localhost:${ENTRA_STUB_PORT:-3010}
       STUB_INTERNAL_URL: http://entra-stub:3010
       USE_SINGLE_INSTANCE_CACHE: true
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3010/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
     networks:
       - cdp-tenant
 
@@ -221,6 +231,8 @@ services:
         - path: ./lib/epr-re-ex-admin-frontend/webpack.config.js
           action: rebuild
     depends_on:
+      entra-stub:
+        condition: service_healthy
       floci-init:
         condition: service_completed_successfully
       redis:
@@ -273,7 +285,7 @@ services:
           action: rebuild
     depends_on:
       defra-id-stub:
-        condition: service_started
+        condition: service_healthy
       floci-init:
         condition: service_completed_successfully
       redis:
@@ -318,12 +330,16 @@ services:
         condition: service_healthy
       cognito-stub:
         condition: service_started
-      wire-mock:
+      defra-id-stub:
+        condition: service_healthy
+      entra-stub:
         condition: service_healthy
       floci-init:
         condition: service_completed_successfully
       mongodb:
         condition: service_started
+      wire-mock:
+        condition: service_healthy
     env_file:
       - ./compose/aws.env
     environment:
