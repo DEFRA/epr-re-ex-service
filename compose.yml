@@ -2,7 +2,7 @@ services:
   proxy:
     image: nginxproxy/nginx-proxy:1.11.6@sha256:dd78565eca9742624655bb743723e0aeeab552153c4eea01095e4266c59150d5
     ports:
-      - '7300:80'
+      - '${PROXY_PORT:-7300}:80'
     environment:
       - ENABLE_IPV6=true
       - DEFAULT_ROOT="418"
@@ -15,7 +15,7 @@ services:
   floci:
     image: hectorvent/floci:1.5.5@sha256:c969cb48fcfae0eff3f4a4647b7772cd975e633cae7468e45abaf2d2eae18558
     ports:
-      - '4566:4566'
+      - '${FLOCI_PORT:-4566}:4566'
     environment:
       FLOCI_HOSTNAME: floci
       FLOCI_DEFAULT_REGION: eu-west-2
@@ -48,7 +48,7 @@ services:
     networks:
       - cdp-tenant
     ports:
-      - '27017:27017'
+      - '${MONGO_PORT:-27017}:27017'
     volumes:
       - mongodb-data:/data
       - ./mongodb-backups:/backups
@@ -63,14 +63,14 @@ services:
     networks:
       - cdp-tenant
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - data-redis:/data
 
   cdp-uploader:
     image: defradigital/cdp-uploader:1.19.0@sha256:7aaa9b592b5243cdd819c9fd61b0ed1beede2cc69b4e0ba6e662cb4c6e7f26a6
     ports:
-      - '7337:7337'
+      - '${UPLOADER_PORT:-7337}:7337'
     depends_on:
       floci-init:
         condition: service_completed_successfully
@@ -79,6 +79,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${UPLOADER_PORT:-7337}
       CONSUMER_BUCKETS: re-ex-summary-logs,re-ex-overseas-sites
       MOCK_VIRUS_RESULT_DELAY: 3
       MOCK_VIRUS_SCAN_ENABLED: true
@@ -110,12 +111,12 @@ services:
   defra-id-stub:
     image: defradigital/epr-re-ex-defra-id-stub:0.6.0@sha256:a98160ed5fe0c594fc5acfddb46594348624fb768b4e8cf06aa9b3c750981464
     ports:
-      - '3200:3200'
+      - '${DEFRA_ID_STUB_PORT:-3200}:3200'
     depends_on:
       redis:
         condition: service_healthy
     environment:
-      APP_BASE_URL: http://localhost:3200
+      APP_BASE_URL: http://localhost:${DEFRA_ID_STUB_PORT:-3200}
       NODE_ENV: development
       OIDC_BASE_PATH: /epr-re-ex-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
@@ -132,19 +133,19 @@ services:
   entra-stub:
     image: defradigital/epr-re-ex-entra-stub:0.102.0@sha256:dd4a5ad46ae7ab1fd7cb8c816803fc29db7a7f83e00c2413f853d571ab8027f4
     ports:
-      - '3010:3010'
+      - '${ENTRA_STUB_PORT:-3010}:3010'
     depends_on:
       redis:
         condition: service_healthy
     environment:
-      CALLBACK_EPR_URL: ${CALLBACK_EPR_URL:-http://localhost:3000}
-      CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:3002}
+      CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:${ADMIN_PORT:-3002}}
+      CALLBACK_EPR_URL: ${CALLBACK_EPR_URL:-http://localhost:${FRONTEND_PORT:-3000}}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       NODE_ENV: development
       PORT: 3010
       REDIS_HOST: redis
-      STUB_EXTERNAL_URL: http://localhost:3010
+      STUB_EXTERNAL_URL: http://localhost:${ENTRA_STUB_PORT:-3010}
       STUB_INTERNAL_URL: http://entra-stub:3010
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
@@ -164,7 +165,7 @@ services:
   cognito-stub:
     image: jagregory/cognito-local:5.3.0@sha256:a5ad30d01da5016a38535a717f6e1642d1b37f886a7b17e90b67f6e5ad134831
     ports:
-      - '9229:9229'
+      - '${COGNITO_PORT:-9229}:9229'
     depends_on:
       cognito-stub-init:
         condition: service_completed_successfully
@@ -177,7 +178,7 @@ services:
     profiles: ['all', 'epr-backend']
     image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
     ports:
-      - '3100:8080'
+      - '${WIREMOCK_PORT:-3100}:8080'
     volumes:
       - ./compose/wire-mock:/home/wiremock
     command:
@@ -201,7 +202,8 @@ services:
       context: ./lib/epr-re-ex-admin-frontend
       dockerfile: Dockerfile.local
     ports:
-      - '3002:3002'
+      - '${ADMIN_PORT:-3002}:3002'
+      - '${ADMIN_DEBUG_PORT:-9232}:9229'
     extra_hosts:
       - 'localhost:host-gateway'
     volumes:
@@ -226,6 +228,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${ADMIN_PORT:-3002}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-tenantId}
@@ -248,7 +251,8 @@ services:
       context: ./lib/epr-frontend
       dockerfile: Dockerfile.local
     ports:
-      - '3000:3000'
+      - '${FRONTEND_PORT:-3000}:3000'
+      - '${FRONTEND_DEBUG_PORT:-9230}:9229'
     extra_hosts:
       - 'localhost:host-gateway'
     volumes:
@@ -277,6 +281,7 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
       DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
@@ -304,7 +309,8 @@ services:
       target: development
       dockerfile: ./Dockerfile
     ports:
-      - '3001:3001'
+      - '${BACKEND_PORT:-3001}:3001'
+      - '${BACKEND_DEBUG_PORT:-9231}:9229'
     extra_hosts:
       - 'localhost:host-gateway'
     depends_on:
@@ -331,7 +337,6 @@ services:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-http://entra-stub:3010/.well-known/openid-configuration}
-      FEATURE_FLAG_COPY_FORM_FILES_TO_S3: ${FEATURE_FLAG_COPY_FORM_FILES_TO_S3:-true}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
       FORM_FILE_UPLOADS_S3_BUCKET: ${FORM_FILE_UPLOADS_S3_BUCKET:-re-ex-form-uploads}
       FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID:-test-client-id}
@@ -371,7 +376,7 @@ volumes:
 networks:
   cdp-tenant:
     driver: bridge
-    name: cdp-tenant
+    name: ${STACK_NETWORK:-cdp-tenant}
 
 secrets:
   govuk_notify_api_key:
