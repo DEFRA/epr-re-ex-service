@@ -117,7 +117,6 @@ services:
         condition: service_healthy
     environment:
       APP_BASE_URL: http://localhost:${DEFRA_ID_STUB_PORT:-3200}
-      STUB_INTERNAL_URL: http://defra-id-stub:3200
       NODE_ENV: development
       OIDC_BASE_PATH: /epr-re-ex-defra-id-stub
       OIDC_CLIENT_ID: 63983fc2-cfff-45bb-8ec2-959e21062b9a
@@ -126,12 +125,13 @@ services:
       PORT: 3200
       REDIS_HOST: redis
       SESSION_CACHE_ENGINE: redis
+      STUB_INTERNAL_URL: http://defra-id-stub:3200
       USE_SINGLE_INSTANCE_CACHE: true
     networks:
       - cdp-tenant
 
   entra-stub:
-    image: defradigital/epr-re-ex-entra-stub:0.92.0@sha256:8b39a2dbaefbe1320c6f28836487d8aa19348dae8f271307fb687a47b1051221
+    image: defradigital/epr-re-ex-entra-stub:0.102.0@sha256:dd4a5ad46ae7ab1fd7cb8c816803fc29db7a7f83e00c2413f853d571ab8027f4
     ports:
       - '${ENTRA_STUB_PORT:-3010}:3010'
     depends_on:
@@ -139,6 +139,7 @@ services:
         condition: service_healthy
     environment:
       CALLBACK_BASE_URL: ${ENTRA_CALLBACK_BASE_URL:-http://localhost:${ADMIN_PORT:-3002}}
+      CALLBACK_EPR_URL: ${CALLBACK_EPR_URL:-http://localhost:${FRONTEND_PORT:-3000}}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-bd06da51-53f6-46d0-a9f0-ac562864c887}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       NODE_ENV: development
@@ -363,18 +364,6 @@ services:
     volumes:
       - ./lib/epr-backend/src:/home/node/src
       - ./lib/epr-backend/package.json:/home/node/package.json
-
-  ################################################################################
-
-  selenium-chrome:
-    profiles: ['all', 'journey-test']
-    image: selenium/standalone-chrome:150.0@sha256:9569014786466376d3e5cf8a7758562368cd9637f783dcd3abdb2eaf3a0d5cd7
-    platform: linux/amd64
-    ports:
-      - 4444:4444
-    environment:
-      SE_NODE_MAX_SESSIONS: 5
-    network_mode: host
 
 ################################################################################
 

@@ -21,7 +21,7 @@
     * [Accreditation](#accreditation)
     * [User](#user)
     * [Summary Log](#summary-log)
-    * [Waste Record Version](#waste-record-version)
+    * [Waste Record](#waste-record)
     * [PRN](#prn)
     * [Report](#report)
   * [Workflows](#workflows)
@@ -241,7 +241,7 @@ Note that updating an entity _may_ include changing its `status`. See a summary 
 2. `approved`: accreditation has been approved by the regulator
 3. `rejected`: accreditation has been rejected by the regulator
 4. `suspended`: accreditation has been suspended by the regulator
-5. `archived`: accreditation has been archived and can no longer be used
+5. `cancelled`: accreditation has been cancelled by the regulator and can no longer be used
 
 ### User
 
@@ -276,11 +276,14 @@ stateDiagram-v2
 6. `submitting`: user has submitted the summary log, waste record sync in progress
 7. `submitted`: waste records have been synced successfully
 
-### Waste Record Version
+### Waste Record
 
-1. `created`: the first version of a waste record that created the entity, this version can be used to understand the original data
-2. `updated`: subsequent updates to the waste record, this version can be used to understand the changes made to the original data
-3. `pending`: updates that are not yet approved by the regulator because they affect closed reporting periods
+A waste record has no status of its own. Each submitted row is stamped with the outcome of its waste balance classification, decided at submission from the row's data, the accreditation in force at the time and the overseas site approvals then current. The stamp is never rewritten: it is the reading that produced the credit recorded at that submission. A read that answers "would this row count now" reclassifies against current context instead, which is why an admin export can disagree with the stamp.
+
+1. `INCLUDED`: the row contributes its tonnage to the waste balance
+2. `EXCLUDED`: the row was evaluated and contributes nothing — for example a PRN or PERN had already been issued on the waste, a required field is missing, the load was stopped or refused, or the overseas site was not approved at the date of export
+3. `IGNORED`: the row falls outside the accreditation's effective period, either by date or because the accreditation was suspended or cancelled at the load date. Ignored rows are not merely outside the balance: they also drop out of the valid and invalid load counts and the closed period checks
+4. `NOT_APPLICABLE`: no per-row balance decision applies. The commonest case is a table that does not feed the balance by design, such as Processed on a reprocessor input template or Sent on for an exporter, and it applies to whole submissions too when the registration has no accreditation or reports under a registered-only template
 
 ### PRN
 
@@ -488,16 +491,16 @@ sequenceDiagram
     Backend-->>CDP: 200 OK
     SQS->>Worker: trigger validation
     Worker->>S3: fetch summaryLog.xlsx
-    Note over Worker: parse summary log + compare against WASTE-RECORDS
+    Note over Worker: parse summary log + compare against WASTE-RECORD
     Worker->>Backend: update SUMMARY-LOG entity (status: validated)
     User->>Frontend: view progress page
     Frontend->>Backend: GET summary log
     Backend-->>Frontend: status & validation results
-    Frontend-->>User: displays how uploaded summaryLog.xlsx<br> will affect WASTE-RECORDS when submitted
+    Frontend-->>User: displays how uploaded summaryLog.xlsx<br> will affect WASTE-RECORD when submitted
     User->>Frontend: submit SUMMARY-LOG
     Frontend->>Backend: submit
-    Backend->>Backend: create new WASTE-RECORDS
-    Backend->>Backend: update existing WASTE-RECORDS
+    Backend->>Backend: create new WASTE-RECORD
+    Backend->>Backend: update existing WASTE-RECORD
     Backend->>Backend: update WASTE-BALANCE
     Backend-->>Frontend: 200 OK
 ```
