@@ -22,7 +22,7 @@
   "license": "OGL-UK-3.0",
   "overrides": {},
   "devDependencies": {
-    "@dotenvx/dotenvx": "2.19.0",
+    "@dotenvx/dotenvx": "2.19.1",
     "@types/node": "26.1.2",
     "husky": "9.1.7",
     "lint-staged": "17.2.0",
