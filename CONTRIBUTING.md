@@ -154,12 +154,14 @@ To configure these, please complete the following actions:
 
 1. Obtain the necessary secret values from a team member
 2. Create the following Env Var(s):
-   - `export GOVUK_NOTIFY_API_KEY=AskTeamMemberForSecretValue`
    - `export ENTRA_CLIENT_SECRET=AskTeamMemberForSecretValue`
 3. Optionally [persist these Env Vars in your CLI environment](https://unix.stackexchange.com/questions/117467/how-to-permanently-set-environmental-variables)
 
 > [!NOTE]
-> Running the backend requires `GOVUK_NOTIFY_API_KEY` environment variable.
+> `GOVUK_NOTIFY_API_KEY` must be set for the backend to start, but `npm run dev`
+> passes it blank so GOV.UK Notify is a no-op. A non-blank value breaks seeding
+> (Notify rejects a dummy key, and organisations fail to apply), and a live key
+> would send real email to generated addresses.
 
 > [!NOTE]
 > Docker Compose secrets cannot be accidentally exposed via `process.env`
