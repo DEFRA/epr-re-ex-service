@@ -251,7 +251,7 @@ if (baseline !== current) {
 The operations the submission path uses from the row states repository, plus the row history read the same documents serve (the port also carries a read the CSV export uses to compose its dynamic header):
 
 ```javascript
-interface SummaryLogRowStateRepository {
+interface SummaryLogRowStatesRepository {
   // Write a whole submission's row states, returning the resulting state per entry
   upsertSummaryLogRowStates(ledgerId, entries: SummaryLogRowStateEntry[],
                             summaryLogId): Promise<SummaryLogRowState[]>
@@ -380,7 +380,7 @@ flowchart TD
 
     subgraph "7. Persistence (on submit)"
         Z --> AA[Project each row to its row state]
-        AA --> AB[summaryLogRowStateRepository.upsertSummaryLogRowStates]
+        AA --> AB[summaryLogRowStatesRepository.upsertSummaryLogRowStates]
         AB --> AC[(MongoDB<br/>summary-log-row-states)]
     end
 
