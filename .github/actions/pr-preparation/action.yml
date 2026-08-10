@@ -1,47 +1,32 @@
 name: Preparation
 description: 'Check branch name, add ticket link to PR description, and check for pinned dependencies'
 
+outputs:
+  skip:
+    description: 'true when the PR is automated and branch conventions do not apply'
+    value: ${{ steps.check-branch.outputs.skip }}
+
 runs:
   using: 'composite'
   steps:
-    - name: Detect automated PR
-      id: check-bot
+    - name: Check branch name
+      id: check-branch
       shell: bash
       env:
-        BRANCH: ${{ github.head_ref }}
+        BRANCH: ${{ github.event.pull_request.head.ref }}
         ACTOR: ${{ github.actor }}
-      run: |
-        if [[ "$ACTOR" == *"[bot]" ]] || \
-           [[ "$BRANCH" == dependabot/* ]] || \
-           [[ "$BRANCH" == renovate/* ]] || \
-           [[ "$BRANCH" == revert-* ]] || \
-           [[ "$BRANCH" == snyk-* ]]; then
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Check branch name
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      if: ${{ steps.check-bot.outputs.skip != 'true' }}
-      with:
-        script: |
-          const branchName = context.payload.pull_request.head.ref;
-          const regex = /^(PAE-\d+)[-_]{1}.+$/i;
-          const [match, ticketKey] = branchName.match(regex) ?? [null, null];
-
-          if (!match || !ticketKey) {
-            core.setFailed('Branch name does not match the required format: PAE-<NUMBER>-<desc>');
-          } else {
-            core.exportVariable('ticketKey', ticketKey.toUpperCase());
-          }
+      run: node ${{ github.action_path }}/check-branch.mjs "$BRANCH" "$ACTOR"
 
     - name: Add ticket link to PR description
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      if: ${{ steps.check-bot.outputs.skip != 'true' }}
+      if: ${{ steps.check-branch.outputs.kind == 'jira' }}
+      env:
+        TICKET_KEY: ${{ steps.check-branch.outputs.key }}
       with:
         script: |
           const { pull_request, repository } = context.payload;
           const { body: previousBody } = pull_request;
-          const { ticketKey } = process.env;
+          const { TICKET_KEY: ticketKey } = process.env;
           const ticketLink = `[${ticketKey}](https://eaflood.atlassian.net/browse/${ticketKey})`;
 
           if (!previousBody?.includes(ticketLink)) {

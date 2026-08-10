@@ -43,10 +43,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Prepare PR
+        id: pr-prep
         uses: ./.github/actions/pr-preparation
 
       - name: Check for ADR numbering conflicts
-        if: ${{ github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'snyk-') }}
+        if: ${{ steps.pr-prep.outputs.skip != 'true' }}
         run: |
           DOCS_DIR=docs/architecture/decisions
 
