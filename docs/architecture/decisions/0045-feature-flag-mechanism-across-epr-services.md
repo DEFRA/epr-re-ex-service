@@ -4,8 +4,8 @@ Date: 2026-08-17
 
 ## Status
 
-Proposed — not yet approved; left open for team review before a decision is
-recorded. Jira PAE-1824, Kaizen epic PAE-1435.
+Accepted — **Proposal A**. Reviewed and agreed by the team; PR #426 approved.
+Jira PAE-1824, Kaizen epic PAE-1435.
 
 ## Context
 
@@ -108,9 +108,8 @@ thing, which is what Proposal A avoids.
 
 ### Downsides of A, to weigh with eyes open
 
-These are the honest costs of Proposal A. None is a blocker in our judgement, but
-they are the trade and should be reviewed as such — this ADR is deliberately left
-Proposed rather than Accepted so the team can weigh them.
+These are the honest costs of Proposal A. None is a blocker in our judgement, and
+the team weighed them in review before accepting the proposal.
 
 1. **Flag names become stringly-typed.** `config.get('featureFlags.devEndpoints')`
    has no autocomplete and no compile-time existence check, where
