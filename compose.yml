@@ -252,6 +252,7 @@ services:
       REDIS_HOST: redis
       SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
+      FEATURE_FLAG_PRN_ADMIN_CANCELLATION: ${FEATURE_FLAG_PRN_ADMIN_CANCELLATION:-true}
     networks:
       - cdp-tenant
 
@@ -380,6 +381,7 @@ services:
       SUPPORT_EMAILS: ${SUPPORT_EMAILS:-["nrw@test.gov.uk"]}
       SQS_ENDPOINT: http://floci:4566
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
+      FEATURE_FLAG_PRN_ADMIN_CANCELLATION: ${FEATURE_FLAG_PRN_ADMIN_CANCELLATION:-true}
     secrets:
       - govuk_notify_api_key
     networks:
