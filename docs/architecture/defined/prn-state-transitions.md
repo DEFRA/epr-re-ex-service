@@ -138,10 +138,7 @@ stream and move no balance.
 Delivered: `draft`, `discarded`, `awaiting_authorisation`, `awaiting_acceptance`,
 `accepted`, `awaiting_cancellation`, `deleted`, `cancelled`, including producer
 acceptance/rejection, signatory cancellation, and service-maintainer
-cancellation of an accepted PRN via the admin portal (PAE-1823). The
-admin-portal cancellation route and its list-page visibility are both gated
-behind the `FEATURE_FLAG_PRN_ADMIN_CANCELLATION` flag (off by default), so the
-transition is only reachable once the flag is enabled for an environment.
+cancellation of an accepted PRN via the admin portal (PAE-1823).
 
 Future scope: regulator-initiated direct cancellation of an issued
 (`awaiting_acceptance`) PRN, shown dashed in the diagram above.
@@ -161,7 +158,8 @@ Future scope: regulator-initiated direct cancellation of an issued
 | Transition orchestration & PRN number allocation | `src/packaging-recycling-notes/application/update-status.js`                 |
 | Waste balance effects per transition             | `src/packaging-recycling-notes/application/update-status-balance-effects.js` |
 | External accept / reject endpoints               | `src/packaging-recycling-notes/routes/accept.js`, `reject.js`                |
-| Cancellation window rule (PAE-1823)              | `src/packaging-recycling-notes/domain/cancellation-window.js`                |
+| Cancellation transition gating (PAE-1823)        | `src/packaging-recycling-notes/domain/cancellation.js`                       |
+| Relevant-year window arithmetic (PAE-1823)       | `src/packaging-recycling-notes/domain/relevant-year.js`                      |
 | Admin cancellation endpoint (PAE-1823)           | `src/packaging-recycling-notes/routes/admin-cancel.js`                       |
 
 > Paths are relative to the `epr-backend` repository root.
