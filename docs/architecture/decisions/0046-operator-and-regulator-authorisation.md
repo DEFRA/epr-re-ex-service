@@ -4,7 +4,7 @@ Date: 2026-08-12
 
 ## Status
 
-Proposed
+Accepted
 
 Extends [ADR 0016 (Admin UI Authorisation MVP)](0016-admin-ui-authorisation-mvp.md) and [ADR 0033 (Admin UI scope-based RBAC)](0033-admin-ui-scope-based-rbac.md) from the admin frontend to the operator frontend.
 
