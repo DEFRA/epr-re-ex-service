@@ -1228,7 +1228,12 @@
                         'properties':
                           {
                             'acceptedAt':
-                              { 'type': 'string', 'format': 'date-time' }
+                              { 'type': 'string', 'format': 'date-time' },
+                            'obligationYear':
+                              {
+                                'type': 'integer',
+                                'description': 'For December waste only, the obligation year to apply. It must be the accreditation year or the following year. If omitted, the PRN keeps its existing obligation year.'
+                              }
                           }
                       }
                   }
