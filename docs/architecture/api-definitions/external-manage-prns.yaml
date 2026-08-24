@@ -227,6 +227,7 @@ components:
         - accreditation
         - isDecemberWaste
         - isExport
+        - obligationYear
         - tonnageValue
       properties:
         id:
@@ -253,6 +254,10 @@ components:
           type: boolean
           description: Indicates whether this note relates to waste received during December
           example: true
+        obligationYear:
+          type: integer
+          description: Obligation year applied to the PRN or PERN
+          example: 2027
         isExport:
           type: boolean
           description: Indicates if this is a Packaging Export Recycling Note (PERN). False indicates a Packaging Recycling Note (PRN)

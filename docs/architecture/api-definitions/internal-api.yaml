@@ -1136,6 +1136,7 @@
                               'tonnage': { 'type': 'number' },
                               'material': { 'type': 'string' },
                               'issuedToOrganisation': { 'type': 'object' },
+                              'obligationYear': { 'type': 'number' },
                               'status': { '$ref': '#/definitions/PrnStatus' },
                               'updatedAt':
                                 { 'type': 'string', 'format': 'date-time' }
@@ -1240,11 +1241,7 @@
                 ],
               'responses':
                 {
-                  '200':
-                    {
-                      'description': 'PRN accepted',
-                      'schema': { '$ref': '#/definitions/PrnDetail' }
-                    }
+                  '204': { 'description': 'PRN accepted' }
                 }
             }
         },
@@ -1280,11 +1277,7 @@
                 ],
               'responses':
                 {
-                  '200':
-                    {
-                      'description': 'PRN rejected',
-                      'schema': { '$ref': '#/definitions/PrnDetail' }
-                    }
+                  '204': { 'description': 'PRN rejected' }
                 }
             }
         },
@@ -2363,6 +2356,7 @@
               'issuedToOrganisation': { 'type': 'object' },
               'tonnage': { 'type': 'number' },
               'material': { '$ref': '#/definitions/Material' },
+              'obligationYear': { 'type': 'number' },
               'status': { '$ref': '#/definitions/PrnStatus' },
               'createdAt': { 'type': 'string', 'format': 'date-time' },
               'issuedAt': { 'type': 'string', 'format': 'date-time' },
@@ -2379,6 +2373,7 @@
               'accreditationYear': { 'type': 'number' },
               'createdAt': { 'type': 'string', 'format': 'date-time' },
               'isDecemberWaste': { 'type': 'boolean' },
+              'obligationYear': { 'type': 'number' },
               'issuedAt': { 'type': 'string', 'format': 'date-time' },
               'issuedBy': { 'type': 'object' },
               'issuedToOrganisation': { 'type': 'object' },
@@ -2419,7 +2414,15 @@
           'type': 'object',
           'properties':
             {
-              'items': { 'type': 'array', 'items': { 'type': 'object' } },
+              'items':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'object',
+                      'properties': { 'obligationYear': { 'type': 'number' } }
+                    }
+                },
               'hasMore': { 'type': 'boolean' },
               'nextCursor': { 'type': 'string' }
             },
