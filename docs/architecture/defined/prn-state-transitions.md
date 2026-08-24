@@ -32,7 +32,7 @@ For related context, see:
 | `draft`                  | PRN details being entered. Not yet created.                                                                   |
 | `awaiting_authorisation` | PRN created by the reprocessor/exporter, awaiting a signatory to issue it. Available balance is ringfenced.   |
 | `awaiting_acceptance`    | PRN authorised and issued. PRN number allocated, total balance deducted. Awaiting producer/scheme acceptance. |
-| `accepted`               | Producer/compliance scheme accepted the PRN. Terminal state.                                                  |
+| `accepted`               | Producer/compliance scheme accepted the PRN. May be cancelled by a service maintainer (via the admin portal) until 31 January of the following compliance year. |
 | `awaiting_cancellation`  | Producer/compliance scheme rejected the PRN. Awaiting the signatory to cancel it.                             |
 | `cancelled`              | PRN cancelled after issue. Waste balance fully reversed. Terminal state.                                      |
 | `deleted`                | PRN deleted before issue. Ringfenced balance released. Terminal state.                                        |
@@ -45,7 +45,8 @@ For related context, see:
 | Reprocessor / Exporter       | `reprocessor_exporter` | Enters PRN details (draft), creates PRN, discards draft                |
 | PRN Signatory                | `signatory`            | Authorises & issues, deletes (pre-issue), cancels (post-rejection)     |
 | Producer / Compliance Scheme | `producer`             | Accepts or rejects an issued PRN (via the external API)                |
-| Regulator                    | _(none yet)_           | Direct cancellation of an issued or accepted PRN — not yet implemented |
+| Service Maintainer           | `service_maintainer`   | Cancels an accepted PRN via the admin portal, within the compliance-year window (PAE-1823) |
+| Regulator                    | _(none yet)_           | Direct cancellation of an issued PRN — not yet implemented; the accepted-PRN case is delivered above, for the admin portal rather than a regulator-facing one |
 
 ## Diagram
 
@@ -65,17 +66,16 @@ stateDiagram-v2
     awaiting_cancellation --> cancelled: PRN Signatory<br/>Cancel PRN<br/>/ Credit full balance
 
     awaiting_acceptance --> cancelled: Regulator<br/>Cancel PRN<br/>/ Reverse balance<br/>(future scope)
-    accepted --> cancelled: Regulator<br/>Cancel PRN<br/>/ Reverse balance<br/>(future scope)
+    accepted --> cancelled: Service Maintainer<br/>Cancel PRN (admin portal)<br/>/ Credit full balance<br/>[Within cancellation window]
 
-    accepted --> [*]
     cancelled --> [*]
     deleted --> [*]
     discarded --> [*]
 ```
 
-> The two regulator-initiated transitions (`awaiting_acceptance → cancelled` and
-> `accepted → cancelled`) are not implemented. The only cancellation path in the
-> code runs through `awaiting_cancellation` after a producer rejection.
+> The regulator-initiated `awaiting_acceptance → cancelled` transition is not
+> implemented. `accepted → cancelled` is delivered (PAE-1823), driven by a
+> service maintainer via the admin portal rather than a regulator-facing one.
 
 ## Transitions in detail
 
@@ -88,10 +88,13 @@ stateDiagram-v2
 | `awaiting_acceptance`    | `accepted`               | Producer             | Accept PRN        | `PRN_ACCEPTED`              | None (status only)       |
 | `awaiting_acceptance`    | `awaiting_cancellation`  | Producer             | Reject PRN        | `PRN_REJECTED`              | None (status only)       |
 | `awaiting_cancellation`  | `cancelled`              | Signatory            | Cancel PRN        | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance      |
+| `accepted`               | `cancelled`              | Service Maintainer   | Cancel PRN (admin portal) | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance |
 
-Accept and reject are driven by the producer through the external API; the other
-transitions are driven internally and the permitted actor is inferred from the
-PRN's current status.
+Accept and reject are driven by the producer through the external API; the
+admin-portal cancellation is driven by a service maintainer through a dedicated
+admin route (`admin.write` scope), which supplies the actor explicitly rather
+than inferring it from status; the remaining transitions are driven internally
+and the permitted actor is inferred from the PRN's current status.
 
 ## Waste balance effects
 
@@ -109,8 +112,10 @@ Reversals mirror whichever phases had been applied:
 
 - **Delete** (`awaiting_authorisation → deleted`) credits **available** balance,
   releasing the creation ringfence.
-- **Cancel** (`awaiting_cancellation → cancelled`) credits **both** total and
-  available balance, reversing the create and issue deductions.
+- **Cancel** (`awaiting_cancellation → cancelled`, or `accepted → cancelled`
+  via the admin portal) credits **both** total and available balance,
+  reversing the create and issue deductions. Both cancellation paths emit the
+  same `PRN_CANCELLED_AFTER_ISSUE` event and the same full credit.
 
 Accept and reject are balance-neutral: they append a status-only event to the
 stream and move no balance.
@@ -123,15 +128,20 @@ stream and move no balance.
   tonnage, otherwise issue is rejected.
 - **A waste balance must exist** for the accreditation at both create and issue.
 - **The accreditation must not be suspended** at issue.
+- **Within the cancellation window** at admin-portal cancellation — an
+  accepted PRN issued under an accreditation for compliance year Y may be
+  cancelled up to and including 31 January of Y+1, evaluated on the
+  accreditation year the PRN was issued under, not the date it was accepted.
 
 ## Scope
 
 Delivered: `draft`, `discarded`, `awaiting_authorisation`, `awaiting_acceptance`,
 `accepted`, `awaiting_cancellation`, `deleted`, `cancelled`, including producer
-acceptance/rejection and signatory cancellation.
+acceptance/rejection, signatory cancellation, and service-maintainer
+cancellation of an accepted PRN via the admin portal (PAE-1823).
 
 Future scope: regulator-initiated direct cancellation of an issued
-(`awaiting_acceptance`) or accepted PRN, shown dashed in the diagram above.
+(`awaiting_acceptance`) PRN, shown dashed in the diagram above.
 
 ## Notes
 
@@ -148,5 +158,8 @@ Future scope: regulator-initiated direct cancellation of an issued
 | Transition orchestration & PRN number allocation | `src/packaging-recycling-notes/application/update-status.js`                 |
 | Waste balance effects per transition             | `src/packaging-recycling-notes/application/update-status-balance-effects.js` |
 | External accept / reject endpoints               | `src/packaging-recycling-notes/routes/accept.js`, `reject.js`                |
+| Cancellation transition gating (PAE-1823)        | `src/packaging-recycling-notes/domain/cancellation.js`                       |
+| Relevant-year window arithmetic (PAE-1823)       | `src/packaging-recycling-notes/domain/relevant-year.js`                      |
+| Admin cancellation endpoint (PAE-1823)           | `src/packaging-recycling-notes/routes/admin-cancel.js`                       |
 
 > Paths are relative to the `epr-backend` repository root.
