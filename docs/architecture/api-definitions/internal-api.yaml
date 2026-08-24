@@ -2417,11 +2417,7 @@
               'items':
                 {
                   'type': 'array',
-                  'items':
-                    {
-                      'type': 'object',
-                      'properties': { 'obligationYear': { 'type': 'number' } }
-                    }
+                  'items': { 'type': 'object' }
                 },
               'hasMore': { 'type': 'boolean' },
               'nextCursor': { 'type': 'string' }
