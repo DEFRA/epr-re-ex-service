@@ -126,6 +126,10 @@ paths:
                   format: date-time
                   description: Timestamp of acceptance (if different from current time)
                   example: 2024-12-01T10:30:00Z
+                obligationYear:
+                  type: integer
+                  description: For December waste only, the obligation year to apply. It must be the accreditation year or the following year. If omitted, the PRN keeps its existing obligation year.
+                  example: 2027
       responses:
         '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) accepted successfully
@@ -223,6 +227,7 @@ components:
         - accreditation
         - isDecemberWaste
         - isExport
+        - obligationYear
         - tonnageValue
       properties:
         id:
@@ -249,6 +254,10 @@ components:
           type: boolean
           description: Indicates whether this note relates to waste received during December
           example: true
+        obligationYear:
+          type: integer
+          description: Obligation year applied to the PRN or PERN
+          example: 2027
         isExport:
           type: boolean
           description: Indicates if this is a Packaging Export Recycling Note (PERN). False indicates a Packaging Recycling Note (PRN)
