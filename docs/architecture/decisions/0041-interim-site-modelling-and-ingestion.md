@@ -52,7 +52,7 @@ between registrations and ORS records, one level down.
 
 **Module placement: a second repository inside the existing `overseas-sites` module, not a new top-level
 module.** An Interim Site is always linked to, and only ever reached through, an ORS — same workbook, same
-upload, same domain concern, no independent use case today.  Splitting it out later, if an
+upload, same domain concern, no independent use case today. Splitting it out later, if an
 independent use case emerges, is a low-cost move since the repository-port boundary is already in place.
 
 ### 2. Admin UI
@@ -64,12 +64,12 @@ independent use case emerges, is a low-cost move since the repository-port bound
   upload — a workbook with only `OSRs` rows is still a valid import, since not every ORS has an interim site.
 - **Errors during import**: each entry in the existing per-file `errors[]` array gains a `sheet` field to
   identify which table a row error belongs to, e.g. `{ "sheet": "Interim Sites", "row": 6, "field":
-  "finalOverseasReprocessingSite", "message": "ORS ID '042' not found in this file" }` for the referential
+"finalOverseasReprocessingSite", "message": "ORS ID '042' not found in this file" }` for the referential
   case (the row's ORS isn't present in this file). The same per-row validation also needs to catch duplicate
   or conflicting pairings — the same Interim Site ID appearing twice for the same ORS with different details,
   or the same interim site legitimately repeated for more than one ORS but with inconsistent name/address
   across rows — surfaced the same way, e.g. `{ "sheet": "Interim Sites", "row": 9, "field":
-  "interimSiteId", "message": "Interim Site ID '101' already linked to ORS '042' with different details" }`.
+"interimSiteId", "message": "Interim Site ID '101' already linked to ORS '042' with different details" }`.
   No new reporting mechanism.
 - **Search and view**: the "Overseas reprocessing sites" search page gains one new column listing the
   three-digit Interim Site IDs linked to that ORS directly in the cell (e.g. `101, 102`, or "-"), rather than
@@ -86,7 +86,7 @@ independent use case emerges, is a low-cost move since the repository-port bound
 ### 3. Interim Site ID validation and waste balance inclusion/exclusion on Summary Log upload
 
 The check only fires when `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE == Yes`. When it does, `OSR_ID` is resolved
-first as today; only if that succeeds is `INTERIM_SITE_ID` checked against the interim sites linked to *that*
+first as today; only if that succeeds is `INTERIM_SITE_ID` checked against the interim sites linked to _that_
 ORS, never against a registration-wide list. So a row is excluded for at most one reason: an ORS failure
 short-circuits before the interim-site check ever runs.
 
@@ -153,8 +153,11 @@ interim site ID, resolved to interim site detail:
 ```json
 {
   "099": {
-    "name": "...", "country": "...", "address": { "...": "..." },
-    "coordinates": "...", "validFrom": "2026-01-01",
+    "name": "...",
+    "country": "...",
+    "address": { "...": "..." },
+    "coordinates": "...",
+    "validFrom": "2026-01-01",
     "interimSites": {
       "101": { "name": "...", "country": "...", "address": { "...": "..." } }
     }
