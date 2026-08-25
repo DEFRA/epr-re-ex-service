@@ -8,6 +8,7 @@ description: Talk to the JIRA instance at https://eaflood.atlassian.net using JI
 ## Auto-trigger
 
 Invoke this skill automatically when:
+
 - The user mentions `PAE-[number]` (e.g. "what's in PAE-1288?", "show me PAE-42", "tell me about PAE-1288")
 - The user asks for details, status, acceptance criteria, or comments on any PAE issue
 - No explicit `/jira` command is needed — a bare `PAE-XXXX` reference is sufficient
@@ -26,6 +27,7 @@ Fetch, update, and comment on JIRA issues at `https://eaflood.atlassian.net` usi
 ## Prerequisites
 
 Required env vars — also used by [release-notes](../release-notes/SKILL.md) to fetch PAE issue summaries:
+
 - `JIRA_TOKEN` — API token from https://id.atlassian.com/manage-profile/security/api-tokens
 - `JIRA_EMAIL` — your Atlassian account email address
 
@@ -39,6 +41,7 @@ Content-Type: application/json
 ```
 
 In bash, construct the header as:
+
 ```bash
 -H "Authorization: Basic $(echo -n "${JIRA_EMAIL}:${JIRA_TOKEN}" | base64 -w0)"
 ```
@@ -59,6 +62,7 @@ curl -s \
 ```
 
 Parse and present to the user:
+
 - **Summary**, **Status**, **Assignee**, **Reporter**
 - **Description** (render plain text from Atlassian Document Format if present)
 - **Priority**, **Story points** (if set)
