@@ -17,6 +17,8 @@ The validation the business needs is a cap:
 - The cap nets off December PRNs that have been cancelled — reversals must restore December capacity.
 - December and non-December are **separate pools**: a non-December PRN checks a non-December balance, a December PRN checks a December balance. December tonnage is effectively reserved from ordinary PRNs.
 
+These caps are the mechanism we choose, not a shape the SI mandates: the Regulations impose truthfulness per note and per load (paras 24(1), 25, and the no-double-issuance condition at para 31(d)), not an aggregate December ceiling. The cap enforces that per-note truthfulness across a pooled balance.
+
 A further constraint shaped the decision: we want to avoid maintaining two separate ledgers with two concurrency guards.
 
 [ADR-0036](./0036-event-sourced-waste-balance-stream.md) established the substrate this builds on; the full model lives there. This ADR depends on four load-bearing facts from it, and fixes only the December extension: the balance is the `closingBalance` of the latest event, read once; a compound unique index on `(registrationId, accreditationId, number)` is the single optimistic-concurrency surface; a `summary-log-submitted` event carries a frozen `creditTotal` snapshot and applies `delta = creditTotal − previousCreditTotal`; and a PRN transition appends one balance-affecting event.
