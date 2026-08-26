@@ -53,6 +53,12 @@
       "description": "Pin docker-compose image digests so each image is locked to an exact build and digest changes arrive as reviewable PRs",
       "matchManagers": ["docker-compose"],
       "pinDigests": true
+    },
+    {
+      "description": "Hold MongoDB on the 7.0 line the local stacks share with every CDP environment (see cdp-tf-mongo). 8.x also refuses to start on Linux kernels 6.19 to 7.0.13, so a major bump breaks local stacks outright (SERVER-121912)",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["mongo"],
+      "allowedVersions": "<8"
     }
   ]
 }
