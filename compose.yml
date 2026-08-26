@@ -294,6 +294,8 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-false}
+      ANALYTICS_MEASUREMENT_ID: ${ANALYTICS_MEASUREMENT_ID:-G-LOCALDEV000}
       APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
