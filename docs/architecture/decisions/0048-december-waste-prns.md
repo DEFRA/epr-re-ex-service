@@ -25,6 +25,14 @@ A further constraint shaped the decision: we want to avoid maintaining two separ
 
 Extend the existing stream with an **additive** December dimension, rather than a second ledger or a just-in-time query.
 
+### Declared at raise time, not derived
+
+The December duty runs in both directions: paras 24(4)/27(3) require the marker on any note relating to December-received waste, and under reg 117(4) omitting a true marker is an offence just as asserting a false one is (reg 117(3)(c)). A flag the operator may freely decline is therefore not safe.
+
+The system still cannot derive the flag per note, because a PRN is not bound to specific summary-log loads: it draws tonnage from an aggregate pool, so "does this note relate to December waste?" is an allocation question rather than a lookup. Per-note derivation presumes a per-load evidence model; the pooled balance this ADR extends does not carry that binding.
+
+What the model does guarantee is that the aggregate declaration stays truthful in both directions. The cap makes over-declaration impossible by construction; the explicit December pool lets the frontend require a December declaration whenever December-attributable capacity is being drawn, rather than leave it to free choice, which is how the omission direction (reg 117(4)) is discharged. The backend's contract is to honour and validate `isDecemberWaste` on the create payload and to keep both pools honest; requiring declaration when December capacity is spent is the frontend contract on top of it.
+
 ### Additive fields, total stays total
 
 `closingBalance` keeps its existing fields meaning exactly what they mean today — the total across both pools — and gains a precisely-named December portion alongside:
@@ -104,7 +112,7 @@ The system was not live last December, and no summary log can carry a December-d
 
 ## Out of scope
 
-- **The operator opt-in UX.** How and when the operator consciously chooses the flag is a frontend concern; the backend's contract is to honour and validate `isDecemberWaste` on the create payload.
+- **The frontend declaration flow.** How the operator is prompted to declare December (including requiring it when December-attributable capacity is being drawn, per "Declared at raise time, not derived") is a frontend concern; the backend's contract is to honour and validate `isDecemberWaste` on the create payload.
 - **How December-tagged evidence is treated downstream, and why it is more valuable.** The statutory driver for this ADR is the para 24(4)/27(3) labelling duty; how the December flag is consumed or priced downstream is out of scope. This ADR fixes only the balance model that keeps the flag honest.
 - **The exhaustive PRN transition-to-event mapping.** Owned by the write-side decider in `epr-backend` and the waste balance LLD, per ADR-0036.
 
