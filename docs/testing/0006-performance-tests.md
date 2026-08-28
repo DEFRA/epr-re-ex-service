@@ -12,6 +12,6 @@ The frontend journeys are the emphasis and share a thread count; the backend API
 
 Each run starts with a `DataGenerator` step; its result only seeds data and can be ignored.
 
-We look for under 5000ms on the 99th percentile and a throughput of around 50 transactions per second, which is acceptable for a service this quiet.
+Results are assessed against the NFR thresholds in section 9.3 of the Solution Architecture Definition, in the `epr-re-ex-docs` repository. The script itself asserts only on response codes, so timing is judged from the JMeter report rather than by the run passing or failing.
 
 `perf-test` hardware is comparable to `prod`, but the environment is shared, so expect some variance.
