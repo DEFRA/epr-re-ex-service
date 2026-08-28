@@ -1,16 +1,16 @@
 {
   "folders": [
     {
-      "name": "backend",
+      "name": "backend API",
       "path": "lib/epr-backend"
     },
     {
-      "name": "journey-tests",
+      "name": "journey tests (playwright)",
       "path": "lib/epr-re-ex-journey-tests"
     },
     {
-      "name": "backend-performance-tests",
-      "path": "lib/epr-backend-performance-tests"
+      "name": "performance tests (jmeter)",
+      "path": "lib/epr-re-ex-performance-tests"
     }
   ],
   "settings": {

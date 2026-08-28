@@ -1,16 +1,16 @@
 {
   "folders": [
     {
-      "name": "frontend",
+      "name": "frontend (operator)",
       "path": "lib/epr-frontend"
     },
     {
-      "name": "journey-tests",
+      "name": "journey tests (playwright)",
       "path": "lib/epr-re-ex-journey-tests"
     },
     {
-      "name": "frontend-performance-tests",
-      "path": "lib/epr-frontend-performance-tests"
+      "name": "performance tests (jmeter)",
+      "path": "lib/epr-re-ex-performance-tests"
     }
   ],
   "settings": {
