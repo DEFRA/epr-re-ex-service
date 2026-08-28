@@ -4,7 +4,7 @@ Date: 2026-08-27
 
 ## Status
 
-Proposed.
+Accepted.
 
 Revises one narrow decision in [ADR-0036](./0036-event-sourced-waste-balance-stream.md) — that "no separate reconciliation job is required" for the PRN status projection (see its _Reading PRN state_ and _Partial failure and recovery_ sections). The rest of ADR-0036 stands: the event stream remains the source of truth, the balance is still a single indexed read, and reads through the fold helper remain correct.
 
