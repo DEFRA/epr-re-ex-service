@@ -46,3 +46,4 @@
 * [44. Registration and accreditation validity dates and status-management rules](0044-registration-and-accreditation-validity-and-status-rules.md)
 * [45. Feature-flag mechanism across EPR services](0045-feature-flag-mechanism-across-epr-services.md)
 * [46. Authentication and authorisation for operators and regulators](0046-operator-and-regulator-authorisation.md)
+* [47. Reconcile stale PRN projections](0047-reconcile-stale-prn-projections.md)
