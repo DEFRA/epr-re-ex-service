@@ -1,17 +1,17 @@
 # Performance Tests
 
-The `epr-backend-performance-tests` repository includes a JMeter script that can be executed against the `perf-test` environment.
+The `epr-re-ex-performance-tests` repository holds a single JMeter script, `scenarios/epr-re-ex-test.jmx`, that runs against the `perf-test` environment. It replaces the separate `epr-backend-performance-tests`, `epr-frontend-performance-tests` and `epr-re-ex-admin-fe-perf-tests` repositories.
 
-Currently it tests against the form submissions, user linking, summary log uploads, waste balance calculation, and PRN creation.
+Three thread groups:
 
-There is a `DataGenerator` step on each run, but the result can be ignored as it is only used to generate data.
+- **Frontend journey** — the operator journey through `epr-frontend`.
+- **Admin frontend journey** — the regulator journey through `epr-re-ex-admin-frontend`.
+- **Backend API** — form submissions, user linking, summary log uploads, waste balance calculation and PRN creation, authenticated via Cognito.
 
-Generally speaking, we look for performance that is less than 5000ms on the 99th percentile (Worst case) and a throughput of approximately 50 transaactions per second is deemed acceptable as it is not a busy service.
+The frontend journeys are the emphasis and share a thread count; the backend API runs at a fifth of it, since its flows largely overlap with theirs. The CDP Portal profile sets that count — `mid` for 100 threads, `max` for 200, defaulting to 50.
 
-There is also a profile set up for `epr-backend-performance-tests` to be used in the CDP Portal. You can pass in a `mid` profile for 100 threads, or `max` for 200 threads.
+Each run starts with a `DataGenerator` step; its result only seeds data and can be ignored.
 
-Similarly, there is the `epr-frontend-performance-tests` repository includes a JMeter script that can be executed against the `perf-test` environment. This exercises the performance test via the `epr-frontend` service but indirectly exercises the `epr-backend` as well as the frontend calls the backend endpoints.
+We look for under 5000ms on the 99th percentile and a throughput of around 50 transactions per second, which is acceptable for a service this quiet.
 
-Bear in mind that the performance environment is a shared environment, so you may or may not encounter some variance in performance.
-
-The hardware configuration in the `perf-test` environment is similar to the `prod` environment.
+`perf-test` hardware is comparable to `prod`, but the environment is shared, so expect some variance.
