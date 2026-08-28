@@ -1,31 +1,31 @@
 {
   "folders": [
     {
-      "name": "service (compose + docs)",
+      "name": "service",
       "path": "."
     },
     {
-      "name": "entra ID stub",
+      "name": "entra stub",
       "path": "lib/epr-re-ex-entra-stub"
     },
     {
-      "name": "admin frontend (regulator)",
+      "name": "admin",
       "path": "lib/epr-re-ex-admin-frontend"
     },
     {
-      "name": "backend API",
+      "name": "backend",
       "path": "lib/epr-backend"
     },
     {
-      "name": "frontend (operator)",
+      "name": "frontend",
       "path": "lib/epr-frontend"
     },
     {
-      "name": "journey tests (playwright)",
+      "name": "journey tests",
       "path": "lib/epr-re-ex-journey-tests"
     },
     {
-      "name": "performance tests (jmeter)",
+      "name": "performance tests",
       "path": "lib/epr-re-ex-performance-tests"
     }
   ],
