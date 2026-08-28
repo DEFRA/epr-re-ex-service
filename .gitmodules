@@ -2,21 +2,13 @@
 	path = lib/epr-backend
 	url = git@github.com:DEFRA/epr-backend.git
 	branch = main
-[submodule "lib/epr-backend-performance-tests"]
-	path = lib/epr-backend-performance-tests
-	url = git@github.com:DEFRA/epr-backend-performance-tests.git
+[submodule "lib/epr-re-ex-performance-tests"]
+	path = lib/epr-re-ex-performance-tests
+	url = git@github.com:DEFRA/epr-re-ex-performance-tests.git
 	branch = main
 [submodule "lib/epr-frontend"]
 	path = lib/epr-frontend
 	url = git@github.com:DEFRA/epr-frontend.git
-	branch = main
-[submodule "lib/epr-frontend-performance-tests"]
-	path = lib/epr-frontend-performance-tests
-	url = git@github.com:DEFRA/epr-frontend-performance-tests.git
-	branch = main
-[submodule "lib/epr-re-ex-admin-fe-perf-tests"]
-	path = lib/epr-re-ex-admin-fe-perf-tests
-	url = git@github.com:DEFRA/epr-re-ex-admin-fe-perf-tests.git
 	branch = main
 [submodule "lib/epr-re-ex-admin-frontend"]
 	path = lib/epr-re-ex-admin-frontend
