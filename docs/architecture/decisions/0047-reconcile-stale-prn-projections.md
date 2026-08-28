@@ -1,4 +1,4 @@
-# 48. Reconcile stale PRN projections
+# 47. Reconcile stale PRN projections
 
 Date: 2026-08-27
 
