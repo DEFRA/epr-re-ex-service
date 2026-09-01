@@ -82,18 +82,18 @@ downstream that currently keys off `accreditationId` alone:
 Every stream nests under `accreditations/`, matching the shape PRN already uses. `{year}` sits
 immediately after `{registrationId}`, not before it: the registration is the stable anchor spanning
 years, so the year belongs to what comes after it, not to the registration's own address. The two
-branches then differ only in the accreditation slot — a real `accreditationId`, or a `registered-only`
+branches then differ only in the accreditation slot — a real `accreditationId`, or a `none`
 sentinel for the non-accredited stream:
 
 ```
 .../registrations/{registrationId}/{year}/accreditations/{accreditationId}/summary-logs/...
-.../registrations/{registrationId}/{year}/accreditations/registered-only/summary-logs/...
+.../registrations/{registrationId}/{year}/accreditations/none/summary-logs/...
 
 .../registrations/{registrationId}/{year}/accreditations/{accreditationId}/reports/{cadence}/...
-.../registrations/{registrationId}/{year}/accreditations/registered-only/reports/{cadence}/...
+.../registrations/{registrationId}/{year}/accreditations/none/reports/{cadence}/...
 
 .../registrations/{registrationId}/{year}/accreditations/{accreditationId}/waste-balance-ledger
-.../registrations/{registrationId}/{year}/accreditations/registered-only/waste-balance-ledger
+.../registrations/{registrationId}/{year}/accreditations/none/waste-balance-ledger
 ```
 
 `year` is stated explicitly even on the accredited branch, where `accreditationId` already implies it,
@@ -102,9 +102,10 @@ the reports path for readability but no longer decides stream on its own — the
 reports path's previous `{year}` segment (`.../reports/{year}/{cadence}/...`) is removed; only the one
 after `registrationId` remains.
 
-`registered-only` was chosen over a bare `none` because it matches the domain's existing vocabulary
-(`REGISTERED_ONLY_PROCESSING_TYPES`, `OPERATOR_CATEGORY.*_REGISTERED_ONLY`) and the kebab-case slug
-convention already used throughout the API.
+`none` was chosen over `registered-only` because the segment sits in the accreditation slot, where the
+URL is specifying which accreditation the request is for — `none` reads as "there is no accreditation",
+whereas `registered-only` reads as a reference back to the stream named earlier in the path, which is
+backward-facing in that slot.
 
 PRN routes are left as they are: PRNs are accredited-only, so there is no registered-only variant to
 unify, and adding `year` there is out of scope here.
@@ -138,8 +139,7 @@ upload or view.
 - Reports and waste-balance-ledger routes are breaking changes to already-shipped endpoints: the
   `{year}` segment moves position, and the ledger route gains one it didn't have.
 - Needs coordination with WS1: `epr-re-ex-admin-frontend`'s in-flight regulator registration-details
-  page (PAE-1851) for a mid-year approve → cancel → reapprove cycle. The
-  `none`/`registered-only` sentinel choice is also still unresolved between the two workstreams.
+  page (PAE-1851) for a mid-year approve → cancel → reapprove cycle.
 - `Registration.validTo` should be removed — registrations don't expire (tracked separately in
   PAE-1904); only accreditations have a meaningful, annually-renewed `validTo`.
 - Backfill is needed. All existing SL, row-state and ledger records — registered-only and accredited
