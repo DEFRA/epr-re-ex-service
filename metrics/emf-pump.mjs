@@ -15,6 +15,10 @@ import { createServer } from 'node:net'
 
 import { groupByNamespace, parseEmf, toPutMetricDataForm } from './emf.mjs'
 
+/**
+ * @import { Metric } from './emf.mjs'
+ */
+
 // The port aws-embedded-metrics writes to when it has no AWS_EMF_AGENT_ENDPOINT.
 const DEFAULT_AGENT_PORT = 25888
 
@@ -29,7 +33,7 @@ if (!ENDPOINT) {
   process.exit(1)
 }
 
-/** @param {import('./emf.mjs').Metric[]} metrics */
+/** @param {Metric[]} metrics */
 const publish = async (metrics) => {
   for (const [namespace, entries] of groupByNamespace(metrics)) {
     const response = await fetch(ENDPOINT, {
