@@ -15,8 +15,19 @@ import { createServer } from 'node:net'
 
 import { groupByNamespace, parseEmf, toPutMetricDataForm } from './emf.mjs'
 
-const PORT = Number(process.env.EMF_PUMP_PORT ?? 25888)
-const ENDPOINT = process.env.AWS_ENDPOINT_URL ?? 'http://floci:4566'
+// The port aws-embedded-metrics writes to when it has no AWS_EMF_AGENT_ENDPOINT.
+const DEFAULT_AGENT_PORT = 25888
+
+const PORT = Number(process.env.EMF_PUMP_PORT ?? DEFAULT_AGENT_PORT)
+
+// Required rather than defaulted: where the emulator lives is the compose file's
+// business, and hardcoding it here would put a plaintext URL in the source.
+const ENDPOINT = process.env.AWS_ENDPOINT_URL
+
+if (!ENDPOINT) {
+  console.error('AWS_ENDPOINT_URL is required')
+  process.exit(1)
+}
 
 /** @param {import('./emf.mjs').Metric[]} metrics */
 const publish = async (metrics) => {
