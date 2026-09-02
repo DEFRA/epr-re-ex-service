@@ -1,0 +1,59 @@
+# Custom metrics and Grafana overlay
+#
+# Usage:
+#   docker compose -f compose.yml -f compose.metrics.yml --profile epr-frontend up -d
+#
+# Access Grafana at: http://localhost:3300 (anonymous, no login)
+#
+# Why this exists: tenant Grafana dashboards are built in a CDP playground folder
+# and then promoted, so every tweak otherwise costs a deploy. floci speaks the
+# CloudWatch API, so panels built here use the same queries as the deployed
+# dashboard and their JSON transfers unchanged.
+#
+# Note: floci does not implement Metrics Insights SQL. Build panels in Metric
+#       Search mode, pinning the dimension per series rather than using GROUP BY.
+# Note: the frontend command is overridden to drop the inline
+#       AWS_EMF_ENVIRONMENT=Local that `npm run dev` sets, which would otherwise
+#       print the EMF documents instead of sending them. Both watchers still run,
+#       so hot-reload is unaffected.
+
+services:
+  emf-pump:
+    image: node:24-alpine
+    working_dir: /metrics
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+    volumes:
+      - ./metrics:/metrics:ro
+    command: ['node', 'emf-pump.mjs']
+    networks:
+      - cdp-tenant
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    ports:
+      - '${GRAFANA_PORT:-3300}:3000'
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./metrics/grafana-datasource.yml:/etc/grafana/provisioning/datasources/cloudwatch.yml:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - cdp-tenant
+
+  epr-frontend:
+    command: ['npx', 'run-p', 'frontend:watch', 'server:watch']
+    environment:
+      ENABLE_METRICS: 'true'
+      AWS_EMF_ENVIRONMENT: Agent
+      AWS_EMF_AGENT_ENDPOINT: tcp://emf-pump:25888
+      # Nothing in the app calls setNamespace, so without this the documents land
+      # under the library default rather than the namespace the deployed
+      # environments use, and local panels would query a namespace that does not
+      # exist in CloudWatch.
+      AWS_EMF_NAMESPACE: epr-frontend
+
+volumes:
+  grafana-data:
