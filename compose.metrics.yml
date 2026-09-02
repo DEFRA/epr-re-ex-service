@@ -43,17 +43,47 @@ services:
     networks:
       - cdp-tenant
 
+  # All three services emit custom metrics through aws-embedded-metrics, each
+  # into its own namespace, so all three are wired up here.
+  #
+  # AWS_EMF_NAMESPACE: nothing in these apps calls setNamespace, so without it the
+  # documents land under the library default rather than the namespace the
+  # deployed environments use, and panels would query a namespace CloudWatch does
+  # not have.
+  #
+  # The library also attaches LogGroup, ServiceName and ServiceType to every
+  # metric of its own accord, and CloudWatch identifies a series by its whole
+  # dimension set. Journey metrics deliberately replace those with a single
+  # journey dimension, so nothing here needs to reproduce them. Metrics that keep
+  # the defaults -- sign-in, and the backend's own -- cannot be charted against
+  # this stack anyway: pinning a subset makes Grafana build a CloudWatch SEARCH
+  # expression, which the emulator does not implement.
+
   epr-frontend:
+    # Drops the inline AWS_EMF_ENVIRONMENT=Local that `npm run dev` sets, which
+    # would print the documents instead of sending them. Both watchers still run,
+    # so hot-reload is unaffected. The other two services do not set it, so they
+    # need no command override.
     command: ['npx', 'run-p', 'frontend:watch', 'server:watch']
     environment:
-      ENABLE_METRICS: 'true'
-      AWS_EMF_ENVIRONMENT: Agent
-      AWS_EMF_AGENT_ENDPOINT: tcp://emf-pump:25888
-      # Nothing in the app calls setNamespace, so without this the documents land
-      # under the library default rather than the namespace the deployed
-      # environments use, and local panels would query a namespace that does not
-      # exist in CloudWatch.
-      AWS_EMF_NAMESPACE: epr-frontend
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${FRONTEND_EMF_NAMESPACE:-epr-frontend}
+
+  epr-backend:
+    environment:
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${BACKEND_EMF_NAMESPACE:-epr-backend}
+
+  epr-admin-frontend:
+    environment:
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${ADMIN_EMF_NAMESPACE:-epr-re-ex-admin-frontend}
 
 volumes:
   grafana-data:
