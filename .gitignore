@@ -24,3 +24,6 @@ metrics/*.target.json
 # Merged dashboards built for a promotion -- always regenerate, never commit:
 # a stale one silently reverts whatever changed upstream since
 metrics/promote-out/
+
+# Scratch from playwright-cli, created by the dashboard verify step
+.playwright-cli/

@@ -276,6 +276,17 @@ const within = (path) => {
 }
 
 const [, , requestedPath = 'metrics/kpi-dashboard.json'] = process.argv
+
+// This used to take subcommands that now live in metrics/promote.mjs, and the
+// old form would silently treat one as a filename -- writing a file called
+// 'dev'. Muscle memory outlives a refactor, so say where they went.
+if (!requestedPath.endsWith('.json')) {
+  console.error(
+    `'${requestedPath}' is not a .json path. This builds the KPI dashboard only; status, merge and check are now node metrics/promote.mjs`
+  )
+  process.exit(1)
+}
+
 const outputPath = within(requestedPath)
 
 await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
