@@ -1,17 +1,28 @@
 // Generates the KPI Metrics dashboard JSON.
 //
+// Usage:
+//   node metrics/build-dashboard.mjs                 # standalone, for the local rig
+//   node metrics/build-dashboard.mjs dev out.json    # dev's dashboard plus our row
+//
 // Generated rather than hand written because every journey needs a near
 // identical pair of queries, and the one thing that must not drift is the
 // dimension values -- they have to match what the frontend emits, so they come
 // from the same list the seeder uses.
 //
-// The output is what gets pasted into a CDP playground dashboard and promoted.
-// It queries in Metric Search mode rather than using Metrics Insights SQL: the
-// journey list is short and fixed, and the local emulator this is built against
-// does not implement Metrics Insights.
+// The standalone form is what gets built and verified against the local metrics
+// overlay. The merged form is what gets pasted into a CDP playground dashboard
+// and promoted: CDP promotes whole dashboards, and a promoted one cannot be
+// edited in place, so the artefact has to be the target dashboard with our row
+// already in it. Merge against the environment whose playground you will paste
+// into -- see dashboard.mjs.
+//
+// Queries run in Metric Search mode rather than Metrics Insights SQL: the
+// journey list is short and fixed, and the emulator the standalone form is built
+// against implements neither Metrics Insights nor SEARCH expressions.
 
 import { writeFile } from 'node:fs/promises'
 
+import { mergeIntoTarget } from './dashboard.mjs'
 import {
   JOURNEYS,
   NAMESPACE,
@@ -69,9 +80,10 @@ const journeyQueries = JOURNEYS.flatMap(({ title, start, end }, index) => [
 ])
 
 /**
- * @param {{ title: string, description: string, metricName: string, phase: 'start' | 'end', x: number }} panel
+ * @param {{ id: number, title: string, description: string, metricName: string, phase: 'start' | 'end', x: number }} panel
  */
-const totalPanel = ({ title, description, metricName, phase, x }) => ({
+const totalPanel = ({ id, title, description, metricName, phase, x }) => ({
+  id,
   type: 'stat',
   title,
   description,
@@ -108,6 +120,7 @@ const totalPanel = ({ title, description, metricName, phase, x }) => ({
 })
 
 const startedPanel = totalPanel({
+  id: 2,
   title: 'Journeys started',
   description:
     'Every journey start across all journeys. With journeys completed, feeds cost per transaction.',
@@ -117,6 +130,7 @@ const startedPanel = totalPanel({
 })
 
 const completedPanel = totalPanel({
+  id: 3,
   title: 'Journeys completed',
   description: 'Every journey completion across all journeys.',
   metricName: TRANSACTION_END,
@@ -131,6 +145,7 @@ const completedPanel = totalPanel({
  * be inferred.
  */
 const journeysPanel = {
+  id: 4,
   type: 'table',
   title: 'Journeys',
   description:
@@ -138,16 +153,74 @@ const journeysPanel = {
   gridPos: { h: TABLE_HEIGHT, w: FULL_WIDTH, x: 0, y: 1 + STAT_HEIGHT },
   datasource: DATASOURCE,
   targets: journeyQueries,
+  // Each query returns one series, so reduce gives a row per series named
+  // "<journey> - <phase>". Splitting that back out lets the matrix pivot phases
+  // into columns, which is what puts started and completed on the same row --
+  // without which not-completed and completion rate cannot be expressed.
+  //
+  // The regex must be slash-delimited. Grafana silently falls back to its default
+  // capture for a bare pattern, which yields the whole string in one field.
   transformations: [
     { id: 'reduce', options: { reducers: ['sum'], mode: 'seriesToRows' } },
     {
+      id: 'extractFields',
+      options: {
+        source: 'Field',
+        format: 'regexp',
+        regExp: '/^(?<Journey>.*) - (?<Phase>.*)$/',
+        keepTime: false,
+        replace: false
+      }
+    },
+    {
+      id: 'groupingToMatrix',
+      options: {
+        columnField: 'Phase',
+        rowField: 'Journey',
+        valueField: 'Total',
+        emptyValue: 'zero'
+      }
+    },
+    {
+      id: 'calculateField',
+      options: {
+        mode: 'binary',
+        alias: 'Not completed',
+        binary: { left: 'started', operator: '-', right: 'completed' },
+        replaceFields: false
+      }
+    },
+    {
+      id: 'calculateField',
+      options: {
+        mode: 'binary',
+        alias: 'Completion rate',
+        binary: { left: 'completed', operator: '/', right: 'started' },
+        replaceFields: false
+      }
+    },
+    {
       id: 'organize',
-      options: { renameByName: { Field: 'Journey', Total: 'Count' } }
+      options: {
+        renameByName: {
+          'Journey\\Phase': 'Journey',
+          started: 'Started',
+          completed: 'Completed'
+        }
+      }
     }
   ],
   fieldConfig: {
     defaults: { unit: 'short', decimals: 0 },
-    overrides: []
+    overrides: [
+      {
+        matcher: { id: 'byName', options: 'Completion rate' },
+        properties: [
+          { id: 'unit', value: 'percentunit' },
+          { id: 'decimals', value: 1 }
+        ]
+      }
+    ]
   },
   options: { showHeader: true, cellHeight: 'sm' }
 }
@@ -173,6 +246,7 @@ const dashboard = {
   },
   panels: [
     {
+      id: 1,
       type: 'row',
       title: 'KPI Metrics',
       gridPos: { h: ROW_HEIGHT, w: FULL_WIDTH, x: 0, y: 0 },
@@ -185,10 +259,47 @@ const dashboard = {
   ]
 }
 
-const [, , outputPath = 'metrics/kpi-dashboard.json'] = process.argv
+// The dashboard our row belongs to, per the decision on PAE-1781 to put the KPI
+// figures on the service's existing operational dashboard rather than a new one.
+const TARGET_UID = 'epr-backend-epr-re-ex-service-bd579e7f'
 
-await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
+const targetUrl = (environment) =>
+  `https://metrics.${environment}.cdp-int.defra.cloud/api/dashboards/uid/${TARGET_UID}`
+
+/**
+ * Read the target from the environment the playground copy will be made in.
+ * Exporting a different one silently reverts whatever it has that the other does
+ * not -- dev currently carries a Regulator activity row that prod does not.
+ * @param {string} environment
+ */
+const fetchTarget = async (environment) => {
+  const response = await fetch(targetUrl(environment))
+
+  if (!response.ok) {
+    throw new Error(
+      `could not read the ${environment} dashboard (${response.status}) -- on the VPN?`
+    )
+  }
+
+  const body = /** @type {{ dashboard: Record<string, any> }} */ (
+    await response.json()
+  )
+
+  return body.dashboard
+}
+
+const [, , environment = 'local', outputPath = 'metrics/kpi-dashboard.json'] =
+  process.argv
+
+const output =
+  environment === 'local'
+    ? dashboard
+    : mergeIntoTarget(await fetchTarget(environment), dashboard.panels)
+
+await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`)
 
 console.log(
-  `wrote ${outputPath}: ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
+  environment === 'local'
+    ? `wrote ${outputPath}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
+    : `wrote ${outputPath}: ${environment} dashboard plus ${dashboard.panels.length} panels, ready to paste into the playground`
 )

@@ -26,6 +26,7 @@
   },
   "panels": [
     {
+      "id": 1,
       "type": "row",
       "title": "KPI Metrics",
       "gridPos": {
@@ -38,6 +39,7 @@
       "panels": []
     },
     {
+      "id": 2,
       "type": "stat",
       "title": "Journeys started",
       "description": "Every journey start across all journeys. With journeys completed, feeds cost per transaction.",
@@ -205,6 +207,7 @@
       }
     },
     {
+      "id": 3,
       "type": "stat",
       "title": "Journeys completed",
       "description": "Every journey completion across all journeys.",
@@ -372,6 +375,7 @@
       }
     },
     {
+      "id": 4,
       "type": "table",
       "title": "Journeys",
       "description": "Started and completed per journey. Not completed is started minus completed, so it also picks up journeys finished outside the selected period.",
@@ -628,11 +632,57 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "Field",
+            "format": "regexp",
+            "regExp": "/^(?<Journey>.*) - (?<Phase>.*)$/",
+            "keepTime": false,
+            "replace": false
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "Phase",
+            "rowField": "Journey",
+            "valueField": "Total",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "Not completed",
+            "binary": {
+              "left": "started",
+              "operator": "-",
+              "right": "completed"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "Completion rate",
+            "binary": {
+              "left": "completed",
+              "operator": "/",
+              "right": "started"
+            },
+            "replaceFields": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "renameByName": {
-              "Field": "Journey",
-              "Total": "Count"
+              "Journey\\Phase": "Journey",
+              "started": "Started",
+              "completed": "Completed"
             }
           }
         }
@@ -642,7 +692,24 @@
           "unit": "short",
           "decimals": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Completion rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true,
