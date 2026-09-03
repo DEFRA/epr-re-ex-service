@@ -54,7 +54,9 @@ export const namespaceFor = (service) => {
 export const AWAITING_INSTRUMENTATION = []
 
 /**
- * @typedef {{ service: string, title: string, start: string, end: string }} Journey
+ * `outcome` is what reaching the end of this journey means in the operator's
+ * words, for panels that show a start and an end as two labelled figures.
+ * @typedef {{ end: string, outcome: string, service: string, start: string, title: string }} Journey
  */
 
 /**
@@ -69,30 +71,35 @@ export const JOURNEYS = [
     service: 'frontend',
     title: 'Upload and submit a summary log',
     start: 'UploadSummaryLogStart',
-    end: 'UploadSummaryLogEnd'
+    end: 'UploadSummaryLogEnd',
+    outcome: 'Uploaded'
   },
   {
     service: 'frontend',
     title: 'Create a PRN/PERN',
     start: 'SaveOrIssuePRNPERNStart',
-    end: 'SaveDraftPRNPERNEnd'
+    end: 'SaveDraftPRNPERNEnd',
+    outcome: 'Saved as draft'
   },
   {
     service: 'frontend',
     title: 'Issue a PRN/PERN',
     start: 'IssuePRNPERNStart',
-    end: 'IssuePRNPERNEnd'
+    end: 'IssuePRNPERNEnd',
+    outcome: 'Issued'
   },
   {
     service: 'frontend',
     title: 'Create a report',
     start: 'SaveOrSubmitReportStart',
-    end: 'SaveDraftReportEnd'
+    end: 'SaveDraftReportEnd',
+    outcome: 'Saved as draft'
   },
   {
     service: 'frontend',
     title: 'Submit a report',
     start: 'SubmitReportStart',
-    end: 'SubmitReportEnd'
+    end: 'SubmitReportEnd',
+    outcome: 'Submitted'
   }
 ]

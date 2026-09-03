@@ -25,6 +25,10 @@ import {
   namespaceFor
 } from './journeys.mjs'
 
+/**
+ * @import { Journey } from './journeys.mjs'
+ */
+
 // Grafana's unbraced variable form. The braced ${...} form works identically but
 // reads as an unterminated template literal to static analysis.
 const DATASOURCE = { type: 'cloudwatch', uid: '$datasource' }
@@ -33,6 +37,8 @@ const FULL_WIDTH = 24
 const ROW_HEIGHT = 1
 const STAT_HEIGHT = 5
 const TABLE_HEIGHT = 9
+const PER_ROW = 3
+const JOURNEY_PANEL_WIDTH = FULL_WIDTH / PER_ROW
 
 /**
  * Journey metrics carry one dimension by design, so a query naming it matches
@@ -81,35 +87,116 @@ const journeyQueries = JOURNEYS.flatMap(
 )
 
 /**
- * @param {{ id: number, title: string, description: string, metricName: string, phase: 'start' | 'end', x: number }} panel
+ * Both totals in one panel: every start added together, and every end. This is
+ * the aggregate the KPI reports, and the pair cost per transaction divides.
+ *
+ * Every start query is labelled identically so that reducing to rows and then
+ * grouping on that label adds the five journeys into one figure per phase --
+ * two rows out of ten.
  */
-const totalPanel = ({ id, title, description, metricName, phase, x }) => ({
-  id,
+const totalsPanel = {
+  id: 2,
+  type: 'stat',
+  title: 'Transaction Totals',
+  description:
+    'Every journey start and end across all journeys. Feeds cost per transaction, and the aggregate completion rate.',
+  gridPos: { h: STAT_HEIGHT, w: FULL_WIDTH / PER_ROW, x: 0, y: 1 },
+  datasource: DATASOURCE,
+  targets: JOURNEYS.flatMap(({ service, start, end }, index) => [
+    metricQuery({
+      refId: letter(index * 2),
+      metricName: TRANSACTION_START,
+      service,
+      journey: start,
+      label: 'Transaction Start'
+    }),
+    metricQuery({
+      refId: letter(index * 2 + 1),
+      metricName: TRANSACTION_END,
+      service,
+      journey: end,
+      label: 'Transaction End'
+    })
+  ]),
+  transformations: [
+    { id: 'reduce', options: { reducers: ['sum'], mode: 'seriesToRows' } },
+    {
+      id: 'groupBy',
+      options: {
+        fields: {
+          Field: { aggregations: [], operation: 'groupby' },
+          Total: { aggregations: ['sum'], operation: 'aggregate' }
+        }
+      }
+    }
+  ],
+  options: {
+    reduceOptions: { calcs: ['sum'], fields: '', values: true },
+    colorMode: 'value',
+    graphMode: 'none',
+    textMode: 'value_and_name',
+    justifyMode: 'auto',
+    orientation: 'horizontal'
+  },
+  fieldConfig: {
+    defaults: {
+      unit: 'short',
+      decimals: 0,
+      color: { mode: 'fixed', fixedColor: 'text' }
+    },
+    overrides: []
+  }
+}
+
+/**
+ * One journey as two labelled figures, the shape stakeholders were shown on
+ * PAE-1781. Deliberately one panel per journey rather than the mock-up's
+ * grouping of every PRN/PERN number under one heading: creating a note and
+ * issuing it are separate journeys, so those four figures are two independent
+ * pairs. Under one heading a reader would add the two ends against the one
+ * start and get a nonsense total.
+ *
+ * No transformations -- a stat panel reduces each series to a figure of its
+ * own, which is exactly the two numbers wanted, and a reduce would collapse
+ * them into one.
+ * @param {Journey} journey
+ * @param {number} index
+ */
+const journeyPanel = ({ service, title, start, end, outcome }, index) => ({
+  id: 5 + index,
   type: 'stat',
   title,
-  description,
-  gridPos: { h: STAT_HEIGHT, w: FULL_WIDTH / 2, x, y: 1 },
+  description: `Started against ${outcome.toLowerCase()}. The gap between them is this journey's drop-off.`,
+  gridPos: {
+    h: STAT_HEIGHT,
+    w: JOURNEY_PANEL_WIDTH,
+    x: ((index + 1) % PER_ROW) * JOURNEY_PANEL_WIDTH,
+    y: 1 + Math.floor((index + 1) / PER_ROW) * STAT_HEIGHT
+  },
   datasource: DATASOURCE,
-  targets: JOURNEYS.map((journey, index) =>
+  targets: [
     metricQuery({
-      refId: letter(index),
-      metricName,
-      service: journey.service,
-      journey: journey[phase],
-      label: journey.title
+      refId: 'A',
+      metricName: TRANSACTION_START,
+      service,
+      journey: start,
+      label: 'Started'
+    }),
+    metricQuery({
+      refId: 'B',
+      metricName: TRANSACTION_END,
+      service,
+      journey: end,
+      label: outcome
     })
-  ),
-  // Collapse the five journeys to one row each so the panel's own reducer adds
-  // them into a single figure rather than showing five.
-  transformations: [
-    { id: 'reduce', options: { reducers: ['sum'], mode: 'seriesToRows' } }
   ],
   options: {
     reduceOptions: { calcs: ['sum'], fields: '', values: false },
     colorMode: 'value',
     graphMode: 'none',
-    textMode: 'auto',
-    justifyMode: 'auto'
+    textMode: 'value_and_name',
+    justifyMode: 'auto',
+    orientation: 'horizontal'
   },
   fieldConfig: {
     defaults: {
@@ -121,24 +208,11 @@ const totalPanel = ({ id, title, description, metricName, phase, x }) => ({
   }
 })
 
-const startedPanel = totalPanel({
-  id: 2,
-  title: 'Journeys started',
-  description:
-    'Every journey start across all journeys. With journeys completed, feeds cost per transaction.',
-  metricName: TRANSACTION_START,
-  phase: 'start',
-  x: 0
-})
+const journeyPanels = JOURNEYS.map(journeyPanel)
 
-const completedPanel = totalPanel({
-  id: 3,
-  title: 'Journeys completed',
-  description: 'Every journey completion across all journeys.',
-  metricName: TRANSACTION_END,
-  phase: 'end',
-  x: FULL_WIDTH / 2
-})
+// The totals panel shares the grid with the per-journey ones, so the table
+// clears however many rows they wrap onto.
+const STAT_ROWS = Math.ceil((JOURNEYS.length + 1) / PER_ROW)
 
 /**
  * One row per journey, started and completed side by side, with the two derived
@@ -152,7 +226,12 @@ const journeysPanel = {
   title: 'Journeys',
   description:
     'Started and completed per journey. Not completed is started minus completed, so it also picks up journeys finished outside the selected period.',
-  gridPos: { h: TABLE_HEIGHT, w: FULL_WIDTH, x: 0, y: 1 + STAT_HEIGHT },
+  gridPos: {
+    h: TABLE_HEIGHT,
+    w: FULL_WIDTH,
+    x: 0,
+    y: 1 + STAT_ROWS * STAT_HEIGHT
+  },
   datasource: DATASOURCE,
   targets: journeyQueries,
   // Each query returns one series, so reduce gives a row per series named
@@ -255,8 +334,8 @@ const dashboard = {
       collapsed: false,
       panels: []
     },
-    startedPanel,
-    completedPanel,
+    totalsPanel,
+    ...journeyPanels,
     journeysPanel
   ]
 }

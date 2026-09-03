@@ -41,11 +41,11 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Journeys started",
-      "description": "Every journey start across all journeys. With journeys completed, feeds cost per transaction.",
+      "title": "Transaction Totals",
+      "description": "Every journey start and end across all journeys. Feeds cost per transaction, and the aggregate completion rate.",
       "gridPos": {
         "h": 5,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 1
       },
@@ -75,155 +75,10 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Upload and submit a summary log"
+          "label": "Transaction Start"
         },
         {
           "refId": "B",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "SaveOrIssuePRNPERNStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Create a PRN/PERN"
-        },
-        {
-          "refId": "C",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "IssuePRNPERNStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Issue a PRN/PERN"
-        },
-        {
-          "refId": "D",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "SaveOrSubmitReportStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Create a report"
-        },
-        {
-          "refId": "E",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "SubmitReportStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Submit a report"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "sum"
-            ],
-            "mode": "seriesToRows"
-          }
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Journeys completed",
-      "description": "Every journey completion across all journeys.",
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 1
-      },
-      "datasource": {
-        "type": "cloudwatch",
-        "uid": "$datasource"
-      },
-      "targets": [
-        {
-          "refId": "A",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -243,7 +98,374 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Upload and submit a summary log"
+          "label": "Transaction End"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SaveOrIssuePRNPERNStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction Start"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "SaveDraftPRNPERNEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction End"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "IssuePRNPERNStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction Start"
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "IssuePRNPERNEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction End"
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SaveOrSubmitReportStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction Start"
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "SaveDraftReportEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction End"
+        },
+        {
+          "refId": "I",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SubmitReportStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction Start"
+        },
+        {
+          "refId": "J",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "SubmitReportEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Transaction End"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "sum"
+            ],
+            "mode": "seriesToRows"
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "Field": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Total": {
+                "aggregations": [
+                  "sum"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Upload and submit a summary log",
+      "description": "Started against uploaded. The gap between them is this journey's drop-off.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "$datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "UploadSummaryLogStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Started"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "UploadSummaryLogEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Uploaded"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Create a PRN/PERN",
+      "description": "Started against saved as draft. The gap between them is this journey's drop-off.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "$datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SaveOrIssuePRNPERNStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Started"
         },
         {
           "refId": "B",
@@ -266,10 +488,76 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Create a PRN/PERN"
+          "label": "Saved as draft"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Issue a PRN/PERN",
+      "description": "Started against issued. The gap between them is this journey's drop-off.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "$datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "IssuePRNPERNStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Started"
         },
         {
-          "refId": "C",
+          "refId": "B",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -289,10 +577,76 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Issue a PRN/PERN"
+          "label": "Issued"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Create a report",
+      "description": "Started against saved as draft. The gap between them is this journey's drop-off.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "$datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SaveOrSubmitReportStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Started"
         },
         {
-          "refId": "D",
+          "refId": "B",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -312,10 +666,76 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Create a report"
+          "label": "Saved as draft"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Submit a report",
+      "description": "Started against submitted. The gap between them is this journey's drop-off.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "$datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
+              "SubmitReportStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Started"
         },
         {
-          "refId": "E",
+          "refId": "B",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -335,18 +755,7 @@
           "region": "default",
           "period": "",
           "id": "",
-          "label": "Submit a report"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "sum"
-            ],
-            "mode": "seriesToRows"
-          }
+          "label": "Submitted"
         }
       ],
       "options": {
@@ -359,8 +768,9 @@
         },
         "colorMode": "value",
         "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto"
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -383,7 +793,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 11
       },
       "datasource": {
         "type": "cloudwatch",
