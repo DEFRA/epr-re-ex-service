@@ -329,10 +329,14 @@ const stampPath = (path) => `${path.replace(/\.json$/, '')}.target.json`
  * @param {string} path
  */
 const check = async (path) => {
-  const before = JSON.parse(await readFile(stampPath(path), 'utf8'))
+  const stamp = JSON.parse(await readFile(stampPath(path), 'utf8'))
+  // The stamp is a file on disk and could be stale or hand-edited, so treat its
+  // environment the same way as one typed on the command line.
+  const environment = known(stamp.environment)
+  const before = { ...stamp, environment }
   const drift = describeDrift(
     before,
-    targetStamp(before.environment, await fetchTarget(before.environment))
+    targetStamp(environment, await fetchTarget(environment))
   )
 
   if (drift) {
@@ -341,7 +345,7 @@ const check = async (path) => {
   }
 
   console.log(
-    `${before.environment} is still at version ${before.version} -- safe to paste`
+    `${environment} is still at version ${Number(before.version)} -- safe to paste`
   )
 }
 
@@ -473,7 +477,7 @@ if (mode === 'status') {
   await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
 
   console.log(
-    `wrote ${outputPath}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
+    `wrote ${relative(resolve(import.meta.dirname, '..'), outputPath)}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
   )
 } else {
   const response = await fetchTarget(mode)
@@ -483,10 +487,12 @@ if (mode === 'status') {
   await writeFile(outputPath, `${JSON.stringify(merged, null, 2)}\n`)
   await writeFile(stampPath(outputPath), `${JSON.stringify(stamp, null, 2)}\n`)
 
+  const written = relative(resolve(import.meta.dirname, '..'), outputPath)
+
   console.log(
-    `wrote ${outputPath}: ${mode} version ${stamp.version} plus ${dashboard.panels.length} panels`
+    `wrote ${written}: ${mode} version ${stamp.version} plus ${dashboard.panels.length} panels`
   )
   console.log(
-    `re-check before promoting: node metrics/build-dashboard.mjs check ${outputPath}`
+    `re-check before promoting: node metrics/build-dashboard.mjs check ${written}`
   )
 }
