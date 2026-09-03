@@ -47,4 +47,5 @@
 * [45. Feature-flag mechanism across EPR services](0045-feature-flag-mechanism-across-epr-services.md)
 * [46. Authentication and authorisation for operators and regulators](0046-operator-and-regulator-authorisation.md)
 * [47. Reconcile stale PRN projections](0047-reconcile-stale-prn-projections.md)
-* [48. December-waste PRNs via an additive waste-balance dimension](0048-december-waste-prns.md)
+* [48. Dual and multi-year summary logs for registration and accreditation periods](0048-dual-multi-year-summary-logs.md)
+* [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
