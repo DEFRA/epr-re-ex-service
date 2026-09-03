@@ -215,10 +215,15 @@ export const describeStagedWork = (staged, targetTitle) => {
     return null
   }
 
-  const describe = ({ title, updatedBy, updated }) =>
-    updatedBy
-      ? `${title} (last touched by ${updatedBy}${updated ? ` on ${updated}` : ''})`
-      : title
+  const describe = ({ title, updatedBy, updated }) => {
+    if (!updatedBy) {
+      return title
+    }
+
+    const when = updated ? ` on ${updated}` : ''
+
+    return `${title} (last touched by ${updatedBy}${when})`
+  }
 
   const sameDashboard = staged.filter(({ title }) => title === targetTitle)
 

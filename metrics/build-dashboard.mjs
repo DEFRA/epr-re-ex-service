@@ -70,7 +70,7 @@ const metricQuery = ({ refId, metricName, service, journey, label }) => ({
   label
 })
 
-const letter = (index) => String.fromCharCode('A'.charCodeAt(0) + index)
+const letter = (index) => String.fromCodePoint('A'.codePointAt(0) + index)
 
 /** Started and completed for every journey, as one series each. */
 const journeyQueries = JOURNEYS.flatMap(
@@ -277,8 +277,26 @@ const dashboard = {
 // figures on the service's existing operational dashboard rather than a new one.
 const TARGET_UID = 'epr-backend-epr-re-ex-service-bd579e7f'
 
+const ENVIRONMENTS = ['dev', 'test', 'prod']
+
+/**
+ * Environments come from argv, so check them against the known set rather than
+ * interpolating whatever was typed into a URL. A typo then fails with a clear
+ * message instead of an odd network error.
+ * @param {string} environment
+ */
+const known = (environment) => {
+  if (!ENVIRONMENTS.includes(environment)) {
+    throw new Error(
+      `unknown environment '${environment}' -- expected one of ${ENVIRONMENTS.join(', ')}`
+    )
+  }
+
+  return environment
+}
+
 const targetUrl = (environment) =>
-  `https://metrics.${environment}.cdp-int.defra.cloud/api/dashboards/uid/${TARGET_UID}`
+  `https://metrics.${known(environment)}.cdp-int.defra.cloud/api/dashboards/uid/${TARGET_UID}`
 
 /**
  * Read the target from the environment the playground copy will be made in.
@@ -295,22 +313,20 @@ const fetchTarget = async (environment) => {
     )
   }
 
-  return /** @type {{ meta: Record<string, any>, dashboard: Record<string, any> }} */ (
-    await response.json()
+  return /** @type {Promise<{ meta: Record<string, any>, dashboard: Record<string, any> }>} */ (
+    response.json()
   )
 }
 
-const stampPath = (outputPath) =>
-  `${outputPath.replace(/\.json$/, '')}.target.json`
+const stampPath = (path) => `${path.replace(/\.json$/, '')}.target.json`
 
 /**
- * Promotion takes whatever is in the playground and applies it to every
- * environment, so a target that has moved since the merge was built is a silent
- * revert waiting to happen -- and nothing in Grafana or the portal will say so.
- * @param {string} outputPath
+ * A target that has moved since the merge was built is a silent revert waiting to
+ * happen, and nothing in Grafana or the portal will say so.
+ * @param {string} path
  */
-const check = async (outputPath) => {
-  const before = JSON.parse(await readFile(stampPath(outputPath), 'utf8'))
+const check = async (path) => {
+  const before = JSON.parse(await readFile(stampPath(path), 'utf8'))
   const drift = describeDrift(
     before,
     targetStamp(before.environment, await fetchTarget(before.environment))
@@ -325,8 +341,6 @@ const check = async (outputPath) => {
     `${before.environment} is still at version ${before.version} -- safe to paste`
   )
 }
-
-const ENVIRONMENTS = ['dev', 'test', 'prod']
 
 const PLAYGROUND_FOLDER = 'epr-backend-monitoring'
 
@@ -382,7 +396,7 @@ const status = async () => {
  * @param {string} environment
  */
 const fetchPlayground = async (environment) => {
-  const base = `https://metrics.${environment}.cdp-int.defra.cloud/api`
+  const base = `https://metrics.${known(environment)}.cdp-int.defra.cloud/api`
 
   /**
    * @param {string} path
