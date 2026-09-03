@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
     "lint:types": "tsc -p jsconfig.typecheck.json",
     "metrics:dashboard": "node metrics/build-dashboard.mjs",
-    "metrics:reset": "docker compose -f compose.yml -f compose.metrics.yml up -d --force-recreate floci floci-init",
+    "metrics:reset": "docker compose -f compose.yml -f compose.metrics.yml ps --status running -q floci | grep -q . || { echo 'no running floci in this compose project -- run this with the same project name the stack was started with' >&2; exit 1; }; docker compose -f compose.yml -f compose.metrics.yml restart floci floci-init",
     "metrics:seed": "docker compose -f compose.yml -f compose.metrics.yml exec emf-pump node seed.mjs",
     "postinstall": "npm run setup:husky",
     "seed:stub": "node scripts/seed-defra-id-stub.mjs",

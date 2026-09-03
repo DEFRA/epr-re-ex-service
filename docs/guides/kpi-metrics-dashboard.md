@@ -44,9 +44,16 @@ stay right. To start from nothing:
 npm run metrics:reset
 ```
 
-The emulator keeps its state in memory, so recreating it clears every metric.
-`floci-init` runs alongside to put the buckets and queues back, which the uploader
-needs — without it, uploads break until the stack is restarted.
+The emulator keeps its state in memory, so restarting it clears every metric.
+`floci-init` restarts alongside to put the buckets and queues back, which the
+uploader needs — without it, uploads break until the stack is restarted.
+
+Run it against the stack you want to reset, with the same project name that stack
+was started with. It restarts the containers rather than recreating them, so the
+network and published port they already hold are kept; recreating them without the
+port and network variables the stack was started with would silently rebuild floci
+on the default network and port, detaching it from everything else. The guard
+refuses rather than resetting the wrong stack.
 
 ## How the metrics get there
 
