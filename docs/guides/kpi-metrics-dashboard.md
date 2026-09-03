@@ -74,6 +74,19 @@ This is why journey metrics carry a single `journey` dimension rather than the
 dimension is exactly matchable, and carries nothing environment-specific, so the
 same JSON works locally, on dev and in production.
 
+### Keeping the values honest
+
+`metrics/journeys.mjs` names the dimension values the dashboard queries, and they
+have to match what the frontend emits. Rename one there and the dashboard asks
+for a metric nobody publishes any more — which Grafana renders as zero rather
+than as an error, so nothing looks broken.
+
+`metrics/journeys.test.mjs` checks the two lists against each other, reading the
+frontend through `lib/`. It skips when that is not present, so it protects local
+work rather than CI. Values the dashboard charts ahead of the instrumentation
+land in `AWAITING_INSTRUMENTATION`, and the test also fails if one is still
+listed after the frontend starts emitting it, so the list cannot rot.
+
 ### Transformations
 
 Build transformation chains in Grafana's own UI and port the result into the

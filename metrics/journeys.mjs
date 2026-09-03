@@ -15,6 +15,19 @@ export const TRANSACTION_END = 'TransactionEnd'
 export const NAMESPACE = 'epr-frontend'
 
 /**
+ * Dimension values the dashboard charts but the frontend does not emit yet.
+ * Creating a note and issuing it turned out to be separate journeys rather than
+ * two endings of one, which needs two start events that were not in the names
+ * agreed on PAE-1781 -- so the dashboard is built for them ahead of the
+ * instrumentation. Remove an entry as its journey lands.
+ * @type {string[]}
+ */
+export const AWAITING_INSTRUMENTATION = [
+  'IssuePRNPERNStart',
+  'SubmitReportStart'
+]
+
+/**
  * @typedef {{ title: string, start: string, end: string }} Journey
  */
 
