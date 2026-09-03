@@ -46,24 +46,31 @@ export const namespaceFor = (service) => {
 }
 
 /**
- * Dimension values the dashboard charts but the frontend does not emit yet.
- * Creating a note and issuing it turned out to be separate journeys rather than
- * two endings of one, which needs two start events that were not in the names
- * agreed on PAE-1781 -- so the dashboard is built for them ahead of the
- * instrumentation. Remove an entry as its journey lands.
+ * Dimension values the dashboard charts but no service emits yet, so a panel
+ * reading zero is expected rather than broken. Remove an entry as its journey
+ * lands; the tests fail either way round, so the list cannot quietly rot.
  * @type {string[]}
  */
-export const AWAITING_INSTRUMENTATION = [
-  'IssuePRNPERNStart',
-  'SubmitReportStart'
-]
+export const AWAITING_INSTRUMENTATION = []
 
 /**
  * @typedef {{ service: string, title: string, start: string, end: string }} Journey
  */
 
-/** @type {Journey[]} */
+/**
+ * Order is the order the dashboard table reads in. Uploading a summary log
+ * leads because it is what the others depend on -- it is the summary log that
+ * builds the waste balance a note is issued against and a report declares, so a
+ * fall in its completion rate explains a fall in theirs.
+ * @type {Journey[]}
+ */
 export const JOURNEYS = [
+  {
+    service: 'frontend',
+    title: 'Upload and submit a summary log',
+    start: 'UploadSummaryLogStart',
+    end: 'UploadSummaryLogEnd'
+  },
   {
     service: 'frontend',
     title: 'Create a PRN/PERN',
@@ -87,11 +94,5 @@ export const JOURNEYS = [
     title: 'Submit a report',
     start: 'SubmitReportStart',
     end: 'SubmitReportEnd'
-  },
-  {
-    service: 'frontend',
-    title: 'Upload and submit a summary log',
-    start: 'UploadSummaryLogStart',
-    end: 'UploadSummaryLogEnd'
   }
 ]

@@ -147,7 +147,10 @@ export const describeDrift = (before, after) => {
  * @returns {string}
  */
 export const fingerprint = (dashboard) => {
-  const { id, version, ...content } = dashboard
+  // A playground copy differs from its promoted counterpart by identity rather
+  // than content: it is given a fresh uid when created, carries its own version,
+  // and lacks the tags the promotion adds.
+  const { id, uid, version, tags, ...content } = dashboard
 
   // Datasource uids are per Grafana instance and are rewritten on promotion, so
   // they always differ between environments even when the content is identical.
@@ -206,11 +209,12 @@ export const summariseEnvironments = (snapshots) => {
  *
  * Playground copies are not promoted, so unlike the promoted ones they carry a
  * real author rather than the platform's -- which is who to ask.
- * @param {{ title: string, updatedBy?: string, updated?: string }[]} staged
+ * @param {{ title: string, updatedBy?: string, updated?: string, fingerprint?: string }[]} staged
  * @param {string} targetTitle
+ * @param {string} liveFingerprint
  * @returns {{ blocking: boolean, message: string } | null}
  */
-export const describeStagedWork = (staged, targetTitle) => {
+export const describeStagedWork = (staged, targetTitle, liveFingerprint) => {
   if (staged.length === 0) {
     return null
   }
@@ -226,11 +230,23 @@ export const describeStagedWork = (staged, targetTitle) => {
   }
 
   const sameDashboard = staged.filter(({ title }) => title === targetTitle)
+  const unfinished = sameDashboard.filter(
+    ({ fingerprint: print }) => print !== liveFingerprint
+  )
+
+  if (unfinished.length > 0) {
+    return {
+      blocking: true,
+      message: `the playground holds a copy of the dashboard you are about to edit that differs from what is live, and saving over it would overwrite that work: ${unfinished
+        .map(describe)
+        .join(', ')}`
+    }
+  }
 
   if (sameDashboard.length > 0) {
     return {
-      blocking: true,
-      message: `the playground already holds a copy of the dashboard you are about to edit, and saving over it would overwrite that work: ${sameDashboard
+      blocking: false,
+      message: `the playground copy of this dashboard already matches live, so it is leftover from a completed promotion rather than work in progress: ${sameDashboard
         .map(describe)
         .join(', ')}`
     }

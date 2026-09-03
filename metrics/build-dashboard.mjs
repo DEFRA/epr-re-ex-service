@@ -1,38 +1,23 @@
 // Generates the KPI Metrics dashboard JSON.
 //
 // Usage:
-//   node metrics/build-dashboard.mjs                 # standalone, for the local rig
-//   node metrics/build-dashboard.mjs dev out.json    # dev's dashboard plus our row
-//   node metrics/build-dashboard.mjs check out.json  # has the target moved since?
-//   node metrics/build-dashboard.mjs status           # anything unpromoted or out of step?
+//   node metrics/build-dashboard.mjs [out.json]
 //
 // Generated rather than hand written because every journey needs a near
 // identical pair of queries, and the one thing that must not drift is the
-// dimension values -- they have to match what the frontend emits, so they come
-// from the same list the seeder uses.
+// dimension values -- they have to match what the services emit, so they come
+// from metrics/journeys.mjs, the same list the seeder uses.
 //
-// The standalone form is what gets built and verified against the local metrics
-// overlay. The merged form is what gets pasted into a CDP playground dashboard
-// and promoted: CDP promotes whole dashboards, and a promoted one cannot be
-// edited in place, so the artefact has to be the target dashboard with our row
-// already in it. Merge against the environment whose playground you will paste
-// into -- see dashboard.mjs.
+// This builds one dashboard. Getting it onto a real one is metrics/promote.mjs,
+// which knows nothing about the KPI row and works for any dashboard.
 //
 // Queries run in Metric Search mode rather than Metrics Insights SQL: the
-// journey list is short and fixed, and the emulator the standalone form is built
-// against implements neither Metrics Insights nor SEARCH expressions.
+// journey list is short and fixed, and the emulator this is built against
+// implements neither Metrics Insights nor SEARCH expressions.
 
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
 
-import {
-  describeDrift,
-  describeStagedWork,
-  fingerprint,
-  mergeIntoTarget,
-  summariseEnvironments,
-  targetStamp
-} from './dashboard.mjs'
 import {
   JOURNEYS,
   TRANSACTION_END,
@@ -276,186 +261,12 @@ const dashboard = {
   ]
 }
 
-// The dashboard our row belongs to, per the decision on PAE-1781 to put the KPI
-// figures on the service's existing operational dashboard rather than a new one.
-const TARGET_UID = 'epr-backend-epr-re-ex-service-bd579e7f'
+const ROOT = resolve(import.meta.dirname, '..')
 
-const ENVIRONMENTS = ['dev', 'test', 'prod']
-
-/**
- * Environments come from argv, so check them against the known set rather than
- * interpolating whatever was typed into a URL. A typo then fails with a clear
- * message instead of an odd network error.
- * @param {string} environment
- */
-const known = (environment) => {
-  if (!ENVIRONMENTS.includes(environment)) {
-    throw new Error(
-      `unknown environment '${environment}' -- expected one of ${ENVIRONMENTS.join(', ')}`
-    )
-  }
-
-  return environment
-}
-
-const targetUrl = (environment) =>
-  `https://metrics.${known(environment)}.cdp-int.defra.cloud/api/dashboards/uid/${TARGET_UID}`
-
-/**
- * Read the target from the environment the playground copy will be made in.
- * Exporting a different one silently reverts whatever it has that the other does
- * not -- dev currently carries a Regulator activity row that prod does not.
- * @param {string} environment
- */
-const fetchTarget = async (environment) => {
-  const response = await fetch(targetUrl(environment))
-
-  if (!response.ok) {
-    throw new Error(
-      `could not read the ${environment} dashboard (${response.status}) -- on the VPN?`
-    )
-  }
-
-  return /** @type {Promise<{ meta: Record<string, any>, dashboard: Record<string, any> }>} */ (
-    response.json()
-  )
-}
-
-const stampPath = (path) => `${path.replace(/\.json$/, '')}.target.json`
-
-/**
- * A target that has moved since the merge was built is a silent revert waiting to
- * happen, and nothing in Grafana or the portal will say so.
- * @param {string} path
- */
-const check = async (path) => {
-  const stamp = JSON.parse(await readFile(stampPath(path), 'utf8'))
-  // The stamp is a file on disk and could be stale or hand-edited, so treat its
-  // environment the same way as one typed on the command line.
-  const environment = known(stamp.environment)
-  const before = { ...stamp, environment }
-  const drift = describeDrift(
-    before,
-    targetStamp(environment, await fetchTarget(environment))
-  )
-
-  if (drift) {
-    console.error(drift)
-    process.exit(1)
-  }
-
-  console.log(
-    `${environment} is still at version ${Number(before.version)} -- safe to paste`
-  )
-}
-
-const PLAYGROUND_FOLDER = 'epr-backend-monitoring'
-
-/**
- * Two questions worth asking before promoting, neither of which the portal
- * answers: is anything staged in the playground that would go out with yours,
- * and do the environments agree.
- */
-const status = async () => {
-  const targets = await Promise.all(
-    ENVIRONMENTS.map(async (environment) => ({
-      environment,
-      ...(await fetchTarget(environment))
-    }))
-  )
-
-  const snapshots = targets.map(({ environment, meta, dashboard: target }) => ({
-    environment,
-    version: meta.version,
-    updated: meta.updated,
-    fingerprint: fingerprint(target)
-  }))
-
-  snapshots.forEach(({ environment, version, updated }) =>
-    console.log(`  ${environment}: version ${version}, updated ${updated}`)
-  )
-
-  const { inSync, differences } = summariseEnvironments(snapshots)
-
-  if (inSync) {
-    console.log('\nenvironments agree')
-  }
-
-  differences.forEach((difference) => console.error(`\n${difference}`))
-
-  const staged = describeStagedWork(
-    await fetchPlayground('dev'),
-    targets[0].dashboard.title
-  )
-
-  if (staged) {
-    console[staged.blocking ? 'error' : 'log'](`\n${staged.message}`)
-  }
-
-  if (!inSync || staged?.blocking) {
-    process.exit(1)
-  }
-}
-
-/**
- * Anything sitting in the service's playground folder, which promotion would
- * carry out alongside our own change.
- * @param {string} environment
- */
-const fetchPlayground = async (environment) => {
-  const base = `https://metrics.${known(environment)}.cdp-int.defra.cloud/api`
-
-  /**
-   * @param {string} path
-   * @returns {Promise<any>}
-   */
-  const read = (path) =>
-    fetch(`${base}${path}`).then((response) => response.json())
-
-  const folders = await read('/folders?limit=1000')
-  const playground = folders.find(
-    (/** @type {{ title: string }} */ candidate) =>
-      candidate.title === 'Playground'
-  )
-
-  if (!playground) {
-    return []
-  }
-
-  const sub = await read(`/folders?parentUid=${playground.uid}&limit=1000`)
-  const folder = sub.find(
-    (/** @type {{ title: string }} */ candidate) =>
-      candidate.title === PLAYGROUND_FOLDER
-  )
-
-  if (!folder) {
-    return []
-  }
-
-  const staged = await read(`/search?folderUIDs=${folder.uid}&limit=100`)
-
-  // Playground dashboards are not promoted, so unlike the promoted copies they
-  // carry a real author rather than the platform's -- which is who to ask.
-  return Promise.all(
-    staged.map(
-      async (/** @type {{ uid: string, title: string }} */ { uid, title }) => {
-        const { meta } = await read(`/dashboards/uid/${uid}`)
-
-        return { title, updatedBy: meta.updatedBy, updated: meta.updated }
-      }
-    )
-  )
-}
-
-/**
- * Output paths come from argv, so resolve them and refuse anything outside the
- * repository rather than writing wherever a stray ../ points.
- * @param {string} path
- */
+/** @param {string} path */
 const within = (path) => {
-  const root = resolve(import.meta.dirname, '..')
-  const resolved = resolve(root, path)
-  const inside = relative(root, resolved)
+  const resolved = resolve(ROOT, path)
+  const inside = relative(ROOT, resolved)
 
   if (inside.startsWith('..') || isAbsolute(inside)) {
     throw new Error(`refusing to write outside the repository: ${path}`)
@@ -464,35 +275,11 @@ const within = (path) => {
   return resolved
 }
 
-const [, , mode = 'local', requestedPath = 'metrics/kpi-dashboard.json'] =
-  process.argv
-
+const [, , requestedPath = 'metrics/kpi-dashboard.json'] = process.argv
 const outputPath = within(requestedPath)
 
-if (mode === 'status') {
-  await status()
-} else if (mode === 'check') {
-  await check(outputPath)
-} else if (mode === 'local') {
-  await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
+await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
 
-  console.log(
-    `wrote ${relative(resolve(import.meta.dirname, '..'), outputPath)}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
-  )
-} else {
-  const response = await fetchTarget(mode)
-  const merged = mergeIntoTarget(response.dashboard, dashboard.panels)
-  const stamp = targetStamp(mode, response)
-
-  await writeFile(outputPath, `${JSON.stringify(merged, null, 2)}\n`)
-  await writeFile(stampPath(outputPath), `${JSON.stringify(stamp, null, 2)}\n`)
-
-  const written = relative(resolve(import.meta.dirname, '..'), outputPath)
-
-  console.log(
-    `wrote ${written}: ${mode} version ${stamp.version} plus ${dashboard.panels.length} panels`
-  )
-  console.log(
-    `re-check before promoting: node metrics/build-dashboard.mjs check ${written}`
-  )
-}
+console.log(
+  `wrote ${relative(ROOT, outputPath)}: ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
+)

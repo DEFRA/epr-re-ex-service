@@ -64,6 +64,29 @@
           "metricName": "TransactionStart",
           "dimensions": {
             "journey": [
+              "UploadSummaryLogStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Upload and submit a summary log"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
               "SaveOrIssuePRNPERNStart"
             ]
           },
@@ -78,7 +101,7 @@
           "label": "Create a PRN/PERN"
         },
         {
-          "refId": "B",
+          "refId": "C",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -101,7 +124,7 @@
           "label": "Issue a PRN/PERN"
         },
         {
-          "refId": "C",
+          "refId": "D",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -124,7 +147,7 @@
           "label": "Create a report"
         },
         {
-          "refId": "D",
+          "refId": "E",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -145,29 +168,6 @@
           "period": "",
           "id": "",
           "label": "Submit a report"
-        },
-        {
-          "refId": "E",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "UploadSummaryLogStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Upload and submit a summary log"
         }
       ],
       "transformations": [
@@ -232,6 +232,29 @@
           "metricName": "TransactionEnd",
           "dimensions": {
             "journey": [
+              "UploadSummaryLogEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Upload and submit a summary log"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
               "SaveDraftPRNPERNEnd"
             ]
           },
@@ -246,7 +269,7 @@
           "label": "Create a PRN/PERN"
         },
         {
-          "refId": "B",
+          "refId": "C",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -269,7 +292,7 @@
           "label": "Issue a PRN/PERN"
         },
         {
-          "refId": "C",
+          "refId": "D",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -292,7 +315,7 @@
           "label": "Create a report"
         },
         {
-          "refId": "D",
+          "refId": "E",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -313,29 +336,6 @@
           "period": "",
           "id": "",
           "label": "Submit a report"
-        },
-        {
-          "refId": "E",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionEnd",
-          "dimensions": {
-            "journey": [
-              "UploadSummaryLogEnd"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Upload and submit a summary log"
         }
       ],
       "transformations": [
@@ -400,6 +400,52 @@
           "metricName": "TransactionStart",
           "dimensions": {
             "journey": [
+              "UploadSummaryLogStart"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Upload and submit a summary log - started"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
+          "dimensions": {
+            "journey": [
+              "UploadSummaryLogEnd"
+            ]
+          },
+          "statistic": "Sum",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "queryMode": "Metrics",
+          "region": "default",
+          "period": "",
+          "id": "",
+          "label": "Upload and submit a summary log - completed"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "$datasource"
+          },
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
+          "dimensions": {
+            "journey": [
               "SaveOrIssuePRNPERNStart"
             ]
           },
@@ -414,7 +460,7 @@
           "label": "Create a PRN/PERN - started"
         },
         {
-          "refId": "B",
+          "refId": "D",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -437,7 +483,7 @@
           "label": "Create a PRN/PERN - completed"
         },
         {
-          "refId": "C",
+          "refId": "E",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -460,7 +506,7 @@
           "label": "Issue a PRN/PERN - started"
         },
         {
-          "refId": "D",
+          "refId": "F",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -483,7 +529,7 @@
           "label": "Issue a PRN/PERN - completed"
         },
         {
-          "refId": "E",
+          "refId": "G",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -506,7 +552,7 @@
           "label": "Create a report - started"
         },
         {
-          "refId": "F",
+          "refId": "H",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -529,7 +575,7 @@
           "label": "Create a report - completed"
         },
         {
-          "refId": "G",
+          "refId": "I",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -552,7 +598,7 @@
           "label": "Submit a report - started"
         },
         {
-          "refId": "H",
+          "refId": "J",
           "datasource": {
             "type": "cloudwatch",
             "uid": "$datasource"
@@ -573,52 +619,6 @@
           "period": "",
           "id": "",
           "label": "Submit a report - completed"
-        },
-        {
-          "refId": "I",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionStart",
-          "dimensions": {
-            "journey": [
-              "UploadSummaryLogStart"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Upload and submit a summary log - started"
-        },
-        {
-          "refId": "J",
-          "datasource": {
-            "type": "cloudwatch",
-            "uid": "$datasource"
-          },
-          "namespace": "epr-frontend",
-          "metricName": "TransactionEnd",
-          "dimensions": {
-            "journey": [
-              "UploadSummaryLogEnd"
-            ]
-          },
-          "statistic": "Sum",
-          "matchExact": true,
-          "metricQueryType": 0,
-          "metricEditorMode": 0,
-          "queryMode": "Metrics",
-          "region": "default",
-          "period": "",
-          "id": "",
-          "label": "Upload and submit a summary log - completed"
         }
       ],
       "transformations": [

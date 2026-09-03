@@ -204,6 +204,23 @@ describe('#dashboard', () => {
       )
     })
 
+    it('should ignore tags, which promotion adds', () => {
+      const withTags = (tags) => ({ id: 1, title: 'x', tags, panels: [] })
+
+      expect(withTags([])).not.toBe(withTags(['custom']))
+      expect(fingerprint(withTags([]))).toBe(
+        fingerprint(withTags(['custom', 'service']))
+      )
+    })
+
+    it('should ignore the uid, which a playground copy is given afresh', () => {
+      const withUid = (uid) => ({ id: 1, uid, title: 'x', panels: [] })
+
+      expect(fingerprint(withUid('71de2a57'))).toBe(
+        fingerprint(withUid('epr-backend-epr-re-ex-service-bd579e7f'))
+      )
+    })
+
     it('should notice a change to the panels', () => {
       const a = { id: 1, title: 'x', panels: [] }
       const b = { id: 1, title: 'x', panels: [{ id: 2 }] }
@@ -261,18 +278,21 @@ describe('#dashboard', () => {
 
   // Dashboards are promoted one at a time, unlike alerts which go as a group.
   // So staged work only rides along with yours if it is the same dashboard --
-  // anything else is just someone's unfinished work sitting there.
+  // and only if it actually differs from what is live. A completed promotion
+  // leaves an identical copy behind in the playground, which is not work in
+  // progress and must not be reported as if it were.
   describe('describeStagedWork', () => {
     const target = 'epr-backend (epr-re-ex-service)'
 
     it('should report nothing when the playground is empty', () => {
-      expect(describeStagedWork([], target)).toBeNull()
+      expect(describeStagedWork([], target, 'live')).toBeNull()
     })
 
-    it('should warn that staged work on the same dashboard would be overwritten', () => {
+    it('should warn when the staged copy of the same dashboard differs from live', () => {
       const staged = describeStagedWork(
-        [{ title: target, updatedBy: 'someone@defra' }],
-        target
+        [{ title: target, updatedBy: 'someone@defra', fingerprint: 'other' }],
+        target,
+        'live'
       )
 
       expect(staged?.blocking).toBe(true)
@@ -280,15 +300,26 @@ describe('#dashboard', () => {
       expect(staged?.message).toMatch(/overwrit/i)
     })
 
+    it('should not warn when the staged copy already matches live', () => {
+      const staged = describeStagedWork(
+        [{ title: target, updatedBy: 'someone@defra', fingerprint: 'live' }],
+        target,
+        'live'
+      )
+
+      expect(staged?.blocking).toBe(false)
+      expect(staged?.message).toMatch(/already promoted|matches/i)
+    })
+
     it('should mention other staged dashboards without treating them as blocking', () => {
       const staged = describeStagedWork(
         [{ title: 'epr-backend (custom)', updatedBy: 'someone@defra' }],
-        target
+        target,
+        'live'
       )
 
       expect(staged?.blocking).toBe(false)
       expect(staged?.message).toMatch(/epr-backend \(custom\)/)
-      expect(staged?.message).not.toMatch(/overwrit/i)
     })
   })
 })

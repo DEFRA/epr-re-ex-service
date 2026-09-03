@@ -80,9 +80,16 @@ is already organised: by concern rather than by service. `Operator Activity`, fo
 instance, mixes `epr-frontend` and `epr-backend` panels.
 
 ```bash
-npm run metrics:dashboard                          # standalone, for local work
-node metrics/build-dashboard.mjs dev out.json      # dev's dashboard plus our row
-node metrics/build-dashboard.mjs check out.json    # has the target moved since?
+npm run metrics:dashboard    # writes metrics/kpi-dashboard.json
+```
+
+Getting a dashboard onto a real one is `metrics/promote.mjs`, which knows nothing
+about the KPI row and works for any dashboard and any target:
+
+```bash
+node metrics/promote.mjs status <target-uid>
+node metrics/promote.mjs merge  <target-uid> <panels.json> <out.json>
+node metrics/promote.mjs check  <out.json>
 ```
 
 ### Two constraints worth knowing
@@ -129,13 +136,15 @@ lost the next time the file is regenerated.
 CDP promotes whole dashboards, so the artefact is the target dashboard with the
 new row already in it.
 
-1. Generate against the environment whose playground you will paste into:
-   `node metrics/build-dashboard.mjs dev merged.json`. This fetches the target
-   live and writes a stamp of the version it merged from.
+1. Merge your panels into the target:
+   `node metrics/promote.mjs merge <target-uid> metrics/kpi-dashboard.json metrics/promote-out/merged.json`.
+   This fetches the target live and writes a stamp of the version it merged from.
+   Write merged output under `metrics/promote-out/`, which is ignored — a
+   committed merge is exactly the stale snapshot the live fetch exists to avoid.
 2. In Grafana for that environment, open `Playground/<service>-monitoring`, then
    New → New dashboard → Settings → JSON Model, and paste.
 3. Save, then find the version under Settings → Versions.
-4. Re-check before promoting: `node metrics/build-dashboard.mjs check merged.json`.
+4. Re-check before promoting: `node metrics/promote.mjs check metrics/promote-out/merged.json`.
    If the target moved since you generated, promoting yours would revert that
    change, and nothing else in the flow would say so.
 5. Promote from the portal: services → the service → Diagnostics → Dev.
@@ -145,14 +154,16 @@ Promoting from dev applies the change to **every** environment at once.
 ## Before you promote
 
 ```bash
-node metrics/build-dashboard.mjs status
+npm run metrics:status
 ```
 
 Answers two questions the portal does not, and exits non-zero if either needs
 attention.
 
 **Is anything staged in the playground?** The folder is shared per service and
-holds one working copy per dashboard. Dashboards are promoted one at a time, so
+holds one working copy per dashboard. A completed promotion leaves an identical
+copy behind, so the check compares content and only treats a staged copy as
+blocking when it actually differs from what is live. Dashboards are promoted one at a time, so
 another dashboard's staged work will not go out with yours — but a staged copy of
 _the dashboard you are about to edit_ is someone's unfinished work that you would
 save over. Only that case is treated as blocking. Unlike the promoted copies,
