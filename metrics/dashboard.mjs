@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 // Merging generated panels into a dashboard that already exists.
 //
 // CDP promotes a whole dashboard, never a panel, and a promoted dashboard cannot
@@ -137,3 +139,77 @@ export const describeDrift = (before, after) => {
 
   return null
 }
+
+/**
+ * A stable digest of what a dashboard actually shows, ignoring the fields that
+ * differ by Grafana instance rather than by content.
+ * @param {Dashboard} dashboard
+ * @returns {string}
+ */
+export const fingerprint = (dashboard) => {
+  const { id, version, ...content } = dashboard
+
+  // Datasource uids are per Grafana instance and are rewritten on promotion, so
+  // they always differ between environments even when the content is identical.
+  const normalised = JSON.stringify(content, (key, value) =>
+    key === 'datasource' && value?.uid
+      ? { ...value, uid: 'per-environment' }
+      : value
+  )
+
+  return createHash('sha256').update(normalised).digest('hex')
+}
+
+/**
+ * Promoting from dev applies the change to every environment at once, so
+ * environments that disagree are not somebody midway through a piece of work --
+ * that sits in the playground. They mean a promotion is in flight, failed part
+ * way, or an environment was edited directly.
+ * @param {{ environment: string, version: number, updated: string, fingerprint: string }[]} snapshots
+ */
+export const summariseEnvironments = (snapshots) => {
+  const groups = snapshots.reduce(
+    (grouped, snapshot) =>
+      grouped.set(snapshot.fingerprint, [
+        ...(grouped.get(snapshot.fingerprint) ?? []),
+        snapshot
+      ]),
+    /** @type {Map<string, typeof snapshots>} */ (new Map())
+  )
+
+  if (groups.size === 1) {
+    return { inSync: true, differences: [] }
+  }
+
+  // Report the smaller groups: whatever is outnumbered is what to look at.
+  const [, ...odd] = [...groups.values()].sort((a, b) => b.length - a.length)
+
+  return {
+    inSync: false,
+    differences: odd.map(
+      (group) =>
+        `${group.map(({ environment }) => environment).join(' and ')} do not match the others (${group
+          .map(
+            ({ version, updated }) => `version ${version}, updated ${updated}`
+          )
+          .join(
+            '; '
+          )}) -- a promotion in flight, one that failed part way, or an environment edited directly. Ask before promoting over it.`
+    )
+  }
+}
+
+/**
+ * @param {{ title: string, updatedBy?: string, updated?: string }[]} staged
+ * @returns {string | null}
+ */
+export const describeStagedWork = (staged) =>
+  staged.length === 0
+    ? null
+    : `unpromoted work is staged in the playground and would go out with yours: ${staged
+        .map(({ title, updatedBy, updated }) =>
+          updatedBy
+            ? `${title} (last touched by ${updatedBy}${updated ? ` on ${updated}` : ''})`
+            : title
+        )
+        .join(', ')}`

@@ -4,8 +4,11 @@ import {
   cloudwatchDatasourceUid,
   contentBottom,
   describeDrift,
+  fingerprint,
   maxPanelId,
   mergeIntoTarget,
+  describeStagedWork,
+  summariseEnvironments,
   targetStamp
 } from './dashboard.mjs'
 
@@ -172,6 +175,104 @@ describe('#dashboard', () => {
       })
 
       expect(drift).toMatch(/2026-09-03T09:00:00Z/)
+    })
+  })
+
+  describe('fingerprint', () => {
+    it('should ignore identifiers that differ by instance', () => {
+      const a = { id: 1, version: 3, title: 'x', panels: [] }
+      const b = { id: 99, version: 7, title: 'x', panels: [] }
+
+      expect(fingerprint(a)).toBe(fingerprint(b))
+    })
+
+    it('should ignore datasource uids, which differ by environment', () => {
+      const withUid = (uid) => ({
+        id: 1,
+        title: 'x',
+        panels: [
+          {
+            id: 2,
+            datasource: { type: 'cloudwatch', uid },
+            targets: [{ datasource: { type: 'cloudwatch', uid } }]
+          }
+        ]
+      })
+
+      expect(fingerprint(withUid('dev-uid'))).toBe(
+        fingerprint(withUid('prod-uid'))
+      )
+    })
+
+    it('should notice a change to the panels', () => {
+      const a = { id: 1, title: 'x', panels: [] }
+      const b = { id: 1, title: 'x', panels: [{ id: 2 }] }
+
+      expect(fingerprint(a)).not.toBe(fingerprint(b))
+    })
+  })
+
+  // Promoting from dev fans out to every environment at once, so environments
+  // that disagree are not work in progress -- that lives in the playground. They
+  // mean a promotion is mid-flight, or failed part way, or someone edited an
+  // environment directly.
+  describe('summariseEnvironments', () => {
+    const at = (environment, print) => ({
+      environment,
+      version: 3,
+      updated: '2026-09-02T14:21:07Z',
+      fingerprint: print
+    })
+
+    it('should report nothing to chase when every environment matches', () => {
+      const summary = summariseEnvironments([
+        at('dev', 'aaa'),
+        at('test', 'aaa'),
+        at('prod', 'aaa')
+      ])
+
+      expect(summary.inSync).toBe(true)
+      expect(summary.differences).toStrictEqual([])
+    })
+
+    it('should name the environment that disagrees', () => {
+      const summary = summariseEnvironments([
+        at('dev', 'bbb'),
+        at('test', 'aaa'),
+        at('prod', 'aaa')
+      ])
+
+      expect(summary.inSync).toBe(false)
+      expect(summary.differences.join(' ')).toMatch(/dev/)
+    })
+
+    it('should not describe a mismatch as ordinary work in progress', () => {
+      const summary = summariseEnvironments([
+        at('dev', 'bbb'),
+        at('test', 'aaa'),
+        at('prod', 'aaa')
+      ])
+
+      expect(summary.differences.join(' ')).toMatch(
+        /in flight|failed|directly/i
+      )
+    })
+  })
+
+  // Promotion takes whatever is sitting in the playground, so anything there is
+  // somebody's unfinished work that would go out with yours.
+  describe('describeStagedWork', () => {
+    it('should report nothing when the playground is empty', () => {
+      expect(describeStagedWork([])).toBeNull()
+    })
+
+    it('should name what is staged and who last touched it', () => {
+      const staged = describeStagedWork([
+        { title: 'epr-backend (custom)', updatedBy: 'someone@defra' }
+      ])
+
+      expect(staged).toMatch(/epr-backend \(custom\)/)
+      expect(staged).toMatch(/someone@defra/)
     })
   })
 })

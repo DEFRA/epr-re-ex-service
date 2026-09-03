@@ -4,6 +4,7 @@
 //   node metrics/build-dashboard.mjs                 # standalone, for the local rig
 //   node metrics/build-dashboard.mjs dev out.json    # dev's dashboard plus our row
 //   node metrics/build-dashboard.mjs check out.json  # has the target moved since?
+//   node metrics/build-dashboard.mjs status           # anything unpromoted or out of step?
 //
 // Generated rather than hand written because every journey needs a near
 // identical pair of queries, and the one thing that must not drift is the
@@ -23,7 +24,14 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 
-import { describeDrift, mergeIntoTarget, targetStamp } from './dashboard.mjs'
+import {
+  describeDrift,
+  describeStagedWork,
+  fingerprint,
+  mergeIntoTarget,
+  summariseEnvironments,
+  targetStamp
+} from './dashboard.mjs'
 import {
   JOURNEYS,
   TRANSACTION_END,
@@ -318,10 +326,104 @@ const check = async (outputPath) => {
   )
 }
 
+const ENVIRONMENTS = ['dev', 'test', 'prod']
+
+const PLAYGROUND_FOLDER = 'epr-backend-monitoring'
+
+/**
+ * Two questions worth asking before promoting, neither of which the portal
+ * answers: is anything staged in the playground that would go out with yours,
+ * and do the environments agree.
+ */
+const status = async () => {
+  const snapshots = await Promise.all(
+    ENVIRONMENTS.map(async (environment) => {
+      const { meta, dashboard } = await fetchTarget(environment)
+
+      return {
+        environment,
+        version: meta.version,
+        updated: meta.updated,
+        fingerprint: fingerprint(dashboard)
+      }
+    })
+  )
+
+  snapshots.forEach(({ environment, version, updated }) =>
+    console.log(`  ${environment}: version ${version}, updated ${updated}`)
+  )
+
+  const { inSync, differences } = summariseEnvironments(snapshots)
+
+  console.log(inSync ? '\nenvironments agree' : '')
+  differences.forEach((difference) => console.error(`\n${difference}`))
+
+  const staged = describeStagedWork(await fetchPlayground('dev'))
+
+  if (staged) {
+    console.error(`\n${staged}`)
+  }
+
+  if (!inSync || staged) {
+    process.exit(1)
+  }
+}
+
+/**
+ * Anything sitting in the service's playground folder, which promotion would
+ * carry out alongside our own change.
+ * @param {string} environment
+ */
+const fetchPlayground = async (environment) => {
+  const base = `https://metrics.${environment}.cdp-int.defra.cloud/api`
+
+  /**
+   * @param {string} path
+   * @returns {Promise<any>}
+   */
+  const read = (path) =>
+    fetch(`${base}${path}`).then((response) => response.json())
+
+  const folders = await read('/folders?limit=1000')
+  const playground = folders.find(
+    (/** @type {{ title: string }} */ folder) => folder.title === 'Playground'
+  )
+
+  if (!playground) {
+    return []
+  }
+
+  const sub = await read(`/folders?parentUid=${playground.uid}&limit=1000`)
+  const folder = sub.find(
+    (/** @type {{ title: string }} */ candidate) =>
+      candidate.title === PLAYGROUND_FOLDER
+  )
+
+  if (!folder) {
+    return []
+  }
+
+  const staged = await read(`/search?folderUIDs=${folder.uid}&limit=100`)
+
+  // Playground dashboards are not promoted, so unlike the promoted copies they
+  // carry a real author rather than the platform's -- which is who to ask.
+  return Promise.all(
+    staged.map(
+      async (/** @type {{ uid: string, title: string }} */ { uid, title }) => {
+        const { meta } = await read(`/dashboards/uid/${uid}`)
+
+        return { title, updatedBy: meta.updatedBy, updated: meta.updated }
+      }
+    )
+  )
+}
+
 const [, , mode = 'local', outputPath = 'metrics/kpi-dashboard.json'] =
   process.argv
 
-if (mode === 'check') {
+if (mode === 'status') {
+  await status()
+} else if (mode === 'check') {
   await check(outputPath)
 } else if (mode === 'local') {
   await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)

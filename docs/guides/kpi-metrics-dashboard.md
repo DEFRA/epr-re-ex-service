@@ -118,10 +118,30 @@ new row already in it.
    New → New dashboard → Settings → JSON Model, and paste.
 3. Save, then find the version under Settings → Versions.
 4. Re-check before promoting: `node metrics/build-dashboard.mjs check merged.json`.
-   The playground is shared, and promotion applies whatever is in it to every
-   environment. If the target moved since you generated, promoting yours would
-   revert that change, and nothing else in the flow would say so.
+   If the target moved since you generated, promoting yours would revert that
+   change, and nothing else in the flow would say so.
 5. Promote from the portal: services → the service → Diagnostics → Dev.
+
+Promoting from dev applies the change to **every** environment at once.
+
+## Before you promote
+
+```bash
+node metrics/build-dashboard.mjs status
+```
+
+Answers two questions the portal does not, and exits non-zero if either needs
+attention.
+
+**Is anything staged in the playground?** It is one shared folder per service,
+and promotion takes whatever is in it — so someone else's unfinished dashboard
+would go out with yours. Unlike the promoted copies, playground dashboards carry
+a real author rather than the platform's, so the report names who to ask.
+
+**Do the environments agree?** Since a promotion fans out to all of them,
+environments that disagree mean a promotion in flight, one that failed part way,
+or an environment edited directly. The comparison ignores datasource uids, which
+are rewritten per environment and would otherwise differ every time.
 
 ### What you cannot see
 

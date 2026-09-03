@@ -21,6 +21,7 @@ export const TRANSACTION_END = 'TransactionEnd'
  * can draw a row from more than one -- which is how the operational dashboard
  * this row joins is already organised: by concern, not by service.
  */
+/** @type {Record<string, { namespace: string, constants?: string }>} */
 export const SERVICES = Object.freeze({
   frontend: Object.freeze({
     namespace: 'epr-frontend',
