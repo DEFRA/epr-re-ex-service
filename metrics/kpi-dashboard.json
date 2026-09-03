@@ -51,14 +51,14 @@
       },
       "datasource": {
         "type": "cloudwatch",
-        "uid": "${datasource}"
+        "uid": "$datasource"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -81,7 +81,7 @@
           "refId": "B",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -104,7 +104,7 @@
           "refId": "C",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -127,7 +127,7 @@
           "refId": "D",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -150,7 +150,7 @@
           "refId": "E",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -219,14 +219,14 @@
       },
       "datasource": {
         "type": "cloudwatch",
-        "uid": "${datasource}"
+        "uid": "$datasource"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -249,7 +249,7 @@
           "refId": "B",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -272,7 +272,7 @@
           "refId": "C",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -295,7 +295,7 @@
           "refId": "D",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -318,7 +318,7 @@
           "refId": "E",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -387,14 +387,14 @@
       },
       "datasource": {
         "type": "cloudwatch",
-        "uid": "${datasource}"
+        "uid": "$datasource"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -417,7 +417,7 @@
           "refId": "B",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -440,7 +440,7 @@
           "refId": "C",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -463,7 +463,7 @@
           "refId": "D",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -486,7 +486,7 @@
           "refId": "E",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -509,7 +509,7 @@
           "refId": "F",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -532,7 +532,7 @@
           "refId": "G",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -555,7 +555,7 @@
           "refId": "H",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",
@@ -578,7 +578,7 @@
           "refId": "I",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionStart",
@@ -601,7 +601,7 @@
           "refId": "J",
           "datasource": {
             "type": "cloudwatch",
-            "uid": "${datasource}"
+            "uid": "$datasource"
           },
           "namespace": "epr-frontend",
           "metricName": "TransactionEnd",

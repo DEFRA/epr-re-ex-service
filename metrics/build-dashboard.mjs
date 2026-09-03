@@ -23,6 +23,7 @@
 // against implements neither Metrics Insights nor SEARCH expressions.
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { isAbsolute, relative, resolve } from 'node:path'
 
 import {
   describeDrift,
@@ -39,7 +40,9 @@ import {
   namespaceFor
 } from './journeys.mjs'
 
-const DATASOURCE = { type: 'cloudwatch', uid: '${datasource}' }
+// Grafana's unbraced variable form. The braced ${...} form works identically but
+// reads as an unterminated template literal to static analysis.
+const DATASOURCE = { type: 'cloudwatch', uid: '$datasource' }
 
 const FULL_WIDTH = 24
 const ROW_HEIGHT = 1
@@ -357,11 +360,11 @@ const status = async () => {
     }))
   )
 
-  const snapshots = targets.map(({ environment, meta, dashboard }) => ({
+  const snapshots = targets.map(({ environment, meta, dashboard: target }) => ({
     environment,
     version: meta.version,
     updated: meta.updated,
-    fingerprint: fingerprint(dashboard)
+    fingerprint: fingerprint(target)
   }))
 
   snapshots.forEach(({ environment, version, updated }) =>
@@ -407,7 +410,8 @@ const fetchPlayground = async (environment) => {
 
   const folders = await read('/folders?limit=1000')
   const playground = folders.find(
-    (/** @type {{ title: string }} */ folder) => folder.title === 'Playground'
+    (/** @type {{ title: string }} */ candidate) =>
+      candidate.title === 'Playground'
   )
 
   if (!playground) {
@@ -439,8 +443,27 @@ const fetchPlayground = async (environment) => {
   )
 }
 
-const [, , mode = 'local', outputPath = 'metrics/kpi-dashboard.json'] =
+/**
+ * Output paths come from argv, so resolve them and refuse anything outside the
+ * repository rather than writing wherever a stray ../ points.
+ * @param {string} path
+ */
+const within = (path) => {
+  const root = resolve(import.meta.dirname, '..')
+  const resolved = resolve(root, path)
+  const inside = relative(root, resolved)
+
+  if (inside.startsWith('..') || isAbsolute(inside)) {
+    throw new Error(`refusing to write outside the repository: ${path}`)
+  }
+
+  return resolved
+}
+
+const [, , mode = 'local', requestedPath = 'metrics/kpi-dashboard.json'] =
   process.argv
+
+const outputPath = within(requestedPath)
 
 if (mode === 'status') {
   await status()
