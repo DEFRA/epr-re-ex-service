@@ -1,0 +1,15 @@
+apiVersion: 1
+
+providers:
+  - name: KPI metrics
+    type: file
+    # Picks up metrics/kpi-dashboard.json, so regenerating is enough to see the
+    # change -- no reload, no import step.
+    updateIntervalSeconds: 10
+    # Provisioned dashboards are read-only in the UI unless this is set, and the
+    # UI is where transformation chains are worth building. Save there, then port
+    # the change back into the generator, which owns the file.
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/kpi
+      foldersFromFilesStructure: false

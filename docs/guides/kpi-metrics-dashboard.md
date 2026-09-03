@@ -1,0 +1,110 @@
+# KPI Metrics Dashboard
+
+This guide explains how to build and promote Grafana dashboards for the custom
+metrics the services emit, using a local stand-in for CloudWatch.
+
+## Overview
+
+Tenant dashboards on CDP are built in a playground folder and then promoted, and
+a promoted dashboard cannot be edited in place. Without somewhere local to work,
+every panel tweak costs a deploy and a promotion.
+
+The `compose.metrics.yml` overlay provides that. floci speaks the CloudWatch API,
+so panels built against it use the same queries as the deployed dashboard and
+their JSON transfers unchanged.
+
+## Prerequisites
+
+A running stack. The overlay joins it to reach floci.
+
+## Running
+
+```bash
+npm run dev:metrics
+```
+
+Grafana is then at http://localhost:3300 — anonymous, no login. The KPI dashboard
+is provisioned from `metrics/kpi-dashboard.json`, so regenerating that file is
+enough to see the change; there is no import step.
+
+Seed some representative metrics so panels are laid out against realistic
+numbers rather than empty frames:
+
+```bash
+npm run metrics:seed
+```
+
+Walking journeys by hand also works, and is the real test — but not for every
+iteration of a panel.
+
+## How the metrics get there
+
+`aws-embedded-metrics` never calls `PutMetricData`. It writes an EMF document to
+the CloudWatch agent, which forwards it to CloudWatch Logs, and the Logs service
+extracts the metrics. floci implements the CloudWatch APIs but not that
+extraction, so `metrics/emf-pump.mjs` stands in for both: it listens on the agent
+port and publishes what it receives.
+
+The overlay points all three services at it, and sets `AWS_EMF_NAMESPACE` so the
+documents land in the namespace the deployed environments use.
+
+## Building a dashboard
+
+`metrics/build-dashboard.mjs` generates the JSON. It is generated rather than
+hand written because each journey needs a near identical pair of queries, and the
+dimension values must match what the frontend emits — so they come from
+`metrics/journeys.mjs`, the same list the seeder uses.
+
+```bash
+npm run metrics:dashboard                          # standalone, for local work
+node metrics/build-dashboard.mjs dev out.json      # dev's dashboard plus our row
+node metrics/build-dashboard.mjs check out.json    # has the target moved since?
+```
+
+### Two constraints worth knowing
+
+floci implements `GetMetricData` for explicit queries only. It supports neither
+Metrics Insights SQL nor CloudWatch SEARCH expressions, and returns an empty
+series rather than an error for both. In practice that means **pin an exact
+dimension set and leave `matchExact` on** — a partial match makes Grafana build a
+SEARCH expression, which silently yields nothing.
+
+This is why journey metrics carry a single `journey` dimension rather than the
+`LogGroup`, `ServiceName` and `ServiceType` the library adds by default. One
+dimension is exactly matchable, and carries nothing environment-specific, so the
+same JSON works locally, on dev and in production.
+
+### Transformations
+
+Build transformation chains in Grafana's own UI and port the result into the
+generator, rather than writing the JSON by hand. Grafana fails by rendering
+nothing rather than erroring, so a wrong option name looks identical to missing
+data. The UI shows the effect of each step immediately.
+
+Provisioned dashboards allow UI edits here for that reason. The generator still
+owns the file, so port changes back into it — anything saved only in the UI is
+lost the next time the file is regenerated.
+
+## Promoting
+
+CDP promotes whole dashboards, so the artefact is the target dashboard with the
+new row already in it.
+
+1. Generate against the environment whose playground you will paste into:
+   `node metrics/build-dashboard.mjs dev merged.json`. This fetches the target
+   live and writes a stamp of the version it merged from.
+2. In Grafana for that environment, open `Playground/<service>-monitoring`, then
+   New → New dashboard → Settings → JSON Model, and paste.
+3. Save, then find the version under Settings → Versions.
+4. Re-check before promoting: `node metrics/build-dashboard.mjs check merged.json`.
+   The playground is shared, and promotion applies whatever is in it to every
+   environment. If the target moved since you generated, promoting yours would
+   revert that change, and nothing else in the flow would say so.
+5. Promote from the portal: services → the service → Diagnostics → Dev.
+
+### What you cannot see
+
+Every environment reports the dashboard's author as `admin`, because promotion
+runs as the platform. Grafana's version history needs a login. So the version and
+its timestamp are all the attribution available — enough to tell that something
+moved, not who moved it. Say so in the team channel before editing the playground.

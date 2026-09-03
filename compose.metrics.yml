@@ -39,6 +39,8 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: 'true'
     volumes:
       - ./metrics/grafana-datasource.yml:/etc/grafana/provisioning/datasources/cloudwatch.yml:ro
+      - ./metrics/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/kpi.yml:ro
+      - ./metrics/kpi-dashboard.json:/etc/grafana/provisioning/dashboards/kpi/kpi-dashboard.json:ro
       - grafana-data:/var/lib/grafana
     networks:
       - cdp-tenant

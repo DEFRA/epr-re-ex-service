@@ -5,3 +5,4 @@
 3. [Logging In Locally](local-login.md)
 4. [Admin Logging In Locally](admin-local-login.md)
 5. [Connecting to the Waste Organisations API](connecting-to-the-waste-organisations-api.md)
+6. [KPI Metrics Dashboard](kpi-metrics-dashboard.md)
