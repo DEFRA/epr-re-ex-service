@@ -12,7 +12,37 @@
 export const TRANSACTION_START = 'TransactionStart'
 export const TRANSACTION_END = 'TransactionEnd'
 
-export const NAMESPACE = 'epr-frontend'
+/**
+ * The services that emit custom metrics, and the CloudWatch namespace each
+ * publishes under. The local metrics overlay sets the same namespaces, and
+ * journeys.test.mjs holds the two in step.
+ *
+ * A journey names its service rather than assuming the frontend, so a dashboard
+ * can draw a row from more than one -- which is how the operational dashboard
+ * this row joins is already organised: by concern, not by service.
+ */
+export const SERVICES = Object.freeze({
+  frontend: Object.freeze({
+    namespace: 'epr-frontend',
+    constants: 'lib/epr-frontend/src/server/common/helpers/metrics/constants.js'
+  }),
+  backend: Object.freeze({ namespace: 'epr-backend' }),
+  admin: Object.freeze({ namespace: 'epr-re-ex-admin-frontend' })
+})
+
+/**
+ * @param {string} service
+ * @returns {string}
+ */
+export const namespaceFor = (service) => {
+  const known = SERVICES[service]
+
+  if (!known) {
+    throw new Error(`unknown service '${service}'`)
+  }
+
+  return known.namespace
+}
 
 /**
  * Dimension values the dashboard charts but the frontend does not emit yet.
@@ -28,32 +58,37 @@ export const AWAITING_INSTRUMENTATION = [
 ]
 
 /**
- * @typedef {{ title: string, start: string, end: string }} Journey
+ * @typedef {{ service: string, title: string, start: string, end: string }} Journey
  */
 
 /** @type {Journey[]} */
 export const JOURNEYS = [
   {
+    service: 'frontend',
     title: 'Create a PRN/PERN',
     start: 'SaveOrIssuePRNPERNStart',
     end: 'SaveDraftPRNPERNEnd'
   },
   {
+    service: 'frontend',
     title: 'Issue a PRN/PERN',
     start: 'IssuePRNPERNStart',
     end: 'IssuePRNPERNEnd'
   },
   {
+    service: 'frontend',
     title: 'Create a report',
     start: 'SaveOrSubmitReportStart',
     end: 'SaveDraftReportEnd'
   },
   {
+    service: 'frontend',
     title: 'Submit a report',
     start: 'SubmitReportStart',
     end: 'SubmitReportEnd'
   },
   {
+    service: 'frontend',
     title: 'Upload and submit a summary log',
     start: 'UploadSummaryLogStart',
     end: 'UploadSummaryLogEnd'

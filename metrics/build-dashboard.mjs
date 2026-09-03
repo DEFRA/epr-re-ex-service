@@ -26,9 +26,9 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { describeDrift, mergeIntoTarget, targetStamp } from './dashboard.mjs'
 import {
   JOURNEYS,
-  NAMESPACE,
   TRANSACTION_END,
-  TRANSACTION_START
+  TRANSACTION_START,
+  namespaceFor
 } from './journeys.mjs'
 
 const DATASOURCE = { type: 'cloudwatch', uid: '${datasource}' }
@@ -43,12 +43,12 @@ const TABLE_HEIGHT = 9
  * exactly and needs nothing environment-specific. matchExact stays true: a
  * partial match would make Grafana build a CloudWatch SEARCH expression, which
  * is both looser than we want and unsupported by the local emulator.
- * @param {{ refId: string, metricName: string, journey: string, label: string }} query
+ * @param {{ refId: string, metricName: string, service: string, journey: string, label: string }} query
  */
-const metricQuery = ({ refId, metricName, journey, label }) => ({
+const metricQuery = ({ refId, metricName, service, journey, label }) => ({
   refId,
   datasource: DATASOURCE,
-  namespace: NAMESPACE,
+  namespace: namespaceFor(service),
   metricName,
   dimensions: { journey: [journey] },
   statistic: 'Sum',
@@ -65,20 +65,24 @@ const metricQuery = ({ refId, metricName, journey, label }) => ({
 const letter = (index) => String.fromCharCode('A'.charCodeAt(0) + index)
 
 /** Started and completed for every journey, as one series each. */
-const journeyQueries = JOURNEYS.flatMap(({ title, start, end }, index) => [
-  metricQuery({
-    refId: letter(index * 2),
-    metricName: TRANSACTION_START,
-    journey: start,
-    label: `${title} - started`
-  }),
-  metricQuery({
-    refId: letter(index * 2 + 1),
-    metricName: TRANSACTION_END,
-    journey: end,
-    label: `${title} - completed`
-  })
-])
+const journeyQueries = JOURNEYS.flatMap(
+  ({ service, title, start, end }, index) => [
+    metricQuery({
+      refId: letter(index * 2),
+      metricName: TRANSACTION_START,
+      service,
+      journey: start,
+      label: `${title} - started`
+    }),
+    metricQuery({
+      refId: letter(index * 2 + 1),
+      metricName: TRANSACTION_END,
+      service,
+      journey: end,
+      label: `${title} - completed`
+    })
+  ]
+)
 
 /**
  * @param {{ id: number, title: string, description: string, metricName: string, phase: 'start' | 'end', x: number }} panel
@@ -94,6 +98,7 @@ const totalPanel = ({ id, title, description, metricName, phase, x }) => ({
     metricQuery({
       refId: letter(index),
       metricName,
+      service: journey.service,
       journey: journey[phase],
       label: journey.title
     })

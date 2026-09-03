@@ -52,8 +52,14 @@ documents land in the namespace the deployed environments use.
 
 `metrics/build-dashboard.mjs` generates the JSON. It is generated rather than
 hand written because each journey needs a near identical pair of queries, and the
-dimension values must match what the frontend emits — so they come from
+dimension values must match what the services emit — so they come from
 `metrics/journeys.mjs`, the same list the seeder uses.
+
+`SERVICES` there registers each service that emits custom metrics and the
+CloudWatch namespace it publishes under, and every journey names its service. A
+row can therefore draw from more than one, which is how the dashboard this joins
+is already organised: by concern rather than by service. `Operator Activity`, for
+instance, mixes `epr-frontend` and `epr-backend` panels.
 
 ```bash
 npm run metrics:dashboard                          # standalone, for local work
@@ -81,11 +87,13 @@ have to match what the frontend emits. Rename one there and the dashboard asks
 for a metric nobody publishes any more — which Grafana renders as zero rather
 than as an error, so nothing looks broken.
 
-`metrics/journeys.test.mjs` checks the two lists against each other, reading the
-frontend through `lib/`. It skips when that is not present, so it protects local
+`metrics/journeys.test.mjs` checks the two lists against each other, reading each
+service that declares its journey names in code through `lib/`. It skips when that is not present, so it protects local
 work rather than CI. Values the dashboard charts ahead of the instrumentation
 land in `AWAITING_INSTRUMENTATION`, and the test also fails if one is still
-listed after the frontend starts emitting it, so the list cannot rot.
+listed after the service starts emitting it, so the list cannot rot. The same
+test holds the registry's namespaces in step with the ones the overlay sets,
+since those have to be stated as literals in YAML.
 
 ### Transformations
 
