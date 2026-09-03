@@ -72,6 +72,8 @@ The `summary-log-submitted` event payload is unchanged from ADR-0036:
 { summaryLogId, creditTotal }
 ```
 
+(This ADR does not change the payload. [ADR-0049](./0049-december-waste-prns.md) later adds an optional `decemberCreditTotal` to it; the decomposability invariant above holds for that field too — it is the December-dated subset of the same included row states.)
+
 Membership is the address: the complete row state for a submitted summary log S is `find({ summaryLogIds: S })`, served by a multikey index on the array.
 
 The commit point is unchanged from ADR-0036: **the event append**. No event, no submission — and no reachable row state: memberships and documents tagged only with a `summaryLogId` whose event never landed are inert, because row-state reads only ever query for ids that are on the stream. This kills failure modes 1 and 2 above structurally: a failed or stale writer cannot mutate any existing state — it can only add inert memberships or insert inert documents — and because the change comparison anchors to the latest submitted summary log, its leftovers cannot poison the next submission's writes either.
