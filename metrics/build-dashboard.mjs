@@ -3,6 +3,7 @@
 // Usage:
 //   node metrics/build-dashboard.mjs                 # standalone, for the local rig
 //   node metrics/build-dashboard.mjs dev out.json    # dev's dashboard plus our row
+//   node metrics/build-dashboard.mjs check out.json  # has the target moved since?
 //
 // Generated rather than hand written because every journey needs a near
 // identical pair of queries, and the one thing that must not drift is the
@@ -20,9 +21,9 @@
 // journey list is short and fixed, and the emulator the standalone form is built
 // against implements neither Metrics Insights nor SEARCH expressions.
 
-import { writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 
-import { mergeIntoTarget } from './dashboard.mjs'
+import { describeDrift, mergeIntoTarget, targetStamp } from './dashboard.mjs'
 import {
   JOURNEYS,
   NAMESPACE,
@@ -281,25 +282,60 @@ const fetchTarget = async (environment) => {
     )
   }
 
-  const body = /** @type {{ dashboard: Record<string, any> }} */ (
+  return /** @type {{ meta: Record<string, any>, dashboard: Record<string, any> }} */ (
     await response.json()
   )
-
-  return body.dashboard
 }
 
-const [, , environment = 'local', outputPath = 'metrics/kpi-dashboard.json'] =
+const stampPath = (outputPath) =>
+  `${outputPath.replace(/\.json$/, '')}.target.json`
+
+/**
+ * Promotion takes whatever is in the playground and applies it to every
+ * environment, so a target that has moved since the merge was built is a silent
+ * revert waiting to happen -- and nothing in Grafana or the portal will say so.
+ * @param {string} outputPath
+ */
+const check = async (outputPath) => {
+  const before = JSON.parse(await readFile(stampPath(outputPath), 'utf8'))
+  const drift = describeDrift(
+    before,
+    targetStamp(before.environment, await fetchTarget(before.environment))
+  )
+
+  if (drift) {
+    console.error(drift)
+    process.exit(1)
+  }
+
+  console.log(
+    `${before.environment} is still at version ${before.version} -- safe to paste`
+  )
+}
+
+const [, , mode = 'local', outputPath = 'metrics/kpi-dashboard.json'] =
   process.argv
 
-const output =
-  environment === 'local'
-    ? dashboard
-    : mergeIntoTarget(await fetchTarget(environment), dashboard.panels)
+if (mode === 'check') {
+  await check(outputPath)
+} else if (mode === 'local') {
+  await writeFile(outputPath, `${JSON.stringify(dashboard, null, 2)}\n`)
 
-await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`)
+  console.log(
+    `wrote ${outputPath}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
+  )
+} else {
+  const response = await fetchTarget(mode)
+  const merged = mergeIntoTarget(response.dashboard, dashboard.panels)
+  const stamp = targetStamp(mode, response)
 
-console.log(
-  environment === 'local'
-    ? `wrote ${outputPath}: standalone, ${JOURNEYS.length} journeys, ${journeyQueries.length} queries`
-    : `wrote ${outputPath}: ${environment} dashboard plus ${dashboard.panels.length} panels, ready to paste into the playground`
-)
+  await writeFile(outputPath, `${JSON.stringify(merged, null, 2)}\n`)
+  await writeFile(stampPath(outputPath), `${JSON.stringify(stamp, null, 2)}\n`)
+
+  console.log(
+    `wrote ${outputPath}: ${mode} version ${stamp.version} plus ${dashboard.panels.length} panels`
+  )
+  console.log(
+    `re-check before promoting: node metrics/build-dashboard.mjs check ${outputPath}`
+  )
+}

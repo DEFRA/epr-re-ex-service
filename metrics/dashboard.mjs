@@ -104,3 +104,36 @@ export const mergeIntoTarget = (target, panels) => {
 
   return { ...dashboard, panels: [...target.panels, ...placed] }
 }
+
+/**
+ * What a merge was built from, so it can be checked again before promoting.
+ * Nothing attributes a change to a person: promotion runs as the platform, so
+ * every environment reports admin as the author, and the version history
+ * endpoint needs a login. Version and timestamp are all that is readable, and
+ * they are enough to tell that something moved.
+ * @param {string} environment
+ * @param {{ meta: Record<string, any>, dashboard: Record<string, any> }} response
+ */
+export const targetStamp = (environment, { meta, dashboard }) => ({
+  environment,
+  uid: dashboard.uid,
+  version: meta.version,
+  updated: meta.updated
+})
+
+/**
+ * @param {ReturnType<typeof targetStamp>} before
+ * @param {ReturnType<typeof targetStamp>} after
+ * @returns {string | null} why the target is no longer what was merged from
+ */
+export const describeDrift = (before, after) => {
+  if (before.version !== after.version) {
+    return `${before.environment} moved from version ${before.version} to ${after.version} since this was generated -- regenerate, or promoting will revert whatever changed`
+  }
+
+  if (before.updated !== after.updated) {
+    return `${before.environment} was edited at ${after.updated} without the version moving -- someone may have work in progress there`
+  }
+
+  return null
+}

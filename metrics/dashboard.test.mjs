@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
   cloudwatchDatasourceUid,
   contentBottom,
+  describeDrift,
   maxPanelId,
-  mergeIntoTarget
+  mergeIntoTarget,
+  targetStamp
 } from './dashboard.mjs'
 
 const datasource = { type: 'cloudwatch', uid: 'target-uid' }
@@ -126,6 +128,50 @@ describe('#dashboard', () => {
       mergeIntoTarget(target, ours)
 
       expect(ours[1].datasource?.uid).toBe('${datasource}')
+    })
+  })
+
+  describe('targetStamp', () => {
+    it('should record what the merge was built from', () => {
+      const stamp = targetStamp('dev', {
+        meta: { version: 3, updated: '2026-09-02T14:21:07Z' },
+        dashboard: { uid: 'abc' }
+      })
+
+      expect(stamp).toStrictEqual({
+        environment: 'dev',
+        uid: 'abc',
+        version: 3,
+        updated: '2026-09-02T14:21:07Z'
+      })
+    })
+  })
+
+  describe('describeDrift', () => {
+    const stamp = {
+      environment: 'dev',
+      uid: 'abc',
+      version: 3,
+      updated: '2026-09-02T14:21:07Z'
+    }
+
+    it('should report nothing when the target has not moved', () => {
+      expect(describeDrift(stamp, stamp)).toBeNull()
+    })
+
+    it('should report a target promoted since the merge was built', () => {
+      const drift = describeDrift(stamp, { ...stamp, version: 4 })
+
+      expect(drift).toMatch(/version 3 .*4/)
+    })
+
+    it('should report an edit that did not move the version', () => {
+      const drift = describeDrift(stamp, {
+        ...stamp,
+        updated: '2026-09-03T09:00:00Z'
+      })
+
+      expect(drift).toMatch(/2026-09-03T09:00:00Z/)
     })
   })
 })
