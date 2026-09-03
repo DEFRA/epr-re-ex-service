@@ -259,20 +259,36 @@ describe('#dashboard', () => {
     })
   })
 
-  // Promotion takes whatever is sitting in the playground, so anything there is
-  // somebody's unfinished work that would go out with yours.
+  // Dashboards are promoted one at a time, unlike alerts which go as a group.
+  // So staged work only rides along with yours if it is the same dashboard --
+  // anything else is just someone's unfinished work sitting there.
   describe('describeStagedWork', () => {
+    const target = 'epr-backend (epr-re-ex-service)'
+
     it('should report nothing when the playground is empty', () => {
-      expect(describeStagedWork([])).toBeNull()
+      expect(describeStagedWork([], target)).toBeNull()
     })
 
-    it('should name what is staged and who last touched it', () => {
-      const staged = describeStagedWork([
-        { title: 'epr-backend (custom)', updatedBy: 'someone@defra' }
-      ])
+    it('should warn that staged work on the same dashboard would be overwritten', () => {
+      const staged = describeStagedWork(
+        [{ title: target, updatedBy: 'someone@defra' }],
+        target
+      )
 
-      expect(staged).toMatch(/epr-backend \(custom\)/)
-      expect(staged).toMatch(/someone@defra/)
+      expect(staged?.blocking).toBe(true)
+      expect(staged?.message).toMatch(/someone@defra/)
+      expect(staged?.message).toMatch(/overwrit/i)
+    })
+
+    it('should mention other staged dashboards without treating them as blocking', () => {
+      const staged = describeStagedWork(
+        [{ title: 'epr-backend (custom)', updatedBy: 'someone@defra' }],
+        target
+      )
+
+      expect(staged?.blocking).toBe(false)
+      expect(staged?.message).toMatch(/epr-backend \(custom\)/)
+      expect(staged?.message).not.toMatch(/overwrit/i)
     })
   })
 })

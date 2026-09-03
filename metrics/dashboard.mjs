@@ -200,16 +200,41 @@ export const summariseEnvironments = (snapshots) => {
 }
 
 /**
+ * Dashboards are promoted one at a time, so staged work only goes out with yours
+ * if it is the same dashboard. Anything else in the folder is someone's
+ * unfinished work: worth knowing about, not a reason to stop.
+ *
+ * Playground copies are not promoted, so unlike the promoted ones they carry a
+ * real author rather than the platform's -- which is who to ask.
  * @param {{ title: string, updatedBy?: string, updated?: string }[]} staged
- * @returns {string | null}
+ * @param {string} targetTitle
+ * @returns {{ blocking: boolean, message: string } | null}
  */
-export const describeStagedWork = (staged) =>
-  staged.length === 0
-    ? null
-    : `unpromoted work is staged in the playground and would go out with yours: ${staged
-        .map(({ title, updatedBy, updated }) =>
-          updatedBy
-            ? `${title} (last touched by ${updatedBy}${updated ? ` on ${updated}` : ''})`
-            : title
-        )
+export const describeStagedWork = (staged, targetTitle) => {
+  if (staged.length === 0) {
+    return null
+  }
+
+  const describe = ({ title, updatedBy, updated }) =>
+    updatedBy
+      ? `${title} (last touched by ${updatedBy}${updated ? ` on ${updated}` : ''})`
+      : title
+
+  const sameDashboard = staged.filter(({ title }) => title === targetTitle)
+
+  if (sameDashboard.length > 0) {
+    return {
+      blocking: true,
+      message: `the playground already holds a copy of the dashboard you are about to edit, and saving over it would overwrite that work: ${sameDashboard
+        .map(describe)
         .join(', ')}`
+    }
+  }
+
+  return {
+    blocking: false,
+    message: `other unpromoted work is sitting in the playground, which promoting yours will not disturb: ${staged
+      .map(describe)
+      .join(', ')}`
+  }
+}

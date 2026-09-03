@@ -336,18 +336,19 @@ const PLAYGROUND_FOLDER = 'epr-backend-monitoring'
  * and do the environments agree.
  */
 const status = async () => {
-  const snapshots = await Promise.all(
-    ENVIRONMENTS.map(async (environment) => {
-      const { meta, dashboard } = await fetchTarget(environment)
-
-      return {
-        environment,
-        version: meta.version,
-        updated: meta.updated,
-        fingerprint: fingerprint(dashboard)
-      }
-    })
+  const targets = await Promise.all(
+    ENVIRONMENTS.map(async (environment) => ({
+      environment,
+      ...(await fetchTarget(environment))
+    }))
   )
+
+  const snapshots = targets.map(({ environment, meta, dashboard }) => ({
+    environment,
+    version: meta.version,
+    updated: meta.updated,
+    fingerprint: fingerprint(dashboard)
+  }))
 
   snapshots.forEach(({ environment, version, updated }) =>
     console.log(`  ${environment}: version ${version}, updated ${updated}`)
@@ -355,16 +356,22 @@ const status = async () => {
 
   const { inSync, differences } = summariseEnvironments(snapshots)
 
-  console.log(inSync ? '\nenvironments agree' : '')
-  differences.forEach((difference) => console.error(`\n${difference}`))
-
-  const staged = describeStagedWork(await fetchPlayground('dev'))
-
-  if (staged) {
-    console.error(`\n${staged}`)
+  if (inSync) {
+    console.log('\nenvironments agree')
   }
 
-  if (!inSync || staged) {
+  differences.forEach((difference) => console.error(`\n${difference}`))
+
+  const staged = describeStagedWork(
+    await fetchPlayground('dev'),
+    targets[0].dashboard.title
+  )
+
+  if (staged) {
+    console[staged.blocking ? 'error' : 'log'](`\n${staged.message}`)
+  }
+
+  if (!inSync || staged?.blocking) {
     process.exit(1)
   }
 }

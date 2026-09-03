@@ -133,10 +133,13 @@ node metrics/build-dashboard.mjs status
 Answers two questions the portal does not, and exits non-zero if either needs
 attention.
 
-**Is anything staged in the playground?** It is one shared folder per service,
-and promotion takes whatever is in it — so someone else's unfinished dashboard
-would go out with yours. Unlike the promoted copies, playground dashboards carry
-a real author rather than the platform's, so the report names who to ask.
+**Is anything staged in the playground?** The folder is shared per service and
+holds one working copy per dashboard. Dashboards are promoted one at a time, so
+another dashboard's staged work will not go out with yours — but a staged copy of
+_the dashboard you are about to edit_ is someone's unfinished work that you would
+save over. Only that case is treated as blocking. Unlike the promoted copies,
+playground dashboards carry a real author rather than the platform's, so the
+report names who to ask.
 
 **Do the environments agree?** Since a promotion fans out to all of them,
 environments that disagree mean a promotion in flight, one that failed part way,
