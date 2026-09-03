@@ -37,6 +37,17 @@ npm run metrics:seed
 Walking journeys by hand also works, and is the real test — but not for every
 iteration of a panel.
 
+Seeding repeatedly accumulates, so figures inflate across runs while the ratios
+stay right. To start from nothing:
+
+```bash
+npm run metrics:reset
+```
+
+The emulator keeps its state in memory, so recreating it clears every metric.
+`floci-init` runs alongside to put the buckets and queues back, which the uploader
+needs — without it, uploads break until the stack is restarted.
+
 ## How the metrics get there
 
 `aws-embedded-metrics` never calls `PutMetricData`. It writes an EMF document to

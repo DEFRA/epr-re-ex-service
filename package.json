@@ -14,6 +14,7 @@
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
     "lint:types": "tsc -p jsconfig.typecheck.json",
     "metrics:dashboard": "node metrics/build-dashboard.mjs",
+    "metrics:reset": "docker compose -f compose.yml -f compose.metrics.yml up -d --force-recreate floci floci-init",
     "metrics:seed": "docker compose -f compose.yml -f compose.metrics.yml exec emf-pump node seed.mjs",
     "postinstall": "npm run setup:husky",
     "seed:stub": "node scripts/seed-defra-id-stub.mjs",
