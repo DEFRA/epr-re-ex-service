@@ -191,7 +191,7 @@
                   '200':
                     {
                       'description': 'Single organisation',
-                      'schema': { 'type': 'object' }
+                      'schema': { '$ref': '#/definitions/OrganisationResponse' }
                     }
                 }
             }
@@ -431,6 +431,44 @@
                             },
                           'required': ['systemLogs', 'hasMore']
                         }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/accreditations/{accreditationId}/overseas-sites':
+        {
+          'get':
+            {
+              'operationId': 'getAccreditationOverseasSites',
+              'tags': ['overseas-sites'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'accreditationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Overseas sites resolved for this accreditation\'s registration, keyed by ORS id',
+                      'schema':
+                        { '$ref': '#/definitions/AccreditationOverseasSitesResponse' }
                     }
                 }
             }
@@ -2595,6 +2633,644 @@
                 }
             },
           'required': ['form']
+        },
+      'OrganisationFormFileUpload':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'defraFormUploadedFileId': { 'type': 'string' },
+              'defraFormUserDownloadLink': { 'type': 'string' },
+              's3Uri': { 'type': 'string' }
+            },
+          'required': ['defraFormUploadedFileId', 'defraFormUserDownloadLink']
+        },
+      'OrganisationFormSubmission':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'time': { 'type': 'string', 'format': 'date-time' }
+            },
+          'required': ['id', 'time']
+        },
+      'OrganisationAddress':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'line1': { 'type': 'string' },
+              'line2': { 'type': 'string' },
+              'town': { 'type': 'string' },
+              'county': { 'type': 'string' },
+              'country': { 'type': 'string' },
+              'postcode': { 'type': 'string' },
+              'region': { 'type': 'string' },
+              'fullAddress': { 'type': 'string' }
+            }
+        },
+      'OrganisationCompanyDetails':
+        {
+          'type': 'object',
+          'description': 'registrationNumber is not a real field on this object — see RA-526 typedef audit',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'tradingName': { 'type': 'string' },
+              'companiesHouseNumber': { 'type': 'string' },
+              'registeredAddress': { '$ref': '#/definitions/OrganisationAddress' },
+              'address': { '$ref': '#/definitions/OrganisationAddress' }
+            },
+          'required': ['name']
+        },
+      'OrganisationUser':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'fullName': { 'type': 'string' },
+              'email': { 'type': 'string' },
+              'phone': { 'type': 'string' },
+              'role': { 'type': 'string' },
+              'title': { 'type': 'string' }
+            },
+          'required': ['fullName', 'email', 'phone']
+        },
+      'OrganisationCollatedUser':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'contactId': { 'type': 'string' },
+              'fullName': { 'type': 'string' },
+              'email': { 'type': 'string' },
+              'roles':
+                {
+                  'type': 'array',
+                  'items':
+                    { 'type': 'string', 'enum': ['initial_user', 'standard_user'] }
+                }
+            },
+          'required': ['fullName', 'email', 'roles']
+        },
+      'OrganisationLinkedDefraOrganisation':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'orgId': { 'type': 'string' },
+              'orgName': { 'type': 'string' },
+              'linkedAt': { 'type': 'string', 'format': 'date-time' },
+              'linkedBy':
+                {
+                  'type': 'object',
+                  'properties':
+                    { 'email': { 'type': 'string' }, 'id': { 'type': 'string' } },
+                  'required': ['email', 'id']
+                }
+            },
+          'required': ['orgId', 'orgName', 'linkedAt', 'linkedBy']
+        },
+      'OrganisationStatusHistoryItem':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'status': { 'type': 'string' },
+              'updatedAt': { 'type': 'string', 'format': 'date-time' },
+              'updatedBy': { 'type': 'string' }
+            },
+          'required': ['status', 'updatedAt']
+        },
+      'OrganisationPartner':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'type': { 'type': 'string', 'enum': ['company', 'individual'] }
+            },
+          'required': ['name', 'type']
+        },
+      'OrganisationPartnership':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'type': { 'type': 'string', 'enum': ['ltd', 'ltd_liability'] },
+              'partners':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationPartner' }
+                }
+            },
+          'required': ['type']
+        },
+      'OrganisationSiteCapacity':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'material':
+                {
+                  'type': 'string',
+                  'enum':
+                    [
+                      'aluminium',
+                      'fibre',
+                      'glass',
+                      'paper',
+                      'plastic',
+                      'steel',
+                      'wood'
+                    ]
+                },
+              'siteCapacityInTonnes': { 'type': 'number' },
+              'siteCapacityTimescale':
+                { 'type': 'string', 'enum': ['weekly', 'monthly', 'yearly'] }
+            },
+          'required':
+            ['material', 'siteCapacityInTonnes', 'siteCapacityTimescale']
+        },
+      'OrganisationRegistrationSite':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'address': { '$ref': '#/definitions/OrganisationAddress' },
+              'gridReference': { 'type': 'string' },
+              'siteCapacity':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationSiteCapacity' }
+                }
+            },
+          'required': ['address', 'gridReference', 'siteCapacity']
+        },
+      'OrganisationWasteExemption':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'reference': { 'type': 'string' },
+              'exemptionCode': { 'type': 'string' },
+              'materials':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'string',
+                      'enum':
+                        [
+                          'aluminium',
+                          'fibre',
+                          'glass',
+                          'paper',
+                          'plastic',
+                          'steel',
+                          'wood'
+                        ]
+                    }
+                }
+            },
+          'required': ['reference', 'exemptionCode', 'materials']
+        },
+      'OrganisationAuthorisedMaterial':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'material':
+                {
+                  'type': 'string',
+                  'enum':
+                    [
+                      'aluminium',
+                      'fibre',
+                      'glass',
+                      'paper',
+                      'plastic',
+                      'steel',
+                      'wood'
+                    ]
+                },
+              'authorisedWeightInTonnes': { 'type': 'number' },
+              'timeScale':
+                { 'type': 'string', 'enum': ['weekly', 'monthly', 'yearly'] }
+            },
+          'required': ['material', 'authorisedWeightInTonnes', 'timeScale']
+        },
+      'OrganisationWasteManagementPermit':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'type':
+                {
+                  'type': 'string',
+                  'enum':
+                    [
+                      'environmental_permit',
+                      'installation_permit',
+                      'waste_exemption'
+                    ]
+                },
+              'permitNumber': { 'type': 'string' },
+              'exemptions':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationWasteExemption' }
+                },
+              'authorisedMaterials':
+                {
+                  'type': 'array',
+                  'items':
+                    { '$ref': '#/definitions/OrganisationAuthorisedMaterial' }
+                }
+            },
+          'required': ['type']
+        },
+      'OrganisationAccreditationAddress':
+        {
+          'type': 'object',
+          'properties':
+            { 'line1': { 'type': 'string' }, 'postcode': { 'type': 'string' } },
+          'required': ['line1', 'postcode']
+        },
+      'OrganisationAccreditationSite':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'address':
+                { '$ref': '#/definitions/OrganisationAccreditationAddress' }
+            },
+          'required': ['address']
+        },
+      'OrganisationPrnIncomeBusinessPlan':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'detailedExplanation': { 'type': 'string' },
+              'percentIncomeSpent': { 'type': 'number' },
+              'usageDescription': { 'type': 'string' }
+            },
+          'required':
+            ['detailedExplanation', 'percentIncomeSpent', 'usageDescription']
+        },
+      'OrganisationPrnIssuance':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'incomeBusinessPlan':
+                {
+                  'type': 'array',
+                  'items':
+                    { '$ref': '#/definitions/OrganisationPrnIncomeBusinessPlan' }
+                },
+              'signatories':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationUser' }
+                },
+              'tonnageBand':
+                {
+                  'type': 'string',
+                  'enum':
+                    ['up_to_500', 'up_to_5000', 'up_to_10000', 'over_10000']
+                }
+            },
+          'required': ['incomeBusinessPlan', 'signatories', 'tonnageBand']
+        },
+      'OrganisationYearlyMetricsFlow':
+        {
+          'type': 'object',
+          'description': 'Shared shape for a yearly-metrics input or output entry — not every field applies to both',
+          'properties':
+            {
+              'type': { 'type': 'string', 'enum': ['actual', 'estimated'] },
+              'ukPackagingWasteInTonnes': { 'type': 'number' },
+              'nonUkPackagingWasteInTonnes': { 'type': 'number' },
+              'nonPackagingWasteInTonnes': { 'type': 'number' },
+              'sentToAnotherSiteInTonnes': { 'type': 'number' },
+              'contaminantsInTonnes': { 'type': 'number' },
+              'processLossInTonnes': { 'type': 'number' }
+            }
+        },
+      'OrganisationRawMaterialInput':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'material': { 'type': 'string' },
+              'weightInTonnes': { 'type': 'number' }
+            },
+          'required': ['material', 'weightInTonnes']
+        },
+      'OrganisationProductMadeFromRecycling':
+        {
+          'type': 'object',
+          'properties':
+            { 'name': { 'type': 'string' }, 'weightInTonnes': { 'type': 'number' } },
+          'required': ['name', 'weightInTonnes']
+        },
+      'OrganisationYearlyMetrics':
+        {
+          'type': 'object',
+          'description': 'A reprocessor registration\'s declared input/output tonnages for a single year',
+          'properties':
+            {
+              'year': { 'type': 'number' },
+              'input': { '$ref': '#/definitions/OrganisationYearlyMetricsFlow' },
+              'rawMaterialInputs':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationRawMaterialInput' }
+                },
+              'output': { '$ref': '#/definitions/OrganisationYearlyMetricsFlow' },
+              'productsMadeFromRecycling':
+                {
+                  'type': 'array',
+                  'items':
+                    { '$ref': '#/definitions/OrganisationProductMadeFromRecycling' }
+                }
+            },
+          'required':
+            ['year', 'input', 'rawMaterialInputs', 'output', 'productsMadeFromRecycling']
+        },
+      'OrganisationAccreditation':
+        {
+          'type': 'object',
+          'description': 'An accreditation, either as a member of organisation.accreditations or embedded on its linked registration',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'status':
+                {
+                  'type': 'string',
+                  'enum':
+                    ['created', 'approved', 'cancelled', 'rejected', 'suspended']
+                },
+              'accreditationNumber':
+                {
+                  'type': 'string',
+                  'description': 'null until the accreditation is approved/suspended'
+                },
+              'validFrom': { 'type': 'string', 'format': 'date-time' },
+              'validTo': { 'type': 'string', 'format': 'date-time' },
+              'reprocessingType': { 'type': 'string', 'enum': ['input', 'output'] },
+              'submittedToRegulator':
+                { 'type': 'string', 'enum': ['ea', 'nrw', 'sepa', 'niea'] },
+              'orgName': { 'type': 'string' },
+              'site': { '$ref': '#/definitions/OrganisationAccreditationSite' },
+              'material':
+                {
+                  'type': 'string',
+                  'enum':
+                    [
+                      'aluminium',
+                      'fibre',
+                      'glass',
+                      'paper',
+                      'plastic',
+                      'steel',
+                      'wood'
+                    ]
+                },
+              'glassRecyclingProcess':
+                {
+                  'type': 'array',
+                  'items':
+                    { 'type': 'string', 'enum': ['glass_re_melt', 'glass_other'] }
+                },
+              'wasteProcessingType':
+                { 'type': 'string', 'enum': ['reprocessor', 'exporter'] },
+              'formSubmission': { '$ref': '#/definitions/OrganisationFormSubmission' },
+              'prnIssuance': { '$ref': '#/definitions/OrganisationPrnIssuance' },
+              'submitterContactDetails': { '$ref': '#/definitions/OrganisationUser' },
+              'samplingInspectionPlanPart2FileUploads':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationFormFileUpload' }
+                },
+              'orsFileUploads':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationFormFileUpload' }
+                },
+              'statusHistory':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationStatusHistoryItem' }
+                }
+            },
+          'required':
+            [
+              'id',
+              'status',
+              'submittedToRegulator',
+              'orgName',
+              'material',
+              'wasteProcessingType',
+              'formSubmission',
+              'prnIssuance',
+              'submitterContactDetails',
+              'samplingInspectionPlanPart2FileUploads',
+              'statusHistory'
+            ]
+        },
+      'OrganisationRegistration':
+        {
+          'type': 'object',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'status':
+                { 'type': 'string', 'enum': ['created', 'approved', 'cancelled', 'rejected'] },
+              'accreditation':
+                {
+                  'description': 'null when this registration has no linked accreditation yet',
+                  '$ref': '#/definitions/OrganisationAccreditation'
+                },
+              'accreditationId': { 'type': 'string' },
+              'registrationNumber':
+                {
+                  'type': 'string',
+                  'description': 'null until the registration is approved'
+                },
+              'validFrom': { 'type': 'string', 'format': 'date-time' },
+              'validTo': { 'type': 'string', 'format': 'date-time' },
+              'applicationContactDetails': { '$ref': '#/definitions/OrganisationUser' },
+              'approvedPersons':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationUser' }
+                },
+              'cbduNumber': { 'type': 'string' },
+              'exportPorts': { 'type': 'array', 'items': { 'type': 'string' } },
+              'formSubmission': { '$ref': '#/definitions/OrganisationFormSubmission' },
+              'material':
+                {
+                  'type': 'string',
+                  'enum':
+                    [
+                      'aluminium',
+                      'fibre',
+                      'glass',
+                      'paper',
+                      'plastic',
+                      'steel',
+                      'wood'
+                    ]
+                },
+              'glassRecyclingProcess':
+                {
+                  'type': 'array',
+                  'items':
+                    { 'type': 'string', 'enum': ['glass_re_melt', 'glass_other'] }
+                },
+              'noticeAddress': { '$ref': '#/definitions/OrganisationAddress' },
+              'orgName': { 'type': 'string' },
+              'orsFileUploads':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationFormFileUpload' }
+                },
+              'plantEquipmentDetails': { 'type': 'string' },
+              'samplingInspectionPlanPart1FileUploads':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationFormFileUpload' }
+                },
+              'site': { '$ref': '#/definitions/OrganisationRegistrationSite' },
+              'submittedToRegulator':
+                { 'type': 'string', 'enum': ['ea', 'nrw', 'sepa', 'niea'] },
+              'submitterContactDetails': { '$ref': '#/definitions/OrganisationUser' },
+              'suppliers': { 'type': 'string' },
+              'wasteManagementPermits':
+                {
+                  'type': 'array',
+                  'items':
+                    { '$ref': '#/definitions/OrganisationWasteManagementPermit' }
+                },
+              'wasteProcessingType':
+                { 'type': 'string', 'enum': ['reprocessor', 'exporter'] },
+              'reprocessingType': { 'type': 'string', 'enum': ['input', 'output'] },
+              'overseasSites':
+                {
+                  'type': 'object',
+                  'description': 'Map keyed by the registration\'s 3-digit ORS id, each value { overseasSiteId }'
+                },
+              'yearlyMetrics':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationYearlyMetrics' }
+                },
+              'statusHistory':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationStatusHistoryItem' }
+                }
+            },
+          'required':
+            [
+              'id',
+              'status',
+              'formSubmission',
+              'material',
+              'orgName',
+              'submittedToRegulator',
+              'submitterContactDetails',
+              'suppliers',
+              'wasteProcessingType',
+              'samplingInspectionPlanPart1FileUploads',
+              'statusHistory'
+            ]
+        },
+      'OrganisationResponse':
+        {
+          'type': 'object',
+          'description': 'The full Organisation record as stored — see src/domain/organisations/model.js in epr-backend',
+          'properties':
+            {
+              'id': { 'type': 'string' },
+              'orgId': { 'type': 'number' },
+              'version': { 'type': 'number' },
+              'schemaVersion': { 'type': 'number' },
+              'status':
+                {
+                  'type': 'string',
+                  'enum': ['created', 'approved', 'active', 'rejected']
+                },
+              'statusHistory':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationStatusHistoryItem' }
+                },
+              'businessType':
+                {
+                  'type': 'string',
+                  'enum': ['individual', 'unincorporated', 'partnership']
+                },
+              'companyDetails': { '$ref': '#/definitions/OrganisationCompanyDetails' },
+              'formSubmission': { '$ref': '#/definitions/OrganisationFormSubmission' },
+              'linkedDefraOrganisation':
+                { '$ref': '#/definitions/OrganisationLinkedDefraOrganisation' },
+              'managementContactDetails': { '$ref': '#/definitions/OrganisationUser' },
+              'partnership': { '$ref': '#/definitions/OrganisationPartnership' },
+              'registrations':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationRegistration' }
+                },
+              'accreditations':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationAccreditation' }
+                },
+              'reprocessingNations':
+                {
+                  'type': 'array',
+                  'items':
+                    {
+                      'type': 'string',
+                      'enum':
+                        ['england', 'wales', 'scotland', 'northern_ireland']
+                    }
+                },
+              'submittedToRegulator':
+                { 'type': 'string', 'enum': ['ea', 'nrw', 'sepa', 'niea'] },
+              'submitterContactDetails': { '$ref': '#/definitions/OrganisationUser' },
+              'users':
+                {
+                  'type': 'array',
+                  'items': { '$ref': '#/definitions/OrganisationCollatedUser' }
+                }
+            },
+          'required':
+            ['id', 'orgId', 'version', 'status', 'companyDetails', 'registrations', 'accreditations']
+        },
+      'AccreditationOverseasSite':
+        {
+          'type': 'object',
+          'description': 'Fields are null when the referenced overseas-site record cannot be found',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'country': { 'type': 'string' },
+              'address': { '$ref': '#/definitions/OverseasSiteAddress' },
+              'coordinates': { 'type': 'string' },
+              'validFrom': { 'type': 'string', 'format': 'date-time' }
+            }
+        },
+      'AccreditationOverseasSitesResponse':
+        {
+          'type': 'object',
+          'description': 'Map keyed by the 3-digit ORS id',
+          'additionalProperties': { '$ref': '#/definitions/AccreditationOverseasSite' }
         }
     }
 }
