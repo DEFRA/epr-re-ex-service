@@ -8,6 +8,7 @@ For related context, see:
 
 - [ADR 24: Create PRN API strategy](../decisions/0024-create-prn-api-strategy.md) - how draft PRNs are created and incrementally updated
 - [ADR 36: Event-sourced waste balance stream](../decisions/0036-event-sourced-waste-balance-stream.md) - the stream the balance effects append to
+- [ADR 49: December-waste PRNs](../decisions/0049-december-waste-prns.md) - the additive December dimension the balance checks gate on
 
 <!-- prettier-ignore-start -->
 <!-- TOC -->
@@ -27,24 +28,24 @@ For related context, see:
 
 ## States
 
-| Status                   | Description                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `draft`                  | PRN details being entered. Not yet created.                                                                   |
-| `awaiting_authorisation` | PRN created by the reprocessor/exporter, awaiting a signatory to issue it. Available balance is ringfenced.   |
-| `awaiting_acceptance`    | PRN authorised and issued. PRN number allocated, total balance deducted. Awaiting producer/scheme acceptance. |
-| `accepted`               | Producer/compliance scheme accepted the PRN. May be cancelled by a service maintainer (via the admin portal) until 31 January of the following compliance year. |
-| `awaiting_cancellation`  | Producer/compliance scheme rejected the PRN. Awaiting the signatory to cancel it.                             |
+| Status                   | Description                                                                                                                                                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `draft`                  | PRN details being entered. Not yet created.                                                                                                                                                                                                                                                           |
+| `awaiting_authorisation` | PRN created by the reprocessor/exporter, awaiting a signatory to issue it. Available balance is ringfenced.                                                                                                                                                                                           |
+| `awaiting_acceptance`    | PRN authorised and issued. PRN number allocated, total balance deducted. Awaiting producer/scheme acceptance.                                                                                                                                                                                         |
+| `accepted`               | Producer/compliance scheme accepted the PRN. May be cancelled by a service maintainer (via the admin portal) until 31 January of the following compliance year.                                                                                                                                       |
+| `awaiting_cancellation`  | Producer/compliance scheme rejected the PRN. Awaiting the signatory to cancel it.                                                                                                                                                                                                                     |
 | `cancelled`              | PRN cancelled after issue. Waste balance fully reversed. Terminal state. May be reached directly from `awaiting_acceptance` — a service maintainer (via the admin portal) can cancel a note stranded awaiting the recipient's response, until 31 January of the following compliance year (PAE-1859). |
-| `deleted`                | PRN deleted before issue. Ringfenced balance released. Terminal state.                                        |
-| `discarded`              | Draft discarded before creation. No balance interaction. Terminal state.                                      |
+| `deleted`                | PRN deleted before issue. Ringfenced balance released. Terminal state.                                                                                                                                                                                                                                |
+| `discarded`              | Draft discarded before creation. No balance interaction. Terminal state.                                                                                                                                                                                                                              |
 
 ## Actors
 
-| Actor                        | Code value             | Actions                                                                |
-| ---------------------------- | ---------------------- | ---------------------------------------------------------------------- |
-| Reprocessor / Exporter       | `reprocessor_exporter` | Enters PRN details (draft), creates PRN, discards draft                |
-| PRN Signatory                | `signatory`            | Authorises & issues, deletes (pre-issue), cancels (post-rejection)     |
-| Producer / Compliance Scheme | `producer`             | Accepts or rejects an issued PRN (via the external API)                |
+| Actor                        | Code value             | Actions                                                                                                                                 |
+| ---------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Reprocessor / Exporter       | `reprocessor_exporter` | Enters PRN details (draft), creates PRN, discards draft                                                                                 |
+| PRN Signatory                | `signatory`            | Authorises & issues, deletes (pre-issue), cancels (post-rejection)                                                                      |
+| Producer / Compliance Scheme | `producer`             | Accepts or rejects an issued PRN (via the external API)                                                                                 |
 | Service Maintainer           | `service_maintainer`   | Cancels an `accepted` PRN (PAE-1823) or an `awaiting_acceptance` PRN (PAE-1859) via the admin portal, within the compliance-year window |
 
 ## Diagram
@@ -78,17 +79,17 @@ stateDiagram-v2
 
 ## Transitions in detail
 
-| From                     | To                       | Actor                | Trigger           | Stream event                | Balance effect           |
-| ------------------------ | ------------------------ | -------------------- | ----------------- | --------------------------- | ------------------------ |
-| `draft`                  | `awaiting_authorisation` | Reprocessor/Exporter | Create PRN        | `PRN_CREATED`               | Deduct available balance |
-| `draft`                  | `discarded`              | Reprocessor/Exporter | Discard draft     | _(none)_                    | None                     |
-| `awaiting_authorisation` | `awaiting_acceptance`    | Signatory            | Authorise & issue | `PRN_ISSUED`                | Deduct total balance     |
-| `awaiting_authorisation` | `deleted`                | Signatory            | Delete PRN        | `PRN_CREATION_CANCELLED`    | Credit available balance |
-| `awaiting_acceptance`    | `accepted`               | Producer             | Accept PRN        | `PRN_ACCEPTED`              | None (status only)       |
-| `awaiting_acceptance`    | `awaiting_cancellation`  | Producer             | Reject PRN        | `PRN_REJECTED`              | None (status only)       |
-| `awaiting_cancellation`  | `cancelled`              | Signatory            | Cancel PRN        | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance      |
-| `accepted`               | `cancelled`              | Service Maintainer   | Cancel PRN (admin portal) | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance |
-| `awaiting_acceptance`    | `cancelled`              | Service Maintainer   | Cancel PRN (admin portal) | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance |
+| From                     | To                       | Actor                | Trigger                   | Stream event                | Balance effect           |
+| ------------------------ | ------------------------ | -------------------- | ------------------------- | --------------------------- | ------------------------ |
+| `draft`                  | `awaiting_authorisation` | Reprocessor/Exporter | Create PRN                | `PRN_CREATED`               | Deduct available balance |
+| `draft`                  | `discarded`              | Reprocessor/Exporter | Discard draft             | _(none)_                    | None                     |
+| `awaiting_authorisation` | `awaiting_acceptance`    | Signatory            | Authorise & issue         | `PRN_ISSUED`                | Deduct total balance     |
+| `awaiting_authorisation` | `deleted`                | Signatory            | Delete PRN                | `PRN_CREATION_CANCELLED`    | Credit available balance |
+| `awaiting_acceptance`    | `accepted`               | Producer             | Accept PRN                | `PRN_ACCEPTED`              | None (status only)       |
+| `awaiting_acceptance`    | `awaiting_cancellation`  | Producer             | Reject PRN                | `PRN_REJECTED`              | None (status only)       |
+| `awaiting_cancellation`  | `cancelled`              | Signatory            | Cancel PRN                | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance      |
+| `accepted`               | `cancelled`              | Service Maintainer   | Cancel PRN (admin portal) | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance      |
+| `awaiting_acceptance`    | `cancelled`              | Service Maintainer   | Cancel PRN (admin portal) | `PRN_CANCELLED_AFTER_ISSUE` | Credit full balance      |
 
 Accept and reject are driven by the producer through the external API; the
 admin-portal cancellation is driven by a service maintainer through a dedicated
@@ -121,12 +122,31 @@ Reversals mirror whichever phases had been applied:
 Accept and reject are balance-neutral: they append a status-only event to the
 stream and move no balance.
 
+### December dimension
+
+Each balance carries an additive December portion alongside the totals:
+`decemberAmount` and `decemberAvailableAmount`. Every PRN event carries the PRN's
+`isDecemberWaste` flag. A December-flagged event moves the December portion by the
+same delta it applies to the total (a debit on create/issue, a credit on
+delete/cancel); a non-December event moves only the totals. The non-December
+figures are never stored — they are derived as `amount − decemberAmount` and
+`availableAmount − decemberAvailableAmount`. A reprocessor-output PRN's event
+always carries `isDecemberWaste: false` whatever the PRN self-declares, because
+output accreditations accrue no December capacity; the December dimension applies
+only to exporter and reprocessor-input accreditations. See
+[ADR 49: December-waste PRNs](../decisions/0049-december-waste-prns.md).
+
 ## Preconditions
 
-- **Sufficient available balance** at create — `availableAmount` must be at least
-  the PRN tonnage, otherwise creation is rejected.
-- **Sufficient total balance** at issue — `amount` must be at least the PRN
-  tonnage, otherwise issue is rejected.
+- **Sufficient available balance** at create — for the pool the PRN draws on. A
+  December PRN requires `decemberAvailableAmount` to be at least the PRN tonnage; a
+  non-December PRN requires the derived non-December available
+  (`availableAmount − decemberAvailableAmount`). The total is not itself a
+  raise-gate. Otherwise creation is rejected.
+- **Sufficient total balance** at issue — for the same pool. A December PRN
+  requires `decemberAmount` to be at least the PRN tonnage; a non-December PRN
+  requires the derived non-December amount (`amount − decemberAmount`). Otherwise
+  issue is rejected.
 - **A waste balance must exist** for the accreditation at both create and issue.
 - **The accreditation must not be suspended** at issue.
 - **Within the cancellation window** at admin-portal cancellation — an
@@ -152,15 +172,15 @@ cancellation of an accepted PRN (PAE-1823) or an awaiting-acceptance PRN
 
 ## Implementation
 
-| Concern                                          | Location                                                                     |
-| ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Status values, actors, transition table          | `src/packaging-recycling-notes/domain/model.js`                              |
-| Status update handler                            | `src/packaging-recycling-notes/routes/status.js`                             |
-| Transition orchestration & PRN number allocation | `src/packaging-recycling-notes/application/update-status.js`                 |
-| Waste balance effects per transition             | `src/packaging-recycling-notes/application/update-status-balance-effects.js` |
-| External accept / reject endpoints               | `src/packaging-recycling-notes/routes/accept.js`, `reject.js`                |
-| Cancellation transition gating (PAE-1823, PAE-1859) | `src/packaging-recycling-notes/domain/cancellation.js`                    |
-| Relevant-year window arithmetic (PAE-1823)       | `src/packaging-recycling-notes/domain/relevant-year.js`                      |
-| Admin cancellation endpoint (PAE-1823, PAE-1859) | `src/packaging-recycling-notes/routes/admin-cancel.js`                       |
+| Concern                                             | Location                                                                     |
+| --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Status values, actors, transition table             | `src/packaging-recycling-notes/domain/model.js`                              |
+| Status update handler                               | `src/packaging-recycling-notes/routes/status.js`                             |
+| Transition orchestration & PRN number allocation    | `src/packaging-recycling-notes/application/update-status.js`                 |
+| Waste balance effects per transition                | `src/packaging-recycling-notes/application/update-status-balance-effects.js` |
+| External accept / reject endpoints                  | `src/packaging-recycling-notes/routes/accept.js`, `reject.js`                |
+| Cancellation transition gating (PAE-1823, PAE-1859) | `src/packaging-recycling-notes/domain/cancellation.js`                       |
+| Relevant-year window arithmetic (PAE-1823)          | `src/packaging-recycling-notes/domain/relevant-year.js`                      |
+| Admin cancellation endpoint (PAE-1823, PAE-1859)    | `src/packaging-recycling-notes/routes/admin-cancel.js`                       |
 
 > Paths are relative to the `epr-backend` repository root.

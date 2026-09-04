@@ -1963,7 +1963,17 @@
               'properties':
                 {
                   'amount': { 'type': 'number' },
-                  'availableAmount': { 'type': 'number' }
+                  'availableAmount': { 'type': 'number' },
+                  'decemberAmount':
+                    {
+                      'type': 'number',
+                      'description': 'December portion of amount. Optional — absent on events written before the December dimension existed, and treated as 0 by readers.'
+                    },
+                  'decemberAvailableAmount':
+                    {
+                      'type': 'number',
+                      'description': 'December portion of availableAmount. Optional — absent-as-zero, as decemberAmount.'
+                    }
                 },
               'required': ['amount', 'availableAmount']
             }
@@ -2443,9 +2453,14 @@
                   'required': ['id', 'name']
                 },
               'tonnage': { 'type': 'integer', 'minimum': 1 },
+              'isDecemberWaste':
+                {
+                  'type': 'boolean',
+                  'description': 'Whether the note relates to December-received waste (SI 2024/1332, Sch 8, paras 24(4)/27(3)). Routes the raise to the December or non-December balance pool.'
+                },
               'notes': { 'type': 'string', 'maxLength': 200 }
             },
-          'required': ['issuedToOrganisation', 'tonnage']
+          'required': ['issuedToOrganisation', 'tonnage', 'isDecemberWaste']
         },
       'PaginatedPrnResponse':
         {
