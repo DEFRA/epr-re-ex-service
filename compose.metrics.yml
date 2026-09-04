@@ -1,0 +1,91 @@
+# Custom metrics and Grafana overlay
+#
+# Usage:
+#   docker compose -f compose.yml -f compose.metrics.yml --profile epr-frontend up -d
+#
+# Access Grafana at: http://localhost:3300 (anonymous, no login)
+#
+# Why this exists: tenant Grafana dashboards are built in a CDP playground folder
+# and then promoted, so every tweak otherwise costs a deploy. floci speaks the
+# CloudWatch API, so panels built here use the same queries as the deployed
+# dashboard and their JSON transfers unchanged.
+#
+# Note: floci does not implement Metrics Insights SQL. Build panels in Metric
+#       Search mode, pinning the dimension per series rather than using GROUP BY.
+# Note: the frontend command is overridden to drop the inline
+#       AWS_EMF_ENVIRONMENT=Local that `npm run dev` sets, which would otherwise
+#       print the EMF documents instead of sending them. Both watchers still run,
+#       so hot-reload is unaffected.
+
+services:
+  emf-pump:
+    image: node:24-alpine
+    working_dir: /metrics
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+    volumes:
+      - ./metrics:/metrics:ro
+    command: ['node', 'emf-pump.mjs']
+    networks:
+      - cdp-tenant
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    ports:
+      - '${GRAFANA_PORT:-3300}:3000'
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./metrics/grafana-datasource.yml:/etc/grafana/provisioning/datasources/cloudwatch.yml:ro
+      - ./metrics/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/kpi.yml:ro
+      - ./metrics/kpi-dashboard.json:/etc/grafana/provisioning/dashboards/kpi/kpi-dashboard.json:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - cdp-tenant
+
+  # All three services emit custom metrics through aws-embedded-metrics, each
+  # into its own namespace, so all three are wired up here.
+  #
+  # AWS_EMF_NAMESPACE: nothing in these apps calls setNamespace, so without it the
+  # documents land under the library default rather than the namespace the
+  # deployed environments use, and panels would query a namespace CloudWatch does
+  # not have.
+  #
+  # The library also attaches LogGroup, ServiceName and ServiceType to every
+  # metric of its own accord, and CloudWatch identifies a series by its whole
+  # dimension set. Journey metrics deliberately replace those with a single
+  # journey dimension, so nothing here needs to reproduce them. Metrics that keep
+  # the defaults -- sign-in, and the backend's own -- cannot be charted against
+  # this stack anyway: pinning a subset makes Grafana build a CloudWatch SEARCH
+  # expression, which the emulator does not implement.
+
+  epr-frontend:
+    # Drops the inline AWS_EMF_ENVIRONMENT=Local that `npm run dev` sets, which
+    # would print the documents instead of sending them. Both watchers still run,
+    # so hot-reload is unaffected. The other two services do not set it, so they
+    # need no command override.
+    command: ['npx', 'run-p', 'frontend:watch', 'server:watch']
+    environment:
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${FRONTEND_EMF_NAMESPACE:-epr-frontend}
+
+  epr-backend:
+    environment:
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${BACKEND_EMF_NAMESPACE:-epr-backend}
+
+  epr-admin-frontend:
+    environment:
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: ${AWS_EMF_ENVIRONMENT:-Agent}
+      AWS_EMF_AGENT_ENDPOINT: ${AWS_EMF_AGENT_ENDPOINT:-tcp://emf-pump:25888}
+      AWS_EMF_NAMESPACE: ${ADMIN_EMF_NAMESPACE:-epr-re-ex-admin-frontend}
+
+volumes:
+  grafana-data:

@@ -6,12 +6,17 @@
     "node": "^24.20.0"
   },
   "scripts": {
+    "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
     "dev:env": "npx @dotenvx/dotenvx run -- docker compose --profile all up --watch",
-    "adr:generate:toc": "adr generate toc > ./docs/architecture/decisions/index.md",
+    "dev:metrics": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose -f compose.yml -f compose.metrics.yml --profile all up --watch",
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
     "lint:types": "tsc -p jsconfig.typecheck.json",
+    "metrics:dashboard": "node metrics/build-dashboard.mjs",
+    "metrics:reset": "docker compose -f compose.yml -f compose.metrics.yml ps --status running -q floci | grep -q . || { echo 'no running floci in this compose project -- run this with the same project name the stack was started with' >&2; exit 1; }; docker compose -f compose.yml -f compose.metrics.yml restart floci floci-init",
+    "metrics:seed": "docker compose -f compose.yml -f compose.metrics.yml exec emf-pump node seed.mjs",
+    "metrics:status": "node metrics/promote.mjs status epr-backend-epr-re-ex-service-bd579e7f",
     "postinstall": "npm run setup:husky",
     "seed:stub": "node scripts/seed-defra-id-stub.mjs",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
