@@ -83,13 +83,13 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### PRN operations read
 
-| Source            | Data used                                           | Purpose                                                           |
-| ----------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
-| **Waste Balance** | `availableAmount`                                   | Checked at PRN creation — must have sufficient available tonnage  |
-| **Waste Balance** | `amount`                                            | Checked at PRN issue — must have sufficient total tonnage         |
-| **Accreditation** | `status`                                            | Checked at PRN issue — cannot issue if accreditation is suspended |
-| **Accreditation** | Number, year, material, glass process, site address | Snapshotted into the PRN at creation (never updated)              |
-| **Organisation**  | `name`, `tradingName`                               | Snapshotted into the PRN at creation (never updated)              |
+| Source            | Data used                                           | Purpose                                                                                                                                                                                                                                                              |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Waste Balance** | `availableAmount` / `decemberAvailableAmount`       | Checked at PRN creation — which field depends on the PRN's `isDecemberWaste`: a December PRN checks `decemberAvailableAmount`, a non-December PRN the derived `availableAmount − decemberAvailableAmount` (see [ADR-0049](../decisions/0049-december-waste-prns.md)) |
+| **Waste Balance** | `amount` / `decemberAmount`                         | Checked at PRN issue — a December PRN checks `decemberAmount`, a non-December PRN the derived `amount − decemberAmount`                                                                                                                                              |
+| **Accreditation** | `status`                                            | Checked at PRN issue — cannot issue if accreditation is suspended                                                                                                                                                                                                    |
+| **Accreditation** | Number, year, material, glass process, site address | Snapshotted into the PRN at creation (never updated)                                                                                                                                                                                                                 |
+| **Organisation**  | `name`, `tradingName`                               | Snapshotted into the PRN at creation (never updated)                                                                                                                                                                                                                 |
 
 ### Reports read
 
@@ -108,7 +108,7 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Waste Balance — the event-sourced stream
 
-The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-state writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). The balance shifts by the delta between this submission's `creditTotal` and the prior submission's; the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic.
+The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-state writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). For exporter and reprocessor-input accreditations the event also carries a `decemberCreditTotal` snapshot — the same computation narrowed to rows whose balance-affecting date falls in December — which shifts the additive `decemberAmount` / `decemberAvailableAmount` dimension of the balance; a reprocessor-output accreditation accrues none. The balance shifts by the delta between this submission's `creditTotal` and the prior submission's (and, for December, between the `decemberCreditTotal`s); the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic, and [ADR-0049](../decisions/0049-december-waste-prns.md) for the December dimension.
 
 Two consequences matter for data flow:
 
