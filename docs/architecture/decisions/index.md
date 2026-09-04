@@ -49,3 +49,4 @@
 * [47. Reconcile stale PRN projections](0047-reconcile-stale-prn-projections.md)
 * [48. Dual and multi-year summary logs for registration and accreditation periods](0048-dual-multi-year-summary-logs.md)
 * [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
+* [50. Registration and accreditation status as a dated timeline](0050-status-as-a-dated-timeline.md)
