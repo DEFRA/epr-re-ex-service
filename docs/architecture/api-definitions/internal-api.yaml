@@ -13,10 +13,7 @@
       },
       { 'name': 'organisations', 'description': 'Organisation management' },
       { 'name': 'summary-logs', 'description': 'Waste summary log uploads' },
-      {
-        'name': 'reports',
-        'description': 'Periodic reporting (feature-flagged)'
-      },
+      { 'name': 'reports', 'description': 'Periodic reporting' },
       { 'name': 'waste-balances', 'description': 'Waste balance queries' },
       {
         'name': 'tonnage',
@@ -818,7 +815,7 @@
             {
               'operationId': 'getV1ReportsCalendar',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Returns reporting periods with report object (or null if no report exists).',
+              'description': 'Returns reporting periods with report object (or null if no report exists).',
               'parameters':
                 [
                   {
@@ -868,7 +865,7 @@
             {
               'operationId': 'getV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
+              'description': 'Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
               'parameters':
                 [
                   {
@@ -920,7 +917,7 @@
             {
               'operationId': 'postV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Creates a report for the given period.',
+              'description': 'Creates a report for the given period.',
               'parameters':
                 [
                   {
@@ -974,7 +971,7 @@
             {
               'operationId': 'deleteV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Soft-deletes a report for the given period.',
+              'description': 'Soft-deletes a report for the given period.',
               'parameters':
                 [
                   {
