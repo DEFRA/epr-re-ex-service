@@ -643,6 +643,51 @@
                 { '202': { 'description': 'Upload completion acknowledged' } }
             }
         },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/summary-logs/files/{fileId}':
+        {
+          'get':
+            {
+              'operationId': 'getV1SummaryLogFileByFileId',
+              'summary': 'Redirect to a presigned URL for the uploaded file',
+              'description':
+                "Keyed by the file id, which is what a waste balance ledger's
+                summary-log event carries. The 302 points at object storage and
+                names the download for the registration and the moment of
+                submission. Requires summary-log.read and organisation.read.",
+              'tags': ['summary-logs'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'fileId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '302':
+                    { 'description': 'Redirect to the presigned download URL' },
+                  '404':
+                    {
+                      'description':
+                        'No summary log holds that file, or it has none stored'
+                    }
+                }
+            }
+        },
       '/v1/organisations/registrations/summary-logs/reports/uploads':
         {
           'get':
