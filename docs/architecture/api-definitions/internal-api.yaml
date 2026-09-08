@@ -26,10 +26,7 @@
         'name': 'packaging-recycling-notes',
         'description': 'PRN lifecycle management'
       },
-      {
-        'name': 'overseas-sites',
-        'description': 'Overseas site management'
-      },
+      { 'name': 'overseas-sites', 'description': 'Overseas site management' },
       { 'name': 'system-logs', 'description': 'System audit logs' },
       {
         'name': 'public-register',
@@ -466,7 +463,7 @@
                 {
                   '200':
                     {
-                      'description': 'Overseas sites resolved for this accreditation''s registration, keyed by ORS id',
+                      'description': "Overseas sites resolved for this accreditation's registration, keyed by ORS id",
                       'schema':
                         { '$ref': '#/definitions/AccreditationOverseasSitesResponse' }
                     }
@@ -3004,7 +3001,7 @@
       'OrganisationYearlyMetrics':
         {
           'type': 'object',
-          'description': 'A reprocessor registration''s declared input/output tonnages for a single year',
+          'description': "A reprocessor registration's declared input/output tonnages for a single year",
           'properties':
             {
               'year': { 'type': 'number' },
@@ -3186,7 +3183,7 @@
               'overseasSites':
                 {
                   'type': 'object',
-                  'description': 'Map keyed by the registration''s 3-digit ORS id, each value { overseasSiteId }'
+                  'description': "Map keyed by the registration's 3-digit ORS id, each value { overseasSiteId }"
                 },
               'yearlyMetrics':
                 {
@@ -3299,13 +3296,17 @@
       'RegistrationOverseasSite':
         {
           'type': 'object',
-          'description': 'Fields are null when the referenced overseas-site record cannot be found. Approval dates are served by the accreditation-keyed route',
+          'description': 'Every field is null when no stored overseas-site record carries the referenced id, and coordinates is null on its own when the site records none. Approval dates are served by the accreditation-keyed route',
           'properties':
             {
-              'name': { 'type': 'string' },
-              'country': { 'type': 'string' },
-              'address': { '$ref': '#/definitions/OverseasSiteAddress' },
-              'coordinates': { 'type': 'string' }
+              'name': { 'type': 'string', 'x-nullable': true },
+              'country': { 'type': 'string', 'x-nullable': true },
+              'address':
+                {
+                  'allOf': [{ '$ref': '#/definitions/OverseasSiteAddress' }],
+                  'x-nullable': true
+                },
+              'coordinates': { 'type': 'string', 'x-nullable': true }
             }
         },
       'RegistrationOverseasSitesResponse':
