@@ -40,10 +40,10 @@
         {
           'type': 'oauth2',
           'flow': 'accessCode',
-          'authorizationUrl': 'https://{oidc-issuer}/authorize',
-          'tokenUrl': 'https://{oidc-issuer}/token',
+          'authorizationUrl': 'https://oidc.invalid/authorize',
+          'tokenUrl': 'https://oidc.invalid/token',
           'description':
-            'Bearer access token. Two issuers are accepted, configured as oidc.defraId and oidc.entraId. Their endpoints differ per environment and are read from each OpenID Connect discovery document, so the URLs above are placeholders rather than live values. Scopes listed together on an operation are all required; alternative entries are accepted independently.',
+            'Bearer access token, sent as an Authorization header carrying the Bearer prefix. Tokens issued by Defra ID and by Entra ID are both accepted. Their endpoints differ per environment and are read from each OpenID Connect discovery document, so the two URLs above are unresolvable placeholders rather than live values. Scopes listed together on an operation are all required; alternative entries are accepted independently. Only the scopes the operations below use are listed here, not the whole vocabulary. ADR 0046 records how each scope is granted, which for organisation.read depends on the request, and it replaces the admin scopes with narrower ones.',
           'scopes':
             {
               'organisation.read': 'Read organisation-scoped data',
@@ -67,9 +67,10 @@
           'name': 'Authorization',
           'in': 'header',
           'description':
-            'Bearer token presented by the packaging recycling notes external API client. The strategy checks the client id on the token rather than any scope, so operations using it carry no scopes.'
+            'Bearer token presented by the packaging recycling notes external API client, sent as an Authorization header carrying the Bearer prefix. Swagger 2.0 has no bearer scheme type, so this is declared as an apiKey and the value must include that prefix. The strategy checks the client id on the token rather than any scope, so operations using it carry no scopes.'
         }
     },
+  'security': [{ 'accessToken': [] }],
   'paths':
     {
       '/health':
