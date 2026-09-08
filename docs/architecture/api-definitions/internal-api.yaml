@@ -34,6 +34,42 @@
         'description': 'Development-only endpoints (feature-flagged)'
       }
     ],
+  'securityDefinitions':
+    {
+      'accessToken':
+        {
+          'type': 'oauth2',
+          'flow': 'accessCode',
+          'authorizationUrl': 'https://{oidc-issuer}/authorize',
+          'tokenUrl': 'https://{oidc-issuer}/token',
+          'description':
+            'Bearer access token. Two issuers are accepted, configured as oidc.defraId and oidc.entraId. Their endpoints differ per environment and are read from each OpenID Connect discovery document, so the URLs above are placeholders rather than live values. Scopes listed together on an operation are all required; alternative entries are accepted independently.',
+          'scopes':
+            {
+              'organisation.read': 'Read organisation-scoped data',
+              'organisation.write': 'Create or amend organisation-scoped data',
+              'organisation.search': 'Search across organisations',
+              'organisation.linked.read': 'Read organisation links',
+              'organisation.linked.write': 'Create or remove organisation links',
+              'admin.read': 'Read back-office data',
+              'admin.write': 'Create or amend back-office data'
+            }
+        },
+      'basicAuth':
+        {
+          'type': 'basic',
+          'description':
+            'Shared machine credential, accepted on a few read routes alongside an access token. It resolves to a credential holding organisation.read and nothing else.'
+        },
+      'apiGatewayClient':
+        {
+          'type': 'apiKey',
+          'name': 'Authorization',
+          'in': 'header',
+          'description':
+            'Bearer token presented by the packaging recycling notes external API client. The strategy checks the client id on the token rather than any scope, so operations using it carry no scopes.'
+        }
+    },
   'paths':
     {
       '/health':
@@ -42,6 +78,7 @@
             {
               'operationId': 'getHealth',
               'tags': ['health'],
+              'security': [],
               'responses':
                 {
                   '200':
@@ -67,6 +104,7 @@
             {
               'operationId': 'postV1ApplyOrganisation',
               'tags': ['apply'],
+              'security': [],
               'parameters':
                 [
                   {
@@ -100,6 +138,7 @@
             {
               'operationId': 'postV1ApplyRegistration',
               'tags': ['apply'],
+              'security': [],
               'parameters':
                 [
                   {
@@ -127,6 +166,7 @@
             {
               'operationId': 'postV1ApplyAccreditation',
               'tags': ['apply'],
+              'security': [],
               'parameters':
                 [
                   {
@@ -154,6 +194,7 @@
             {
               'operationId': 'getV1Organisations',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['organisation.search'] }],
               'responses':
                 {
                   '200':
@@ -171,6 +212,12 @@
             {
               'operationId': 'getV1OrganisationById',
               'tags': ['organisations'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] },
+                  { 'basicAuth': [] }
+                ],
               'parameters':
                 [
                   {
@@ -196,6 +243,7 @@
             {
               'operationId': 'putV1OrganisationById',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['admin.write'] }],
               'parameters':
                 [
                   {
@@ -235,6 +283,7 @@
             {
               'operationId': 'postV1OrganisationLink',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['organisation.linked.write'] }],
               'parameters':
                 [
                   {
@@ -282,6 +331,7 @@
             {
               'operationId': 'getV1LinkedOrganisations',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -308,6 +358,7 @@
             {
               'operationId': 'getV1MeOrganisations',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['organisation.linked.read'] }],
               'responses':
                 {
                   '200':
@@ -340,6 +391,7 @@
             {
               'operationId': 'getV1FormSubmissionById',
               'tags': ['organisations'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -382,6 +434,7 @@
             {
               'operationId': 'getV1SystemLogs',
               'tags': ['system-logs'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -435,6 +488,12 @@
             {
               'operationId': 'getAccreditationOverseasSites',
               'tags': ['overseas-sites'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] },
+                  { 'basicAuth': [] }
+                ],
               'parameters':
                 [
                   {
@@ -473,6 +532,12 @@
             {
               'operationId': 'getRegistrationOverseasSites',
               'tags': ['overseas-sites'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] },
+                  { 'basicAuth': [] }
+                ],
               'parameters':
                 [
                   {
@@ -505,6 +570,7 @@
             {
               'operationId': 'postV1SummaryLogs',
               'tags': ['summary-logs'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'parameters':
                 [
                   {
@@ -559,6 +625,7 @@
             {
               'operationId': 'getV1SummaryLogById',
               'tags': ['summary-logs'],
+              'security': [{ 'accessToken': ['organisation.read'] }],
               'parameters':
                 [
                   {
@@ -602,6 +669,7 @@
             {
               'operationId': 'postV1SummaryLogSubmit',
               'tags': ['summary-logs'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'parameters':
                 [
                   {
@@ -639,6 +707,7 @@
             {
               'operationId': 'postV1SummaryLogUploadCompleted',
               'tags': ['summary-logs'],
+              'security': [],
               'parameters':
                 [
                   {
@@ -675,6 +744,7 @@
             {
               'operationId': 'getV1SummaryLogUploadsReport',
               'tags': ['summary-logs'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'responses':
                 {
                   '200':
@@ -694,6 +764,11 @@
             {
               'operationId': 'getV1WasteBalances',
               'tags': ['waste-balances'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] }
+                ],
               'parameters':
                 [
                   {
@@ -727,6 +802,7 @@
             {
               'operationId': 'getV1WasteBalanceAvailability',
               'tags': ['waste-balances'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'responses':
                 {
                   '200':
@@ -746,6 +822,7 @@
             {
               'operationId': 'getV1TonnageMonitoring',
               'tags': ['tonnage'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'responses':
                 {
                   '200':
@@ -763,6 +840,7 @@
             {
               'operationId': 'getV1PrnTonnage',
               'tags': ['tonnage'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'responses':
                 {
                   '200':
@@ -779,6 +857,7 @@
             {
               'operationId': 'postV1PublicRegisterGenerate',
               'tags': ['public-register'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'responses':
                 {
                   '201':
@@ -815,6 +894,11 @@
             {
               'operationId': 'getV1ReportsCalendar',
               'tags': ['reports'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] }
+                ],
               'description': 'Returns reporting periods with report object (or null if no report exists).',
               'parameters':
                 [
@@ -865,6 +949,11 @@
             {
               'operationId': 'getV1Report',
               'tags': ['reports'],
+              'security':
+                [
+                  { 'accessToken': ['organisation.read'] },
+                  { 'accessToken': ['admin.read'] }
+                ],
               'description': 'Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
               'parameters':
                 [
@@ -917,6 +1006,7 @@
             {
               'operationId': 'postV1Report',
               'tags': ['reports'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'description': 'Creates a report for the given period.',
               'parameters':
                 [
@@ -971,6 +1061,7 @@
             {
               'operationId': 'deleteV1Report',
               'tags': ['reports'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'description': 'Soft-deletes a report for the given period.',
               'parameters':
                 [
@@ -1023,6 +1114,7 @@
             {
               'operationId': 'getV1PrnsByAccreditation',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'accessToken': ['organisation.read'] }],
               'parameters':
                 [
                   {
@@ -1061,6 +1153,7 @@
             {
               'operationId': 'postV1CreatePrn',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'parameters':
                 [
                   {
@@ -1103,6 +1196,7 @@
             {
               'operationId': 'getV1PrnById',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'accessToken': ['organisation.read'] }],
               'parameters':
                 [
                   {
@@ -1146,6 +1240,7 @@
             {
               'operationId': 'postV1PrnStatusUpdate',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'accessToken': ['organisation.write'] }],
               'parameters':
                 [
                   {
@@ -1216,6 +1311,7 @@
             {
               'operationId': 'getV1PrnsForApiGateway',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'apiGatewayClient': [] }],
               'description': 'Used by API gateway clients',
               'parameters':
                 [
@@ -1274,6 +1370,7 @@
             {
               'operationId': 'postV1PrnAccept',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'apiGatewayClient': [] }],
               'description': 'Used by API gateway clients',
               'parameters':
                 [
@@ -1315,6 +1412,7 @@
             {
               'operationId': 'postV1PrnReject',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'apiGatewayClient': [] }],
               'description': 'Used by API gateway clients',
               'parameters':
                 [
@@ -1351,6 +1449,7 @@
             {
               'operationId': 'getV1AdminPrns',
               'tags': ['packaging-recycling-notes'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -1391,6 +1490,7 @@
             {
               'operationId': 'getV1OverseasSites',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -1423,6 +1523,7 @@
             {
               'operationId': 'postV1OverseasSite',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.write'] }],
               'parameters':
                 [
                   {
@@ -1448,6 +1549,7 @@
             {
               'operationId': 'getV1OverseasSiteById',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -1470,6 +1572,7 @@
             {
               'operationId': 'putV1OverseasSiteById',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.write'] }],
               'parameters':
                 [
                   {
@@ -1498,6 +1601,7 @@
             {
               'operationId': 'deleteV1OverseasSiteById',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.write'] }],
               'parameters':
                 [
                   {
@@ -1516,6 +1620,7 @@
             {
               'operationId': 'postV1OverseasSiteImport',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.write'] }],
               'parameters':
                 [
                   {
@@ -1559,6 +1664,7 @@
             {
               'operationId': 'getV1OverseasSiteImportById',
               'tags': ['overseas-sites'],
+              'security': [{ 'accessToken': ['admin.read'] }],
               'parameters':
                 [
                   {
@@ -1605,6 +1711,7 @@
             {
               'operationId': 'postV1OverseasSiteImportUploadCompleted',
               'tags': ['overseas-sites'],
+              'security': [],
               'parameters':
                 [
                   {
@@ -1630,7 +1737,8 @@
             {
               'operationId': 'putV1DevOrganisationById',
               'tags': ['dev'],
-              'description': 'Behind isDevEndpointsEnabled feature flag',
+              'security': [],
+              'description': 'Behind featureFlags.devEndpoints feature flag',
               'parameters':
                 [
                   {
@@ -1670,7 +1778,8 @@
             {
               'operationId': 'postV1DevFormSubmissionMigrate',
               'tags': ['dev'],
-              'description': 'Behind isDevEndpointsEnabled feature flag',
+              'security': [],
+              'description': 'Behind featureFlags.devEndpoints feature flag',
               'parameters':
                 [
                   {
