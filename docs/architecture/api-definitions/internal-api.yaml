@@ -28,7 +28,7 @@
       },
       {
         'name': 'overseas-sites',
-        'description': 'Overseas site management (feature-flagged)'
+        'description': 'Overseas site management'
       },
       { 'name': 'system-logs', 'description': 'System audit logs' },
       {
@@ -466,9 +466,41 @@
                 {
                   '200':
                     {
-                      'description': 'Overseas sites resolved for this accreditation\'s registration, keyed by ORS id',
+                      'description': 'Overseas sites resolved for this accreditation''s registration, keyed by ORS id',
                       'schema':
                         { '$ref': '#/definitions/AccreditationOverseasSitesResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/overseas-sites':
+        {
+          'get':
+            {
+              'operationId': 'getRegistrationOverseasSites',
+              'tags': ['overseas-sites'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Overseas sites resolved for this registration, keyed by ORS id',
+                      'schema':
+                        { '$ref': '#/definitions/RegistrationOverseasSitesResponse' }
                     }
                 }
             }
@@ -1365,7 +1397,6 @@
             {
               'operationId': 'getV1OverseasSites',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1398,7 +1429,6 @@
             {
               'operationId': 'postV1OverseasSite',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1424,7 +1454,6 @@
             {
               'operationId': 'getV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1447,7 +1476,6 @@
             {
               'operationId': 'putV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1476,7 +1504,6 @@
             {
               'operationId': 'deleteV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1495,7 +1522,6 @@
             {
               'operationId': 'postV1OverseasSiteImport',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1539,7 +1565,6 @@
             {
               'operationId': 'getV1OverseasSiteImportById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1586,7 +1611,6 @@
             {
               'operationId': 'postV1OverseasSiteImportUploadCompleted',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -2980,7 +3004,7 @@
       'OrganisationYearlyMetrics':
         {
           'type': 'object',
-          'description': 'A reprocessor registration\'s declared input/output tonnages for a single year',
+          'description': 'A reprocessor registration''s declared input/output tonnages for a single year',
           'properties':
             {
               'year': { 'type': 'number' },
@@ -3162,7 +3186,7 @@
               'overseasSites':
                 {
                   'type': 'object',
-                  'description': 'Map keyed by the registration\'s 3-digit ORS id, each value { overseasSiteId }'
+                  'description': 'Map keyed by the registration''s 3-digit ORS id, each value { overseasSiteId }'
                 },
               'yearlyMetrics':
                 {
@@ -3271,6 +3295,24 @@
           'type': 'object',
           'description': 'Map keyed by the 3-digit ORS id',
           'additionalProperties': { '$ref': '#/definitions/AccreditationOverseasSite' }
+        },
+      'RegistrationOverseasSite':
+        {
+          'type': 'object',
+          'description': 'Fields are null when the referenced overseas-site record cannot be found. Approval dates are served by the accreditation-keyed route',
+          'properties':
+            {
+              'name': { 'type': 'string' },
+              'country': { 'type': 'string' },
+              'address': { '$ref': '#/definitions/OverseasSiteAddress' },
+              'coordinates': { 'type': 'string' }
+            }
+        },
+      'RegistrationOverseasSitesResponse':
+        {
+          'type': 'object',
+          'description': 'Map keyed by the 3-digit ORS id',
+          'additionalProperties': { '$ref': '#/definitions/RegistrationOverseasSite' }
         }
     }
 }
