@@ -57,7 +57,7 @@ Every existing arithmetic rule from ADR-0036 stays byte-for-byte the same — th
 
 ### The checks
 
-The write-side deciders take the event's `useDecemberBalance` (resolved as above, so an output PRN reads `false` even when it self-declares December) and check **only the pool that flag draws on** — each dimension is guarded on its own field, and the total is never itself a raise-gate:
+The write-side deciders take the event's `useDecemberBalance` (resolved as above, so a reprocessor-output PRN reads `false` even when it self-declares December) and check **only the pool that flag draws on** — each dimension is guarded on its own field, and the total is never itself a raise-gate:
 
 - **`useDecemberBalance: true`.** `prn-created` requires `decemberAvailableAmount ≥ tonnage`; `prn-issued` requires `decemberAmount ≥ tonnage`. The total is **not** additionally checked. The total is only the sum of the two pools, and a December PRN backed by genuine December-processed tonnage must not be refused because the _non-December_ dimension has been driven negative: a resubmission cutting non-December credit below what non-December PRNs already drew can make `availableAmount < decemberAvailableAmount`, and a concurrent total check would then reject a December PRN the December pool fully backs. Bounding the December PRN by the December field alone avoids that, and is symmetric with how a non-December PRN is bounded.
 - **`useDecemberBalance: false`.** Checks the derived nonDecember figures (`availableAmount − decemberAvailableAmount`, and the amount equivalent).
