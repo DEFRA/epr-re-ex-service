@@ -73,7 +73,7 @@ The full resolution, per accreditation and self-declaration:
 | Reprocessor-output | no                                  | `true`                | `false`                    | non-December (equals total: December portion is always 0) |
 | Reprocessor-output | no                                  | `false`               | `false`                    | non-December (equals total)          |
 
-The `Reprocessor-output` / `true` row is the disclosure-only case: the PRN states the statutory fact, and no December pool exists to draw on (see Scope).
+The `Reprocessor-output` / `true` row is the disclosure-only case: the PRN states the statutory fact, and no December pool exists to draw on (see Scope). The two reprocessor-output rows behave identically: for an output accreditation, `isDecemberWaste` affects only the disclosure, never `useDecemberBalance` or the pool checked.
 
 Because each dimension is guarded on its own field, a refused raise has one unambiguous cause — the pool it drew on — which the frontend already knows. Whether that insufficiency is surfaced as a dedicated rejection code or the existing insufficiency rejection carrying the pool context is a write-side implementation detail, not fixed here.
 
