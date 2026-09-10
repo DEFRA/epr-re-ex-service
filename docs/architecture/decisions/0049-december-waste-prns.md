@@ -62,6 +62,19 @@ The write-side deciders take the event's `useDecemberBalance` (resolved as above
 - **`useDecemberBalance: true`.** `prn-created` requires `decemberAvailableAmount ≥ tonnage`; `prn-issued` requires `decemberAmount ≥ tonnage`. The total is **not** additionally checked. The total is only the sum of the two pools, and a December PRN backed by genuine December-processed tonnage must not be refused because the _non-December_ dimension has been driven negative: a resubmission cutting non-December credit below what non-December PRNs already drew can make `availableAmount < decemberAvailableAmount`, and a concurrent total check would then reject a December PRN the December pool fully backs. Bounding the December PRN by the December field alone avoids that, and is symmetric with how a non-December PRN is bounded.
 - **`useDecemberBalance: false`.** Checks the derived nonDecember figures (`availableAmount − decemberAvailableAmount`, and the amount equivalent).
 
+The full resolution, per accreditation and self-declaration:
+
+| Accreditation      | Summary log accrues December credit | PRN `isDecemberWaste` | Event `useDecemberBalance` | Pool checked at raise                |
+| ------------------ | ----------------------------------- | --------------------- | -------------------------- | ------------------------------------ |
+| Exporter           | yes                                 | `true`                | `true`                     | December                             |
+| Exporter           | yes                                 | `false`               | `false`                    | non-December (derived)               |
+| Reprocessor-input  | yes                                 | `true`                | `true`                     | December                             |
+| Reprocessor-input  | yes                                 | `false`               | `false`                    | non-December (derived)               |
+| Reprocessor-output | no                                  | `true`                | `false`                    | non-December (equals total: December portion is always 0) |
+| Reprocessor-output | no                                  | `false`               | `false`                    | non-December (equals total)          |
+
+The `Reprocessor-output` / `true` row is the disclosure-only case: the PRN states the statutory fact, and no December pool exists to draw on (see Scope).
+
 Because each dimension is guarded on its own field, a refused raise has one unambiguous cause — the pool it drew on — which the frontend already knows. Whether that insufficiency is surfaced as a dedicated rejection code or the existing insufficiency rejection carrying the pool context is a write-side implementation detail, not fixed here.
 
 Because the December debit rides the same event append and the same slot-conflict guard as the total, December overspend is impossible by construction and atomic — the property ADR-0036 built the single concurrency surface to guarantee, inherited for free.
