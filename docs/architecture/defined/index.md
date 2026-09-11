@@ -21,9 +21,10 @@ Documentation relating to architecture that is defined and agreed with project s
 12. [Summary Log Validation LLD](summary-log-validation-lld.md)
 13. [Summary Log Row Validation Classification](summary-log-row-validation-classification.md)
 14. [Summary Log Validation Failure Codes](summary-log-validation-failure-codes.md)
-15. [Summary Log Submission LLD](summary-log-submission-lld.md)
-16. [Summary Log Processing Failure Handling](summary-log-processing-failure-handling.md)
+15. [Report Creation Mandatory Fields](report-creation-mandatory-fields.md)
+16. [Summary Log Submission LLD](summary-log-submission-lld.md)
+17. [Summary Log Processing Failure Handling](summary-log-processing-failure-handling.md)
 
 ### Packaging Recycling Notes
 
-17. [PRN State Transitions](prn-state-transitions.md)
+18. [PRN State Transitions](prn-state-transitions.md)
