@@ -11,7 +11,7 @@ When a user uploads a Summary Log, each row is assessed in two distinct stages:
 
 Every row that is not REJECTED is included in the submission. Whether such a row then contributes to the Waste Balance is decided separately, at calculation time.
 
-> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md).
+> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md). For a per-column view of every rule across all of the above, see [Summary Log Column Rules](summary-log-column-rules.md).
 
 ## Validation Categories
 
