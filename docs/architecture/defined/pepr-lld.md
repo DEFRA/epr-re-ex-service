@@ -263,13 +263,17 @@ erDiagram
   STREAM-EVENT-PAYLOAD {
     string summaryLogId "summary-log-submitted only"
     Decimal128 creditTotal "summary-log-submitted only"
+    Decimal128 decemberCreditTotal "summary-log-submitted only, exporter and reprocessor-input; December subset of creditTotal"
     string prnId "PRN kinds only"
     Decimal128 amount "PRN kinds only"
+    bool isDecemberWaste "PRN kinds only; always false on reprocessor-output events"
   }
 
   STREAM-BALANCE-SNAPSHOT {
-    Decimal128 amount "credits minus confirmed debits"
-    Decimal128 availableAmount "amount minus ringfenced (pending) debits"
+    Decimal128 amount "credits minus confirmed debits (total across both pools)"
+    Decimal128 availableAmount "amount minus ringfenced (pending) debits (total)"
+    Decimal128 decemberAmount "optional - December portion of amount; absent treated as 0"
+    Decimal128 decemberAvailableAmount "optional - December portion of availableAmount; absent treated as 0"
   }
 
   SUMMARY-LOG-ROW-STATE ||--|| ROW-CLASSIFICATION : contains
@@ -447,6 +451,17 @@ PRN status is a projection of the stream: each balance-affecting PRN transition 
 | `AWAITING_ACCEPTANCE → ACCEPTED`               | `prn-accepted`              | None — lifecycle only                                              |
 | Rejection of an issued PRN                     | `prn-rejected`              | None — lifecycle only                                              |
 
+Each PRN event carries the PRN's `isDecemberWaste` flag (a reprocessor-output
+event always carries `false`, whatever the PRN self-declares — output
+accreditations accrue no December capacity). A December-flagged event applies its
+`amount` delta to `decemberAmount` / `decemberAvailableAmount` **as well as** the
+total fields above; a non-December event moves only the totals. Reversals read the
+same flag, so cancelling a December PRN credits the December fields, restoring
+December capacity. `nonDecember` is never stored — it is `amount − decemberAmount`
+(and the available equivalent). See
+[ADR-0049](../decisions/0049-december-waste-prns.md) for the additive-dimension
+model.
+
 This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend`, so it can track the PRN state machine without amending the design.
 
 ### PRN
@@ -553,6 +568,9 @@ Creates a PRN in `draft` status
 **payload values**
 
 - tonnage, floating point number to two decimal places, required
+- isDecemberWaste, boolean, required — whether the note relates to
+  December-received waste; routes the raise to the December or non-December
+  balance pool (see [ADR-0049](../decisions/0049-december-waste-prns.md))
 - issuedToOrganisation, object, required
   - id: string, uuid, required
   - name: string, required
@@ -564,6 +582,7 @@ Creates a PRN in `draft` status
 ```javascript
 {
   tonnage: 100.00,
+  isDecemberWaste: false,
   issuedToOrganisation: {
     id: 'ebdfb7d9-3d55-4788-ad33-dbd7c885ef20',
     name: 'Sauce Makers Limited',
@@ -645,7 +664,8 @@ sequenceDiagram
 
   user ->> epr-frontend: Create PRN (Submit CYA page)
   epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongodb: update available waste balance
+  note over epr-backend: check the pool the PRN draws on:<br/>December PRN needs decemberAvailableAmount ≥ tonnage,<br/>non-December needs the derived non-December available
+  epr-backend ->> mongodb: update available waste balance<br/>(December event also debits decemberAvailableAmount)
   epr-backend ->> mongodb: update PRN (status)
   epr-backend -->> epr-frontend: 200 OK (AWAITING_AUTHORISATION)
 
@@ -654,7 +674,8 @@ sequenceDiagram
   opt Re/Ex issue PRN
     user ->> epr-frontend: Issue PRN
     epr-frontend ->> epr-backend: POST /prn/{id}/status
-    epr-backend ->> mongodb: update total waste balance
+    note over epr-backend: December PRN needs decemberAmount ≥ tonnage;<br/>non-December needs the derived non-December amount
+    epr-backend ->> mongodb: update total waste balance<br/>(December event also debits decemberAmount)
     epr-backend ->> mongodb: update PRN (status)
     epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
   end

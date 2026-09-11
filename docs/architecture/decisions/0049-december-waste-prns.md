@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Extends [ADR-0036](./0036-event-sourced-waste-balance-stream.md).
+Accepted. Extends [ADR-0036](./0036-event-sourced-waste-balance-stream.md).
 
 ## Context
 
