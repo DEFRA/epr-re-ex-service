@@ -23,12 +23,12 @@
   "overrides": {},
   "devDependencies": {
     "@dotenvx/dotenvx": "2.23.0",
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "husky": "9.1.7",
     "lint-staged": "17.4.1",
     "mongodb": "7.6.0",
     "prettier": "3.9.6",
-    "renovate": "44.54.0",
+    "renovate": "44.65.0",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }
