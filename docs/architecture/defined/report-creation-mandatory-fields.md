@@ -33,7 +33,7 @@ A blank, non-numeric or zero tonnage does not fire the positive-tonnage trigger,
 
 Each rule is identified by a stable reason code (the `requiredBy` code), which labels why its fields are mandatory. The gate reports the missing **field names**; the reason codes group the rules and are the intended breakdown key for reporting on completeness across live data.
 
-The rules themselves, with each rule's trigger and required fields per template, are **generated from the code** in the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md) (the "Report-creation mandatory fields" table under each template). Only the sections and rules relevant to each template apply: the three reprocessor templates carry no overseas-site, export-date or interim-site concepts, and the registered-only exporter template has no interim-site column, so those rules have no counterpart there.
+The rules themselves, with each rule's trigger and required fields per template, are **generated from the code** in the [Summary Log Rules Reference](summary-log-rules.md) (the "Report-creation mandatory fields" table under each template). Only the sections and rules relevant to each template apply: the three reprocessor templates carry no overseas-site, export-date or interim-site concepts, and the registered-only exporter template has no interim-site column, so those rules have no counterpart there.
 
 ## What the operator sees
 

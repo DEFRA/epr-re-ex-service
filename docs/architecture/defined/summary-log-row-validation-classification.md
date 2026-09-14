@@ -11,7 +11,7 @@ When a user uploads a Summary Log, each row is assessed in two distinct stages:
 
 Every row that is not REJECTED is included in the submission. Whether such a row then contributes to the Waste Balance is decided separately, at calculation time.
 
-> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md). For a per-column view of every rule across all of the above, generated from the code, see the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md).
+> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md). For a per-column view of every rule across all of the above, generated from the code, see the [Summary Log Rules Reference](summary-log-rules.md).
 
 ## Validation Categories
 
@@ -50,7 +50,7 @@ When the Waste Balance is calculated, each INCLUDED row is re-assessed with the 
 | `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste.                                                 |
 | `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation.                             |
 
-Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure". Which of these reasons a given section can actually produce varies by template and is generated from the code in the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md) (the "Contribution reasons" list under each section).
+Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure". Which of these reasons a given section can actually produce varies by template and is generated from the code in the [Summary Log Rules Reference](summary-log-rules.md) (the "Contribution reasons" list under each section).
 
 Not every section is subject to these rules. Only the sections that feed the Waste Balance are re-assessed here; sections that never contribute by design (for example the exporter "Sent on" section, or the reprocessor "Processed" section on an input template) are reported separately with the `TEMPLATE_SECTION_DOES_NOT_CONTRIBUTE_TO_WASTE_BALANCE` reason rather than as a data problem. See the note below.
 
