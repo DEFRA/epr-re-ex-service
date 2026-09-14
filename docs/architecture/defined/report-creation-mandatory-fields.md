@@ -29,31 +29,11 @@ A rule contributes a violation for every unfilled required field on every row wh
 
 A blank, non-numeric or zero tonnage does not fire the positive-tonnage trigger, so a row that reports no tonnage for a leg is not required to carry that leg's details.
 
-## Rules
+## The rules
 
 Each rule is identified by a stable reason code (the `requiredBy` code), which labels why its fields are mandatory. The gate reports the missing **field names**; the reason codes group the rules and are the intended breakdown key for reporting on completeness across live data.
 
-| Rule (`requiredBy`) | Trigger                                                      | Required fields                                                                                                               |
-| ------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `supplier_details`  | Positive received tonnage                                    | Supplier name, supplier address, supplier postcode, supplier email, supplier phone number, activities carried out by supplier |
-| `final_destination` | Positive sent-on tonnage                                     | Final destination name, final destination facility type, final destination address, final destination postcode                |
-| `overseas_site`     | Positive exported tonnage                                    | Overseas reprocessing site ID (OSR_ID)                                                                                        |
-| `export_date`       | Positive exported tonnage                                    | Date of export                                                                                                                |
-| `interim_site`      | "Did the waste pass through an interim site?" answered "yes" | Interim site ID                                                                                                               |
-
-## Rules by template
-
-Only the sections and rules relevant to each template apply. The three reprocessor templates carry no overseas-site, export-date or interim-site concepts, so those rules have no counterpart there.
-
-| Template                        | `supplier_details` | `final_destination` | `overseas_site` | `export_date` | `interim_site` |
-| ------------------------------- | :----------------: | :-----------------: | :-------------: | :-----------: | :------------: |
-| Exporter (accredited)           |         ✅         |         ✅          |       ✅        |      ✅       |       ✅       |
-| Exporter (registered only)      |         ✅         |         ✅          |       ✅        |      ✅       |       -        |
-| Reprocessor input (accredited)  |         ✅         |         ✅          |        -        |       -       |       -        |
-| Reprocessor output (accredited) |         ✅         |         ✅          |        -        |       -       |       -        |
-| Reprocessor (registered only)   |         ✅         |         ✅          |        -        |       -       |       -        |
-
-The accredited exporter template is the only one with an interim-site rule; the registered-only exporter template has no interim-site column and so cannot express it.
+The rules themselves, with each rule's trigger and required fields per template, are **generated from the code** in the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md) (the "Report-creation mandatory fields" table under each template). Only the sections and rules relevant to each template apply: the three reprocessor templates carry no overseas-site, export-date or interim-site concepts, and the registered-only exporter template has no interim-site column, so those rules have no counterpart there.
 
 ## What the operator sees
 

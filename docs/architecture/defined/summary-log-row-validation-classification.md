@@ -11,7 +11,7 @@ When a user uploads a Summary Log, each row is assessed in two distinct stages:
 
 Every row that is not REJECTED is included in the submission. Whether such a row then contributes to the Waste Balance is decided separately, at calculation time.
 
-> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md). For a per-column view of every rule across all of the above, see [Summary Log Column Rules](summary-log-column-rules.md).
+> **Scope.** This document covers the rules that decide a row's outcome and its Waste Balance contribution. It does **not** cover the separate **report-creation completeness gate**, which blocks creating a Monthly Report when mandatory contact and traceability fields are missing anywhere in the Summary Log. Those rules are a different set with a different purpose (regulatory completeness rather than tonnage computability) and are documented in [Report Creation Mandatory Fields](report-creation-mandatory-fields.md). For a per-column view of every rule across all of the above, generated from the code, see the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md).
 
 ## Validation Categories
 
@@ -37,24 +37,24 @@ This is the only business rule applied during row classification. The remaining 
 
 ### Waste Balance Contribution Rules (VAL013 and related)
 
-When the Waste Balance is calculated, each INCLUDED row is re-assessed with the accreditation period and overseas-site approval state applied. A row contributes its tonnage only if it passes every rule; otherwise it carries a specific reason and contributes nothing:
+When the Waste Balance is calculated, each INCLUDED row is re-assessed with the accreditation period and overseas-site approval state applied. A row contributes its tonnage only if it passes every rule; otherwise it carries a specific reason and contributes nothing. The reasons and what they mean:
 
-| Reason                         | Outcome  | Applies to                                         | Description                                                                                          |
-| ------------------------------ | -------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `MISSING_REQUIRED_FIELD`       | EXCLUDED | All contributing sections                          | A field required for the Waste Balance is absent (the same check as VAL011).                         |
-| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | All contributing sections                          | The load date falls outside the accreditation period (VAL013).                                       |
-| `WASTE_STOPPED`                | EXCLUDED | Accredited exporters                               | The load was recorded as stopped, so the export never completed and its tonnage is not counted.      |
-| `WASTE_REFUSED`                | EXCLUDED | Accredited exporters                               | The load was recorded as refused, so the export never completed and its tonnage is not counted.      |
-| `ORS_NOT_FOUND`                | EXCLUDED | Accredited exporters                               | The OSR_ID is not one of the registration's overseas sites, so no approval can be resolved (VAL015). |
-| `ORS_NOT_APPROVED`             | EXCLUDED | Accredited exporters                               | The overseas reprocessing site was not approved as at the date of export (VAL014).                   |
-| `PRN_ISSUED`                   | EXCLUDED | Accredited exporters, accredited reprocessor input | A PRN or PERN has already been issued for the waste.                                                 |
-| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | Accredited reprocessor output                      | The reprocessed load was not opted in to the product-weight calculation.                             |
+| Reason                         | Outcome  | Description                                                                                          |
+| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------- |
+| `MISSING_REQUIRED_FIELD`       | EXCLUDED | A field required for the Waste Balance is absent (the same check as VAL011).                         |
+| `OUTSIDE_ACCREDITATION_PERIOD` | IGNORED  | The load date falls outside the accreditation period (VAL013).                                       |
+| `WASTE_STOPPED`                | EXCLUDED | The load was recorded as stopped, so the export never completed and its tonnage is not counted.      |
+| `WASTE_REFUSED`                | EXCLUDED | The load was recorded as refused, so the export never completed and its tonnage is not counted.      |
+| `ORS_NOT_FOUND`                | EXCLUDED | The OSR_ID is not one of the registration's overseas sites, so no approval can be resolved (VAL015). |
+| `ORS_NOT_APPROVED`             | EXCLUDED | The overseas reprocessing site was not approved as at the date of export (VAL014).                   |
+| `PRN_ISSUED`                   | EXCLUDED | A PRN or PERN has already been issued for the waste.                                                 |
+| `PRODUCT_WEIGHT_NOT_ADDED`     | EXCLUDED | The reprocessed load was not opted in to the product-weight calculation.                             |
 
-Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure".
+Each exclusion or ignore carries a specific reason - there is no single, undifferentiated "business validation failure". Which of these reasons a given section can actually produce varies by template and is generated from the code in the [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md) (the "Contribution reasons" list under each section).
 
 Not every section is subject to these rules. Only the sections that feed the Waste Balance are re-assessed here; sections that never contribute by design (for example the exporter "Sent on" section, or the reprocessor "Processed" section on an input template) are reported separately with the `TEMPLATE_SECTION_DOES_NOT_CONTRIBUTE_TO_WASTE_BALANCE` reason rather than as a data problem. See the note below.
 
-These rules are evaluated in order, and the first one to fail decides the outcome. For an accredited exporter load the order is: missing required fields (EXCLUDED), then accreditation period (IGNORED), then waste stopped, waste refused, overseas site not found, overseas site not approved and PRN/PERN issued (all EXCLUDED). The accreditation-period check (IGNORED) is always evaluated before the EXCLUDED checks, so a row that is both outside the accreditation period and would also fail one of those rules is IGNORED. Reprocessor sections apply the subset relevant to their template (see the "Applies to" column).
+These rules are evaluated in order, and the first one to fail decides the outcome. For an accredited exporter load the order is: missing required fields (EXCLUDED), then accreditation period (IGNORED), then waste stopped, waste refused, overseas site not found, overseas site not approved and PRN/PERN issued (all EXCLUDED). The accreditation-period check (IGNORED) is always evaluated before the EXCLUDED checks, so a row that is both outside the accreditation period and would also fail one of those rules is IGNORED. Reprocessor sections apply the subset relevant to their template.
 
 ## Row Classification Matrix
 

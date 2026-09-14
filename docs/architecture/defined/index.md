@@ -22,7 +22,7 @@ Documentation relating to architecture that is defined and agreed with project s
 13. [Summary Log Row Validation Classification](summary-log-row-validation-classification.md)
 14. [Summary Log Validation Failure Codes](summary-log-validation-failure-codes.md)
 15. [Report Creation Mandatory Fields](report-creation-mandatory-fields.md)
-16. [Summary Log Column Rules](summary-log-column-rules.md)
+16. [Summary Log Rules Reference](https://github.com/DEFRA/epr-backend/blob/main/docs/summary-log-rules.md) (generated from code, in the epr-backend repository)
 17. [Summary Log Submission LLD](summary-log-submission-lld.md)
 18. [Summary Log Processing Failure Handling](summary-log-processing-failure-handling.md)
 
