@@ -50,7 +50,8 @@ render the raw lowercase value with no map at all. The same name is spelled thre
 
 The split itself runs at **ingest**, not at approval, and only when a submission carries both processes. A
 single-process submission is never touched, and nothing splits a stored record afterwards, so anything that
-arrived unsplit stays unsplit.
+arrived unsplit would stay unsplit. Nothing has: as of September 2026 no production record carries both
+processes, and none carries neither.
 
 ### It has left the service
 
@@ -91,7 +92,9 @@ schemas, and `glassRecyclingProcess` is no longer written. Plain glass remains v
 in flight, before the split.
 
 Stored registrations, accreditations, and the accreditation snapshots held on PRNs are migrated once. Every
-stored glass record carries at least one process today, so every one can be resolved.
+stored glass record in production carries exactly one process, so the migration resolves that process into
+`material` and has no other case to handle. Nothing implementing this decision needs a branch for a stored
+record with no process or with both.
 
 ### 3. Nothing downstream knows glass has a subtype
 
@@ -139,9 +142,5 @@ ambiguity to another team.
 
 ## Open questions for the team
 
-1. **What happens to a stored registration or accreditation that carries both processes?** Splitting it
-   during the migration applies the model late, and is what the model says should have happened at ingest.
-   The alternative is to flag those records for manual correction, as similar cases have been handled
-   before. The answer affects the migration, not the target model.
-2. **Is anything other than a submission in flight allowed to hold plain glass?** This ADR says no. Summary
+1. **Is anything other than a submission in flight allowed to hold plain glass?** This ADR says no. Summary
    logs, waste balances, PRNs and the public register all key on material, and each would need to agree.
