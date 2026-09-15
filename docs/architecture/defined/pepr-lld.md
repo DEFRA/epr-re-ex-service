@@ -263,13 +263,17 @@ erDiagram
   STREAM-EVENT-PAYLOAD {
     string summaryLogId "summary-log-submitted only"
     Decimal128 creditTotal "summary-log-submitted only"
+    Decimal128 decemberCreditTotal "summary-log-submitted only, exporter and reprocessor-input; December credit subset of creditTotal"
     string prnId "PRN kinds only"
     Decimal128 amount "PRN kinds only"
+    string pool "PRN kinds only; 'december' or absent (absent coalesces to general)"
   }
 
   STREAM-BALANCE-SNAPSHOT {
-    Decimal128 amount "credits minus confirmed debits"
-    Decimal128 availableAmount "amount minus ringfenced (pending) debits"
+    Decimal128 amount "credits minus confirmed debits (total across both pools)"
+    Decimal128 availableAmount "amount minus ringfenced (pending) debits (total)"
+    Decimal128 decemberAmount "optional - December portion of amount; absent treated as 0"
+    Decimal128 decemberAvailableAmount "optional - December portion of availableAmount; absent treated as 0"
   }
 
   SUMMARY-LOG-ROW-STATE ||--|| ROW-CLASSIFICATION : contains
@@ -447,6 +451,8 @@ PRN status is a projection of the stream: each balance-affecting PRN transition 
 | `AWAITING_ACCEPTANCE → ACCEPTED`               | `prn-accepted`              | None — lifecycle only                                              |
 | Rejection of an issued PRN                     | `prn-rejected`              | None — lifecycle only                                              |
 
+Each balance-affecting PRN event carries a `pool` value (`'general' | 'december'`), resolved **once** when the PRN's first balance event is written and then copied onto every later event that PRN produces. It is `december` when the PRN self-declares `isDecemberWaste` **and** the accreditation accrues December capacity (exporter or reprocessor-input), and `general` otherwise; a reprocessor-output PRN always resolves to `general` whatever it self-declares, because output accreditations accrue no December capacity. The `pool` value is distinct from the PRN's `isDecemberWaste` disclosure marker and is not read from it per event — an output PRN can disclose `isDecemberWaste: true` yet carry `pool: general`. It is carried on the wire only when `december`; absent coalesces to `general`, so every general PRN's payload and every pre-feature event stay byte-identical. A `december` event moves `decemberAmount` / `decemberAvailableAmount` by the same delta it applies to the total fields above; a `general` event moves only the totals. Reversals read the event's own `pool`, so cancelling a December-pool PRN credits the December fields, restoring December capacity. `nonDecember` is never stored — it is `amount − decemberAmount` (and the available equivalent). See [ADR-0049](../decisions/0049-december-waste-prns.md) for the additive-dimension model.
+
 This table is illustrative of the balance effects, not the exhaustive PRN state machine. The authoritative transition-to-event mapping lives in the write-side decider in `epr-backend`, so it can track the PRN state machine without amending the design.
 
 ### PRN
@@ -553,6 +559,11 @@ Creates a PRN in `draft` status
 **payload values**
 
 - tonnage, floating point number to two decimal places, required
+- isDecemberWaste, boolean, required — the statutory disclosure marker for
+  December-received waste. For exporter and reprocessor-input accreditations it
+  also routes the raise to the December pool; for reprocessor-output it is
+  disclosure-only and never selects a December balance (see
+  [ADR-0049](../decisions/0049-december-waste-prns.md))
 - issuedToOrganisation, object, required
   - id: string, uuid, required
   - name: string, required
@@ -564,6 +575,7 @@ Creates a PRN in `draft` status
 ```javascript
 {
   tonnage: 100.00,
+  isDecemberWaste: false,
   issuedToOrganisation: {
     id: 'ebdfb7d9-3d55-4788-ad33-dbd7c885ef20',
     name: 'Sauce Makers Limited',
@@ -645,7 +657,8 @@ sequenceDiagram
 
   user ->> epr-frontend: Create PRN (Submit CYA page)
   epr-frontend ->> epr-backend: POST /prn/{id}/status
-  epr-backend ->> mongodb: update available waste balance
+  note over epr-backend: check the pool the PRN draws on:<br/>december pool needs decemberAvailableAmount ≥ tonnage,<br/>general needs the derived non-December available
+  epr-backend ->> mongodb: update available waste balance<br/>(december event also debits decemberAvailableAmount)
   epr-backend ->> mongodb: update PRN (status)
   epr-backend -->> epr-frontend: 200 OK (AWAITING_AUTHORISATION)
 
@@ -654,7 +667,8 @@ sequenceDiagram
   opt Re/Ex issue PRN
     user ->> epr-frontend: Issue PRN
     epr-frontend ->> epr-backend: POST /prn/{id}/status
-    epr-backend ->> mongodb: update total waste balance
+    note over epr-backend: december pool needs decemberAmount ≥ tonnage;<br/>general needs the derived non-December amount
+    epr-backend ->> mongodb: update total waste balance<br/>(december event also debits decemberAmount)
     epr-backend ->> mongodb: update PRN (status)
     epr-backend -->> epr-frontend: 200 OK (AWAITING_ACCEPTANCE)
   end
