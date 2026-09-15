@@ -2,6 +2,8 @@
 
 This document describes the **report-creation completeness gate**: the rules that decide whether a Monthly Report can be created from a Summary Log. When any of these rules is unsatisfied, report creation is blocked and the operator is told which fields are missing.
 
+> **Not yet enabled in production.** This gate is behind the `FEATURE_FLAG_REPORT_DATA_VALIDATION` feature flag, which defaults to off and is not currently switched on in production. Report creation is therefore not blocked by these rules in production today. The rules below describe the behaviour when the flag is enabled.
+
 ## Overview
 
 The gate runs at **report creation time**, not at Summary Log upload. It is separate from the row validation and Waste Balance classification rules described in [Summary Log Row Validation Classification](summary-log-row-validation-classification.md), and it answers a different question:
