@@ -1981,7 +1981,9 @@
               'properties':
                 {
                   'amount': { 'type': 'number' },
-                  'availableAmount': { 'type': 'number' }
+                  'availableAmount': { 'type': 'number' },
+                  'decemberAmount': { 'type': 'number' },
+                  'decemberAvailableAmount': { 'type': 'number' }
                 },
               'required': ['amount', 'availableAmount']
             }
@@ -2461,9 +2463,10 @@
                   'required': ['id', 'name']
                 },
               'tonnage': { 'type': 'integer', 'minimum': 1 },
+              'isDecemberWaste': { 'type': 'boolean' },
               'notes': { 'type': 'string', 'maxLength': 200 }
             },
-          'required': ['issuedToOrganisation', 'tonnage']
+          'required': ['issuedToOrganisation', 'tonnage', 'isDecemberWaste']
         },
       'PaginatedPrnResponse':
         {
