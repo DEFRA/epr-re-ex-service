@@ -96,6 +96,10 @@ jobs:
         working-directory: otel
         run: npm ci --ignore-scripts
 
+      - name: Install nested package dependencies
+        working-directory: compose/emf-collector
+        run: npm ci --ignore-scripts
+
       - name: Lint types
         run: npm run lint:types
 

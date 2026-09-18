@@ -311,6 +311,7 @@ services:
       ANALYTICS_MEASUREMENT_ID: ${ANALYTICS_MEASUREMENT_ID:-G-LOCALDEV000}
       APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
       AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-frontend
       ENABLE_METRICS: ${ENABLE_METRICS:-true}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
@@ -376,6 +377,9 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       APP_BASE_URL: http://epr-backend:3001
       AUDIT_ENABLED: true
+      AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-backend
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-basicAuthUsername}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-basicAuthPassword}
       CDP_UPLOADER_URL: http://cdp-uploader:7337
@@ -411,6 +415,41 @@ services:
     volumes:
       - ./lib/epr-backend/src:/home/node/src
       - ./lib/epr-backend/package.json:/home/node/package.json
+
+  emf-collector:
+    profiles: ['all', 'epr-backend', 'epr-frontend']
+    build:
+      context: ./compose/emf-collector
+    depends_on:
+      floci-init:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: eu-west-2
+      EMF_TARGET_SERVICES: epr-backend,epr-frontend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cdp-tenant
+
+  grafana:
+    profiles: ['all', 'epr-backend', 'epr-frontend']
+    image: grafana/grafana:11.3.0@sha256:a0f881232a6fb71a0554a47d0fe2203b6888fe77f4cefb7ea62bed7eb54e13c3
+    ports:
+      - '${GRAFANA_PORT:-3400}:3000'
+    depends_on:
+      floci-init:
+        condition: service_completed_successfully
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: true
+    volumes:
+      - ./compose/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - cdp-tenant
 
 ################################################################################
 
