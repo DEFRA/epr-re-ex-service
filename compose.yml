@@ -311,6 +311,7 @@ services:
       ANALYTICS_MEASUREMENT_ID: ${ANALYTICS_MEASUREMENT_ID:-G-LOCALDEV000}
       APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
       AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-frontend
       ENABLE_METRICS: ${ENABLE_METRICS:-true}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
@@ -376,6 +377,9 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       APP_BASE_URL: http://epr-backend:3001
       AUDIT_ENABLED: true
+      AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-backend
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-basicAuthUsername}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-basicAuthPassword}
       CDP_UPLOADER_URL: http://cdp-uploader:7337
