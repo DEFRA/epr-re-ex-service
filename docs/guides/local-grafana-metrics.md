@@ -2,13 +2,31 @@
 
 This guide explains how backend and frontend metrics reach a local Grafana dashboard, and where that setup diverges from the deployed CDP environments.
 
+## Running it
+
+This is opt-in — the default `docker compose` stack does not include it, matching the [OpenTelemetry tracing](opentelemetry-tracing.md) precedent.
+
+```bash
+npm run dev:metrics
+```
+
+or directly:
+
+```bash
+docker compose -f compose.yml -f compose.metrics.yml --profile all up --watch
+```
+
+`npm run dev:metrics` also auto-detects the mounted Docker socket's group ID and passes it through as `DOCKER_GID`, which `emf-collector` needs to read container logs without running as root. This differs by host: on most Linux machines it's a real GID (e.g. `984`); on macOS the socket presents as `root:root` (GID `0`) inside Docker Desktop's VM. Running the raw `docker compose` command directly (rather than through `npm run dev:metrics`) uses the default of `984`, which is wrong on macOS — set `DOCKER_GID=0` in `.env` in that case. Symptom when it's wrong: `emf-collector` logs `EACCES /var/run/docker.sock` and never attaches. No rebuild needed if the GID changes; `group_add` is applied at container start, not baked into the image.
+
 ## Overview
 
 In CDP environments, the `amazon-cloudwatch-agent` sidecar reads EMF-formatted log lines emitted by `aws-embedded-metrics` and calls the real CloudWatch API. Locally there is no AWS account and no sidecar, so this repo instead:
 
-1. Sets `AWS_EMF_ENVIRONMENT: Local` on `epr-backend` and `epr-frontend`, which makes `aws-embedded-metrics` write EMF JSON to stdout instead of sending it anywhere.
-2. Runs an `emf-collector` service (`compose/emf-collector`) that tails both containers' stdout via the Docker API, parses the EMF JSON, and calls `PutMetricData` directly against `floci` (this repo's CloudWatch/S3/SQS emulator).
-3. Runs a `grafana` service provisioned with a CloudWatch datasource pointed at `floci`, and the `epr-backend (epr-re-ex-service)` dashboard.
+1. `epr-backend` and `epr-frontend` always run with `AWS_EMF_ENVIRONMENT: Local` set (in `compose.yml`), which makes `aws-embedded-metrics` write EMF JSON to stdout. This is inert on its own — nothing reads that stdout unless the metrics overlay is running.
+2. The `compose.metrics.yml` overlay adds an `emf-collector` service (`compose/emf-collector`) that tails both containers' stdout via the Docker API, parses the EMF JSON, and calls `PutMetricData` directly against `floci` (this repo's CloudWatch/S3/SQS emulator).
+3. The same overlay adds a `grafana` service provisioned with a CloudWatch datasource pointed at `floci`, and the `epr-backend (epr-re-ex-service)` dashboard.
+
+See "Running it" above.
 
 Access Grafana at http://localhost:3400 (anonymous admin).
 
