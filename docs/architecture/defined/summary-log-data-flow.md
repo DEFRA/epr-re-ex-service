@@ -117,7 +117,7 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Admin and regulator exports read
 
-The admin UI's reports and CSV downloads, and market insights on epr-frontend's regulator pages, are computed when requested and stored nowhere. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission.
+The admin UI's reports and CSV downloads, and market insights on epr-frontend's regulator pages, are built from the current data each time they are requested. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission.
 
 ### Waste Balance — the event-sourced stream
 
