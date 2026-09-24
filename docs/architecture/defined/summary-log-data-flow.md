@@ -54,8 +54,10 @@ flowchart LR
     WB -->|"balances and\nlatest submission\nper stream"| EXP
     PRN -->|"listed and\naggregated"| EXP
     RPT -->|"stored reports\nread"| EXP
-    ACC -.->|"date range and\nstatus read live"| EXP
+    ACC -.->|"date range and\nstatus history\nread live"| EXP
     ORS -.->|"approval date,\nname and country\nread live"| EXP
+    REG -.->|"material, processing\ntype and site\nread live"| EXP
+    ORG -.->|"name and address\nread live"| EXP
 ```
 
 ## What Reads What
@@ -117,7 +119,7 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Admin and regulator exports read
 
-The admin UI's reports and CSV downloads, and market insights on epr-frontend's regulator pages, are built from the current data each time they are requested. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission.
+The admin UI's reports and CSV downloads, and the market insights and waste records downloads on epr-frontend's regulator pages, are built from the current data each time they are requested. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission. Tonnage monitoring sums the rows without classifying them at all.
 
 ### Waste Balance — the event-sourced stream
 
