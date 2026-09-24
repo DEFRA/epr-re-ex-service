@@ -49,11 +49,12 @@ flowchart LR
     ACC -.->|"details snapshotted\nat creation"| PRN
     ACC -.->|"accredited vs\nregistered-only\nsets cadence"| RPT
 
-    WR -->|"row states\naggregated"| EXP
+    SL -->|"uploads\nlisted"| EXP
+    WR -->|"row states\nreclassified live\nand aggregated"| EXP
     WB -->|"balances and\nlatest submission\nper ledger"| EXP
     PRN -->|"listed and\naggregated"| EXP
     RPT -->|"submitted reports\nre-exported"| EXP
-    ACC -.->|"number, material,\nstatus, tonnage band\nread live"| EXP
+    ACC -.->|"date range, status\nand tonnage band\nread live"| EXP
     ORS -.->|"site name and\ncountry resolved\nlive at read time"| EXP
 ```
 
@@ -116,21 +117,22 @@ Before looking at invalidation, it helps to know what data each entity actually 
 
 ### Admin exports read
 
-The admin UI offers regulators a set of reports and CSV downloads. Each is computed when requested, and all of them read organisations and registrations. The last column shows which ones depend on accreditation data held in this service.
+The admin UI offers regulators a set of reports and CSV downloads, each computed when requested. All of them except PRN activity read organisations and their registrations live, and most also read the accreditations. PRN activity uses the organisation and accreditation details snapshotted on each PRN.
 
-| Export                     | Also reads                                                           | Accreditation fields read live                                          |
-| -------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| PRN tonnage                | PRNs, waste balance                                                  | `accreditationNumber`, `material`, `prnIssuance.tonnageBand`            |
-| PRN activity               | PRNs                                                                 | None. Uses the accreditation details snapshotted on the PRN             |
-| Public register            | Reports (for compliance)                                             | `accreditationNumber`, `status`, `validFrom`, `prnIssuance.tonnageBand` |
-| Market insights            | Reports, waste balance, waste record row states, overseas sites      | `statusHistory`, `prnIssuance.tonnageBand`                              |
-| Credited tonnage           | Waste balance, waste record row states, overseas sites               | `accreditationNumber`, `material`                                       |
-| Tonnage monitoring         | Waste balance, waste record row states                               | None                                                                    |
-| Waste balance availability | Waste balance                                                        | None                                                                    |
-| Waste records export       | Summary logs, waste balance, waste record row states, overseas sites | `accreditationNumber`                                                   |
-| Summary log uploads        | Summary logs                                                         | `accreditationNumber`                                                   |
-| Report submissions         | Reports                                                              | None                                                                    |
-| Linked organisations       | Nothing further                                                      | None                                                                    |
+| Export                      | Also reads                                                           |
+| --------------------------- | -------------------------------------------------------------------- |
+| PRN tonnage                 | PRNs, waste balance                                                  |
+| PRN activity                | PRNs only                                                            |
+| Public register             | Reports                                                              |
+| Market insights             | Reports, waste balance, waste record row states, overseas sites      |
+| Credited tonnage            | Waste balance, waste record row states, overseas sites               |
+| Tonnage monitoring          | Waste balance, waste record row states                               |
+| Waste balance availability  | Waste balance                                                        |
+| Waste records export        | Summary logs, waste balance, waste record row states, overseas sites |
+| Summary log uploads         | Summary logs                                                         |
+| Report submissions          | Reports                                                              |
+| Overseas reprocessing sites | Overseas sites                                                       |
+| Linked organisations        | Nothing further                                                      |
 
 ### Waste Balance — the event-sourced stream
 
