@@ -31,7 +31,7 @@ flowchart LR
     WR["Waste Records"]:::core
     WB["Waste Balance"]:::downstream
     RPT["Reports"]:::downstream
-    EXP["Admin exports"]:::downstream
+    EXP["Admin and regulator\nexports"]:::downstream
 
     SL -->|"creates and\nupdates"| WR
     WR -->|"classified rows\nbecome transactions"| WB
@@ -50,12 +50,12 @@ flowchart LR
     ACC -.->|"accredited vs\nregistered-only\nsets cadence"| RPT
 
     SL -->|"uploads\nlisted"| EXP
-    WR -->|"row states\nreclassified live\nand aggregated"| EXP
-    WB -->|"balances and\nlatest submission\nper ledger"| EXP
+    WR -->|"latest submission's\nrow states; some\nreclassified live"| EXP
+    WB -->|"balances and\nlatest submission\nper stream"| EXP
     PRN -->|"listed and\naggregated"| EXP
-    RPT -->|"submitted reports\nre-exported"| EXP
-    ACC -.->|"date range, status\nand tonnage band\nread live"| EXP
-    ORS -.->|"site name and\ncountry resolved\nlive at read time"| EXP
+    RPT -->|"stored reports\nread"| EXP
+    ACC -.->|"date range and\nstatus read live"| EXP
+    ORS -.->|"approval date,\nname and country\nread live"| EXP
 ```
 
 ## What Reads What
@@ -115,24 +115,9 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Registration**           | `wasteProcessingType`                                       | Determines operator category and which report sections apply            |
 | **Registration**           | `material`, `site.address`                                  | Appended to report response                                             |
 
-### Admin exports read
+### Admin and regulator exports read
 
-The admin UI offers regulators a set of reports and CSV downloads, each computed when requested. All of them except PRN activity read organisations and their registrations live, and most also read the accreditations. PRN activity uses the organisation and accreditation details snapshotted on each PRN.
-
-| Export                      | Also reads                                                           |
-| --------------------------- | -------------------------------------------------------------------- |
-| PRN tonnage                 | PRNs, waste balance                                                  |
-| PRN activity                | PRNs only                                                            |
-| Public register             | Reports                                                              |
-| Market insights             | Reports, waste balance, waste record row states, overseas sites      |
-| Credited tonnage            | Waste balance, waste record row states, overseas sites               |
-| Tonnage monitoring          | Waste balance, waste record row states                               |
-| Waste balance availability  | Waste balance                                                        |
-| Waste records export        | Summary logs, waste balance, waste record row states, overseas sites |
-| Summary log uploads         | Summary logs                                                         |
-| Report submissions          | Reports                                                              |
-| Overseas reprocessing sites | Overseas sites                                                       |
-| Linked organisations        | Nothing further                                                      |
+The admin UI's reports and CSV downloads, and market insights on epr-frontend's regulator pages, are computed when requested and stored nowhere. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission.
 
 ### Waste Balance — the event-sourced stream
 
