@@ -16,7 +16,7 @@ runs:
         node-version: 24
         cache: npm
 
-    - uses: renovatebot/github-action@39b914146caeff8cd512e61c8992f1d5913af85c # v46.2.5
+    - uses: renovatebot/github-action@9fea9f0fbf80401026d11d03911d62b1f70fef1f # v46.3.3
       with:
         renovate-version: 43.206.0
         mount-docker-socket: false
