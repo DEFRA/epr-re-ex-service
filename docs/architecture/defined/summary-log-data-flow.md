@@ -31,6 +31,7 @@ flowchart LR
     WR["Waste Records"]:::core
     WB["Waste Balance"]:::downstream
     RPT["Reports"]:::downstream
+    EXP["Admin exports"]:::downstream
 
     SL -->|"creates and\nupdates"| WR
     WR -->|"classified rows\nbecome transactions"| WB
@@ -47,6 +48,13 @@ flowchart LR
     ORG -.->|"name and trading\nname snapshotted\nat creation"| PRN
     ACC -.->|"details snapshotted\nat creation"| PRN
     ACC -.->|"accredited vs\nregistered-only\nsets cadence"| RPT
+
+    WR -->|"row states\naggregated"| EXP
+    WB -->|"balances and\nlatest submission\nper ledger"| EXP
+    PRN -->|"listed and\naggregated"| EXP
+    RPT -->|"submitted reports\nre-exported"| EXP
+    ACC -.->|"number, material,\nstatus, tonnage band\nread live"| EXP
+    ORS -.->|"site name and\ncountry resolved\nlive at read time"| EXP
 ```
 
 ## What Reads What
@@ -105,6 +113,24 @@ Before looking at invalidation, it helps to know what data each entity actually 
 | **Registration**           | `accreditationId` (present or absent)                       | Determines cadence: monthly (accredited) or quarterly (registered-only) |
 | **Registration**           | `wasteProcessingType`                                       | Determines operator category and which report sections apply            |
 | **Registration**           | `material`, `site.address`                                  | Appended to report response                                             |
+
+### Admin exports read
+
+The admin UI offers regulators a set of reports and CSV downloads. Each is computed when requested, and all of them read organisations and registrations. The last column shows which ones depend on accreditation data held in this service.
+
+| Export                     | Also reads                                                           | Accreditation fields read live                                          |
+| -------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| PRN tonnage                | PRNs, waste balance                                                  | `accreditationNumber`, `material`, `prnIssuance.tonnageBand`            |
+| PRN activity               | PRNs                                                                 | None. Uses the accreditation details snapshotted on the PRN             |
+| Public register            | Reports (for compliance)                                             | `accreditationNumber`, `status`, `validFrom`, `prnIssuance.tonnageBand` |
+| Market insights            | Reports, waste balance, waste record row states, overseas sites      | `statusHistory`, `prnIssuance.tonnageBand`                              |
+| Credited tonnage           | Waste balance, waste record row states, overseas sites               | `accreditationNumber`, `material`                                       |
+| Tonnage monitoring         | Waste balance, waste record row states                               | None                                                                    |
+| Waste balance availability | Waste balance                                                        | None                                                                    |
+| Waste records export       | Summary logs, waste balance, waste record row states, overseas sites | `accreditationNumber`                                                   |
+| Summary log uploads        | Summary logs                                                         | `accreditationNumber`                                                   |
+| Report submissions         | Reports                                                              | None                                                                    |
+| Linked organisations       | Nothing further                                                      | None                                                                    |
 
 ### Waste Balance — the event-sourced stream
 
