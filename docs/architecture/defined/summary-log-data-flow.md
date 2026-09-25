@@ -11,7 +11,7 @@ For detailed implementation, see the related LLDs:
 
 ## System Overview
 
-The system has a clear data flow direction: upstream entities influence how downstream entities are created, but downstream entities do not feed back upstream.
+Data flows one way. Upstream entities shape how downstream entities are created, and downstream entities do not feed back upstream. The one exception is the registration's reports, which a summary log reads twice: validation shows which rows fall in periods already reported, and submission refuses an upload that a newer report has overtaken.
 
 ```mermaid
 flowchart LR
@@ -24,30 +24,30 @@ flowchart LR
     PRN["PRN / PERN"]:::source
 
     REG["Registration\n(processing type,\nmaterial, site)"]:::reference
-    ACC["Accreditation\n(date range,\nsuspension history)"]:::reference
+    ACC["Accreditation\n(date range,\nstatus history)"]:::reference
     ORS["Overseas\nReprocessing\nSites"]:::reference
     ORG["Organisation\n(name, address)"]:::reference
 
-    WR["Waste Records"]:::core
+    WR["Waste Records\n(row states)"]:::core
     WB["Waste Balance"]:::downstream
     RPT["Reports"]:::downstream
     EXP["Admin and regulator\nexports"]:::downstream
 
-    SL -->|"creates and\nupdates"| WR
-    WR -->|"classified rows\nbecome transactions"| WB
+    SL -->|"each submission\nwrites row states"| WR
+    WR -->|"one event per\nsubmission carries\nits credit total"| WB
     PRN -->|"debits and\nringfences"| WB
-    WR -->|"aggregated by\nperiod"| RPT
-    PRN -->|"issuance\ntonnage"| RPT
+    WR -->|"latest submission's\nrows aggregated\nby period"| RPT
+    PRN -->|"issued\ntonnage"| RPT
 
-    ACC -.->|"date range and\nsuspension affect\nrow classification"| WR
-    REG -.->|"processing type\nand material\nselect schemas"| SL
-    REG -.->|"suspension\ncascades"| ACC
-    REG -.->|"site address\ndenormalised\ninto response"| RPT
-    ORS -.->|"per-accreditation\napproval date affects\nclassification;\nsite names captured\nat upload time"| WR
-    ORS -.->|"site name and\ncountry resolved\nlive at read time"| RPT
+    ACC -.->|"date range and\nstatus history\nclassify rows"| WR
+    REG -.->|"processing type\nand material checked\nagainst spreadsheet"| SL
+    REG -.->|"cancellation cancels\nlinked approved or\nsuspended accreditation"| ACC
+    REG -.->|"material and site\nread live"| RPT
+    ORS -.->|"site approval date\nclassifies exported rows"| WR
+    ORS -.->|"site name and\ncountry resolved\nwhen computed"| RPT
     ORG -.->|"name and trading\nname snapshotted\nat creation"| PRN
-    ACC -.->|"details snapshotted\nat creation"| PRN
-    ACC -.->|"accredited vs\nregistered-only\nsets cadence"| RPT
+    ACC -.->|"details snapshotted\nat creation; status\nchecked at issue"| PRN
+    ACC -.->|"approved or\nsuspended sets\nmonthly cadence"| RPT
 
     SL -->|"uploads\nlisted"| EXP
     WR -->|"latest submission's\nrow states; some\nreclassified live"| EXP
@@ -62,73 +62,52 @@ flowchart LR
 
 ## What Reads What
 
-Before looking at invalidation, it helps to know what data each entity actually uses from other entities.
+Each consumer below reads some data live and keeps a copy of the rest. A copy is what goes stale.
 
-### Summary Log Validation reads
+### Summary Log validation
 
-| Source                          | Data used                                 | Purpose                                                                      |
-| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
-| **Registration**                | `registrationNumber`                      | Compared against spreadsheet metadata (FATAL if mismatch)                    |
-| **Registration**                | `wasteProcessingType`, `reprocessingType` | Selects which table schemas and validation rules apply                       |
-| **Registration**                | `material`, `glassRecyclingProcess`       | Compared against spreadsheet metadata (FATAL if mismatch)                    |
-| **Accreditation**               | `accreditationNumber`                     | Compared against spreadsheet metadata (FATAL if mismatch)                    |
-| **Accreditation**               | `validFrom`, `validTo`                    | Used to mark rows as IGNORED if dates fall outside the period                |
-| **Accreditation**               | `statusHistory`                           | Used to mark rows as IGNORED if accreditation was suspended at the load date |
-| **Existing Waste Records**      | `type`, `rowId`                           | Row continuity check — previously submitted rows must not be removed         |
-| **Feature flags**               | `isRegisteredOnlyEnabled`                 | Controls whether registered-only template variants are accepted              |
-| **Template version thresholds** | Minimum per processing type               | Rejects spreadsheets using outdated template versions                        |
+Validation checks the spreadsheet against the registration as it is now. The registration number, accreditation number, material and processing type in the spreadsheet must match the registration and its accreditation, or the upload is rejected outright. That includes the template variant: an accredited registration must use an accredited template, and a registered-only one a registered-only template. The spreadsheet's own processing type then selects the table schemas its rows are read against.
 
-### Waste Balance calculation reads
+Every row submitted before must still be present. The baseline is the row states of the latest submitted summary log on the registration's waste balance stream.
 
-| Source                                | Data used                                                                                                       | Purpose                                                                                                                                                                                                        |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Accreditation**                     | `validFrom`, `validTo`                                                                                          | Date range for row classification (INCLUDED vs IGNORED)                                                                                                                                                        |
-| **Accreditation**                     | `statusHistory`                                                                                                 | Suspension check at each load date                                                                                                                                                                             |
-| **Waste Record data**                 | Required fields per table                                                                                       | Missing required fields → row EXCLUDED from balance                                                                                                                                                            |
-| **Waste Record data**                 | `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE`                                                                         | If "Yes" → row EXCLUDED (already accounted for)                                                                                                                                                                |
-| **Waste Record data**                 | `ADD_PRODUCT_WEIGHT` (reprocessor output only)                                                                  | If not "Yes" → row EXCLUDED                                                                                                                                                                                    |
-| **Waste Record data**                 | `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (exporter only)                                                        | Switches which tonnage field is used                                                                                                                                                                           |
-| **Waste Record data**                 | Tonnage field (varies by table)                                                                                 | The actual credit or debit amount                                                                                                                                                                              |
-| **ORS approval data** (exporter only) | ORS `validFrom` date (per accreditation, resolved via `registration.overseasSites`) matched against export date | VAL014: if the ORS was not yet approved at the date of export → row EXCLUDED from balance (`ORS_NOT_APPROVED`). VAL015: an OSR_ID absent from `registration.overseasSites` → row EXCLUDED with `ORS_NOT_FOUND` |
-| **Previous balance event**            | `creditTotal` of the prior `summary-log-submitted` event on the stream                                          | The submission's frozen `creditTotal` snapshot is differenced against this to derive the balance delta (see [Waste Balance section](#waste-balance--the-event-sourced-stream))                                 |
+Validation then classifies the rows the way a submission would, to preview the effect on the balance. It uses the current accreditation and, for exporters, the current overseas site approval dates. It also compares each row with the previous submission's row state to count what was added or changed, and sorts rows by reporting period against the registration's reports. Nothing is written to the balance until the operator submits.
 
-### PRN operations read
+### Summary Log submission
 
-| Source            | Data used                                           | Purpose                                                                                                                                                                                                                                                            |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Waste Balance** | `availableAmount` / `decemberAvailableAmount`       | Checked at PRN creation — which field depends on the event's resolved pool: a December-pool PRN checks `decemberAvailableAmount`, a general PRN the derived `availableAmount − decemberAvailableAmount` (see [ADR-0049](../decisions/0049-december-waste-prns.md)) |
-| **Waste Balance** | `amount` / `decemberAmount`                         | Checked at PRN issue — a December-pool PRN checks `decemberAmount`, a general PRN the derived `amount − decemberAmount`                                                                                                                                            |
-| **Accreditation** | `status`                                            | Checked at PRN issue — cannot issue if accreditation is suspended                                                                                                                                                                                                  |
-| **Accreditation** | Number, year, material, glass process, site address | Snapshotted into the PRN at creation (never updated)                                                                                                                                                                                                               |
-| **Organisation**  | `name`, `tradingName`                               | Snapshotted into the PRN at creation (never updated)                                                                                                                                                                                                               |
+Submission is refused if a report for the registration was submitted after the upload was created. Otherwise it classifies every row again against the current accreditation and overseas site data, and writes two things:
 
-### Reports read
+- **Row states.** Each row is stored with its classification in the summary log row states collection. A row whose data and classification are both unchanged is not rewritten. The new submission's id is added to its membership instead, and a changed row gets a new row state. See [ADR-0037](../decisions/0037-summary-log-row-states-with-membership.md).
+- **One event on the waste balance stream**, carrying the submission's credit total.
 
-| Source                     | Data used                                                   | Purpose                                                                 |
-| -------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Waste Records**          | Date fields (varies by operator category)                   | Determines which records fall in which reporting period                 |
-| **Waste Records**          | Tonnage fields                                              | Summed for received, exported, sent-on totals                           |
-| **Waste Records**          | `SUPPLIER_NAME`, `ACTIVITIES_CARRIED_OUT_BY_SUPPLIER`       | Listed in recycling activity section                                    |
-| **Waste Records**          | `OSR_ID`                                                    | Groups exported waste by overseas site                                  |
-| **Overseas Sites** (live)  | `siteName`, `country`                                       | Resolved from ORS reference data at read time via `getOrsDetailsMap()`  |
-| **Waste Records**          | `FINAL_DESTINATION_NAME`, `FINAL_DESTINATION_FACILITY_TYPE` | Listed in waste sent section, categorised by facility type              |
-| **PRNs** (accredited only) | Tonnage of PRNs with `status.issued.at` in period           | PRN issuance data in report                                             |
-| **Registration**           | `accreditationId` (present or absent)                       | Determines cadence: monthly (accredited) or quarterly (registered-only) |
-| **Registration**           | `wasteProcessingType`                                       | Determines operator category and which report sections apply            |
-| **Registration**           | `material`, `site.address`                                  | Appended to report response                                             |
+A row's classification decides whether its tonnage counts towards the balance. It depends on the row's own data, on whether the accreditation's date range covered the row's date and the accreditation was neither suspended nor cancelled on it, and, for exported rows, on whether the overseas site was approved by the export date. An overseas site is found through the registration's list of sites, and its approval date belongs to the site record.
+
+### Waste Balance — the event-sourced stream
+
+The waste balance is an **event-sourced stream** per organisation, registration and accreditation. A registered-only registration has a stream with no accreditation, and its submissions append events that carry no credit. A submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal`: the credit contribution of all the submission's rows, classified against the accreditation and overseas site data in force at submit time. The balance shifts by the difference between this submission's `creditTotal` and the previous one's. The current balance is the closing balance on the latest event, so there is no separate balance store to drift. December waste is tracked the same way in a separate dimension of the balance. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the arithmetic, and [ADR-0049](../decisions/0049-december-waste-prns.md) for December waste.
+
+Two consequences matter for data flow:
+
+- **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor, such as an amended accreditation date range, does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
+- **The stream says which submission is current.** Anything that needs per-row detail finds the latest `summary-log-submitted` event on the stream, then reads the row states whose membership includes that submission. Validation, submission, reports and exports all read rows this way. The balance itself reads only the stream.
+
+### PRN operations
+
+A PRN checks the balance live at each step that moves it:
+
+- **Creation (draft)** checks the available balance, and refuses a cancelled accreditation. It copies the organisation's name and trading name, and the accreditation's number, year, material, glass process, site address and regulator, into the PRN. These copies are never updated.
+- **Raising for authorisation** checks the available balance again and ringfences the tonnage. It also records which pool the PRN draws on: December waste or general.
+- **Issue** refuses a suspended or cancelled accreditation, reads the live accreditation's regulator to number the PRN, and debits the balance from the pool the raise recorded.
+- **Deleting or cancelling** a PRN credits its tonnage back to that same pool.
+
+### Reports
+
+Cadence comes from the accreditation: monthly while it is approved or suspended, quarterly otherwise. The operator's category, and so which date fields and report sections apply, comes from the registration's processing type together with that test.
+
+A report the operator has not yet created is computed on every read, from live data. It aggregates the row states of the latest submission by period, adds the tonnage of PRNs issued in the period that are not cancelled or awaiting cancellation, and resolves overseas site names and countries from the site records. Once the operator creates the report, it is stored and returned as it was saved. The report detail response adds the registration's current material and site either way.
 
 ### Admin and regulator exports read
 
 The admin UI's reports and CSV downloads, and the market insights and waste records downloads on epr-frontend's regulator pages, are built from the current data each time they are requested. An export that reads waste records finds the latest submitted summary log on each waste balance stream and reads that submission's row states. Credited tonnage, the waste records export and the market insights waste balance figures then classify those rows again against the current accreditation and overseas site data, rather than using the classification stamped at submission. Tonnage monitoring sums the rows without classifying them at all.
-
-### Waste Balance — the event-sourced stream
-
-The waste balance is an **event-sourced stream** per registration phase, partitioned by `(registrationId, accreditationId)`. A summary-log submission appends exactly **one `summary-log-submitted` event** carrying a frozen `creditTotal` snapshot — the absolute credit contribution of that submission, computed at submit time from the merged row state (including this submission's row-state writes) and all then-current contextual factors (accreditation date range in effect, ORS approval dates). For exporter and reprocessor-input accreditations the event also carries a `decemberCreditTotal` snapshot — the same computation narrowed to **credit** rows whose balance-affecting date falls in December (December-dated deductions are excluded; they land on the general balance) — which shifts the additive `decemberAmount` / `decemberAvailableAmount` dimension of the balance; a reprocessor-output accreditation accrues none. The balance shifts by the delta between this submission's `creditTotal` and the prior submission's (and, for December, between the `decemberCreditTotal`s); the current balance is the `closingBalance` of the highest-numbered event, a single indexed read with no separate balance store to drift. See [ADR-0036](../decisions/0036-event-sourced-waste-balance-stream.md) for the event taxonomy and the full arithmetic, and [ADR-0049](../decisions/0049-december-waste-prns.md) for the December dimension.
-
-Two consequences matter for data flow:
-
-- **Frozen snapshots set the correction latency.** Because `creditTotal` is fixed at write time, a later change to a contextual factor (e.g. an amended accreditation date range) does not move the balance until the next submission recomputes its own snapshot. This is the mechanism behind the invalidation behaviour below.
-- **Per-row provenance is off the balance read path.** What submission S contributed for row R stays answerable from the summary log row states collection (`summary-log-row-states`), where each row state carries the `summaryLogIds` of the submissions that wrote it. A membership entry is provenance once that submission's event is on the stream; a submission that failed between the two writes leaves an entry no read ever asks for. Everything that needs per-row detail reads this collection: validating the next upload, submitting it, reports, exports and admin queries. The balance itself reads only the stream. See [ADR-0037](../decisions/0037-summary-log-row-states-with-membership.md).
 
 ## Invalidation Map
 
