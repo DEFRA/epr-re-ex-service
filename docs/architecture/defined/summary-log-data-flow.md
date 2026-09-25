@@ -114,231 +114,101 @@ The admin UI's reports and CSV downloads, and the market insights and waste reco
 
 ## Invalidation Map
 
-Each section below answers: **when this changes, what breaks, and how is it fixed?**
+Each section below answers: **when this changes, what goes stale, and how is it corrected?**
 
-```mermaid
-flowchart LR
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-    classDef blocked fill:#333,color:#fff,stroke:none
+Three rules decide most of the answers:
 
-    subgraph Legend
-        direction TB
-        L1["Auto-corrected"]:::auto
-        L2["Stale until\noperator acts"]:::stale
-        L3["Requires operator\nor regulator action"]:::manual
-        L4["Operation\nblocked"]:::blocked
-    end
-```
+- **The balance moves only when an event is appended.** A PRN step moves it at once. A change to accreditation or overseas site data reaches it only through the next submission's credit total. Nothing recalculates it in the background.
+- **A stored report is flagged, never rewritten.** An in-progress or ready-to-submit report can be marked stale, and then cannot be edited or submitted until the operator deletes it and creates it again from current data. A submitted report can be flagged for resubmission, and the operator then creates and submits a new submission for the period. Operators can also ask to resubmit a submitted report themselves.
+- **Anything computed on read reflects the change on its next read.** That covers a report the operator has not created and the admin and regulator exports. The exports that reclassify rows can therefore disagree with the balance until the next submission.
 
 ### New Summary Log submitted
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
+- **Waste balance.** One event is appended and the balance moves by the difference in credit total. Any accreditation or overseas site change since the previous submission reaches the balance here.
+- **Row states.** The new submission's rows become current, each stamped with its classification against the accreditation and site data in force now.
+- **Other uploads.** Any other upload for the registration that was validated against the previous submission is refused when the operator tries to submit it. The operator uploads again.
+- **Stored reports.** Every in-progress or ready-to-submit report for the registration is marked stale, whatever its period. A submitted report for a period whose rows the upload adds or changes is flagged for resubmission.
+- **Computed reports and exports.** They show the new rows on their next read.
 
-    T["Summary Log\nsubmitted"]:::trigger
+### Report submitted
 
-    T --> WR["Waste Records\nupdated with\nnew row states"]:::auto
-    T --> WB["summary-log-submitted\nevent appended;\nbalance shifts by\ncreditTotal delta"]:::auto
-    T --> PREV["Previous unsubmitted\nSummary Logs for\nsame Registration\nbecome superseded"]:::stale
-    T --> RPT_C["Computed Reports\nautomatically reflect\nnew data on next read"]:::auto
-    T --> RPT_P["Persisted Reports\nfor affected periods\nnow contain\noutdated tonnages"]:::stale
-
-    PREV --> PREV_FIX["Operator must\nre-upload"]:::manual
-    RPT_P --> RPT_FIX["Delete and recreate\naffected Report"]:::manual
-```
+- **Uploads in progress.** Any upload for the registration created before the report was submitted is refused at submission, whichever periods it touches. The operator uploads again.
+- **The period is closed.** A later upload that adds or changes rows in the period flags the report for resubmission when it is submitted.
 
 ### PRN lifecycle changes
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-
-    subgraph Creation ["PRN created (DRAFT → AWAITING AUTHORISATION)"]
-        T1["PRN created"]:::trigger
-        T1 --> WB1["Available balance\nreduced\n(tonnage ringfenced)"]:::auto
-        T1 --> CHECK1["Checks available\nbalance is sufficient\n(409 Conflict if not)"]:::auto
-    end
-
-    subgraph Issue ["PRN issued (AWAITING AUTHORISATION → AWAITING ACCEPTANCE)"]
-        T2["PRN issued"]:::trigger
-        T2 --> WB2["Total balance\nreduced"]:::auto
-        T2 --> CHECK2["Checks total balance\nis sufficient and\nAccreditation not\nsuspended"]:::auto
-        T2 --> RPT2["Persisted Reports\nfor affected period\nhave outdated\nPRN data"]:::stale
-        RPT2 --> RPT2_FIX["Delete and recreate\nReport"]:::manual
-    end
-
-    subgraph Cancel ["PRN cancelled"]
-        T3["PRN cancelled"]:::trigger
-        T3 --> WB3["Balance restored\n(available and/or total\ndepending on whether\nPRN was issued)"]:::auto
-        T3 --> RPT3["Persisted Reports\nhave outdated\nPRN data"]:::stale
-        RPT3 --> RPT3_FIX["Delete and recreate\nReport"]:::manual
-    end
-```
+- **Draft.** Nothing moves. The organisation and accreditation details copied into the PRN are never refreshed.
+- **Raise, or delete before issue.** Raising ringfences available balance and deleting a PRN awaiting authorisation returns it, both at once. Reports count only issued PRNs, so neither affects them.
+- **Issue.** Total balance is debited at once, and a computed report for the period includes the PRN on its next read. An issue cannot affect a stored report, because a report can be created only once its period has ended.
+- **Rejection or cancellation.** Computed reports drop the PRN at once, but the balance is restored only when the cancellation completes, so the two disagree until then. The in-progress or ready-to-submit report for the month the PRN was issued is marked stale. A submitted report for that month is not flagged, and keeps counting the PRN unless the operator asks to resubmit it.
+- **Exports.** PRN listings and aggregates show the new status on their next read.
 
 ### Accreditation dates changed
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
+- **Waste balance and row states.** Rows that move into or out of the date range keep their old classification, and the balance keeps its old figure, until the next submission. PRN balance checks use that figure meanwhile.
+- **Exports.** Credited tonnage, the waste records export and the market insights waste balance figures reclassify on read. They show the new answer at once and disagree with the balance until the next submission.
+- **Reports.** Report figures do not read accreditation dates, so computed and stored reports are unaffected. The accreditation's start date does bound which monthly periods the operator is asked to report, and that is read live.
+- **PRNs.** Existing PRNs keep the accreditation details copied when they were drafted.
 
-    T["Regulator changes\nAccreditation\ndate range"]:::trigger
+### Accreditation suspended or cancelled
 
-    T --> CLASS["Row classification\nchanges: rows may\nmove between\nIncluded and Ignored"]:::stale
-    T --> WB["Waste Balance is\nstale (based on old\ndate boundaries)"]:::stale
-    T --> PRN_BAL["PRN balance checks\nuse stale balance\n(may allow or reject\nPRNs incorrectly)"]:::stale
-    T --> RPT_C["Computed Reports\npick up current dates\non next read"]:::auto
-    T --> RPT_P["Persisted Reports\nfor affected periods\nnow outdated"]:::stale
-    T --> PRN_SNAP["Existing PRNs retain\nold Accreditation\nsnapshot"]:::stale
+- **Waste balance and row states.** Rows dated on or after the suspension or cancellation stop counting towards the balance, but only from the next submission. PRN balance checks use the old figure meanwhile.
+- **Exports.** The exports that reclassify rows show the change at once and disagree with the balance until the next submission.
+- **PRNs.** Issuing is refused at once, while drafting continues during a suspension. Drafting is refused once the accreditation is cancelled. Existing PRNs keep their copied details.
+- **Reports.** Report figures are unaffected. A suspended accreditation keeps monthly cadence. A cancelled one moves the operator to quarterly periods, and the monthly reports already stored stay but drop out of the operator's list.
 
-    WB --> WB_FIX["Corrected on next\nSummary Log\nsubmission"]:::manual
-    RPT_P --> RPT_FIX["Delete and recreate\naffected Reports"]:::manual
-```
+Cancelling a registration cancels a linked approved or suspended accreditation, with the same effects.
 
-### Accreditation suspended
+### Accreditation granted
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-    classDef blocked fill:#333,color:#fff,stroke:none
-
-    T2["Accreditation\nsuspended"]:::trigger
-
-    T2 --> CLASS["Rows during suspended\nperiod become Ignored\n(no balance effect)"]:::stale
-    T2 --> WB["Waste Balance is stale\n(credits for suspended\nperiod not yet reversed)"]:::stale
-    T2 --> PRN_BLOCK["PRN issuance blocked\nwhile suspended\n(creation still allowed)"]:::blocked
-    T2 --> RPT_P["Persisted Reports\nfor suspended period\nnow outdated"]:::stale
-
-    WB --> WB_FIX["Corrected on next\nSummary Log\nsubmission"]:::manual
-    RPT_P --> RPT_FIX["Delete and recreate\naffected Reports"]:::manual
-```
-
-### Accreditation granted or removed
-
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-
-    T["Registration becomes\nAccredited\n(or loses Accreditation)"]:::trigger
-
-    T --> CADENCE["Reporting cadence\nswitches between\nMonthly and Quarterly"]:::auto
-    T --> WB_NEW["Waste Balance created\n(or no longer maintained\nif removed)"]:::auto
-    T --> SCHEMA["Validation schemas\nchange (different\nrequired fields for\nRegistered-Only)"]:::stale
-    T --> RPT["Existing persisted\nReports under old\ncadence remain as\nhistorical record"]:::auto
-
-    SCHEMA --> SCHEMA_FIX["Operator must upload\nnew Summary Log\nusing correct template"]:::manual
-```
+- **Uploads.** Once the accreditation has a number, the next upload must use the accredited template, or validation rejects it.
+- **Waste balance.** The accreditation's stream opens with its first submission, and the row continuity baseline starts empty. The registered-only stream keeps its history, and exports still read it.
+- **Reports.** Cadence becomes monthly, bounded by the accreditation's start date. Computed reports stop seeing the registered-only rows. Quarterly reports already stored stay but drop out of the operator's list.
 
 ### Registration details changed (material, processing type, site address)
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-
-    T["Regulator changes\nRegistration details"]:::trigger
-
-    T --> VAL["Next Summary Log\nvalidation checks\nagainst new values\n(material, processing\ntype mismatches\nwill be rejected)"]:::auto
-    T --> RPT_ADDR["Report responses\nshow current site\naddress (read live\nfrom Registration)"]:::auto
-    T --> PRN_SNAP["Existing PRNs retain\nold Accreditation\nsnapshot including\nold material and\nsite address"]:::stale
-    T --> WR["Existing Waste Records\nunaffected (store only\nIDs, not Registration\ndetails)"]:::auto
-```
+- **Uploads.** Validation checks the next upload against the new material and processing type, and rejects a mismatch outright.
+- **Reports.** Report responses, stored or computed, show the registration's current material and site. A computed report takes its category from the current processing type.
+- **PRNs.** Existing PRNs keep the material and site address copied from the accreditation when they were drafted.
+- **Waste records and balance.** Unaffected. Row states hold ids, not registration details.
+- **Exports.** They read registration details live, so they show the change on their next read.
 
 ### Organisation details changed (name, trading name)
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-
-    T["Organisation name\nor trading name\nchanged"]:::trigger
-
-    T --> PRN["Existing PRNs retain\nold organisation name\n(snapshotted at\ncreation)"]:::stale
-    T --> WR["Waste Records\nunaffected\n(store only IDs)"]:::auto
-    T --> RPT["Reports unaffected\n(store only IDs)"]:::auto
-```
+- **PRNs.** Existing PRNs keep the name and trading name copied when they were drafted. PRN listings show that copy.
+- **Exports.** Those that read the organisation show the new name on their next read.
+- **Waste records, balance and reports.** Unaffected. None of them holds organisation details.
 
 ### Overseas Reprocessing Site data changed
 
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef stale fill:#ffa94d,color:#000,stroke:none
-    classDef auto fill:#51cf66,color:#000,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
+This covers a site's approval date, name or country, and the list of sites on the registration.
 
-    T["ORS approval status,\nname, or details\nchanged"]:::trigger
-
-    T --> CLASS["Row classification\nchanges for exporters:\nORS approval date\nchecked against\nexport date (VAL014)"]:::stale
-    T --> WB["Waste Balance may\nbe stale if rows\nare newly included\nor excluded"]:::stale
-    T --> WR["Existing Waste Records\nretain old ORS ID\nand name (captured\nfrom spreadsheet\nat upload time)"]:::stale
-    T --> RPT_C["Computed Reports\nautomatically reflect\ncurrent ORS names\n(read live from\nORS reference data)"]:::auto
-    T --> RPT_P["Persisted Reports\ncontain stale\nORS snapshot"]:::stale
-
-    WB --> WB_FIX["Corrected on next\nSummary Log\nsubmission"]:::manual
-    WR --> WR_FIX["New Summary Log\nupload captures\ncurrent ORS details"]:::manual
-    RPT_P --> RPT_P_FIX["Delete and recreate\naffected Reports"]:::manual
-```
-
-### Pending Report blocks submission (VAL012)
-
-```mermaid
-flowchart TD
-    classDef trigger fill:#ff6b6b,color:#fff,stroke:none
-    classDef blocked fill:#333,color:#fff,stroke:none
-    classDef manual fill:#4a90d9,color:#fff,stroke:none
-
-    T["Report exists in\npending state for\nthis Accreditation"]:::trigger
-
-    T --> BLOCK["Summary Log submission\nblocked entirely\n(regardless of\nrow validity)"]:::blocked
-
-    BLOCK --> FIX["Report must be\napproved or withdrawn\nbefore operator can\nsubmit"]:::manual
-```
+- **Waste balance and row states.** Exported rows whose site approval changes keep their old classification, and the balance keeps its old figure, until the next submission.
+- **Exports.** The exports that reclassify rows show the change at once and disagree with the balance until the next submission.
+- **Computed reports.** They resolve each site's name and country, and whether it was approved by the export date, on every read.
+- **Stored reports.** They keep the site details as they were when created. Nothing flags them, so an unsubmitted report stays stale until the operator deletes and recreates it, and a submitted one until the operator asks to resubmit it.
+- **Waste records.** Rows hold the site id and whatever name the operator typed, so no site change reaches them.
 
 ## Invalidation Summary
 
-| Change                            | Waste Records            | Waste Balance                                           | Computed Reports                 | Persisted Reports    | PRNs                   |
-| --------------------------------- | ------------------------ | ------------------------------------------------------- | -------------------------------- | -------------------- | ---------------------- |
-| **Summary Log submitted**         | Updated (new row states) | Auto-corrected (creditTotal delta)                      | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN created**                   | —                        | Auto-corrected (ringfence)                              | Auto-corrected                   | —                    | —                      |
-| **PRN issued**                    | —                        | Auto-corrected (debit)                                  | Auto-corrected                   | **Stale** — recreate | —                      |
-| **PRN cancelled**                 | —                        | Auto-corrected (reversal)                               | Auto-corrected                   | **Stale** — recreate | —                      |
-| **Accreditation dates changed**   | Classification changes   | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Retain old snapshot    |
-| **Accreditation suspended**       | Classification changes   | **Stale** until next submission                         | Auto-corrected                   | **Stale** — recreate | Issuance blocked       |
-| **Accreditation granted/removed** | Schema changes           | Created or removed                                      | Cadence changes                  | Historical           | —                      |
-| **Registration details changed**  | Unaffected (IDs only)    | Unaffected                                              | Site address auto-corrected      | —                    | Retain old snapshot    |
-| **Organisation details changed**  | Unaffected (IDs only)    | Unaffected                                              | Unaffected                       | Unaffected           | Retain old snapshot    |
-| **ORS data changed**              | Retain old snapshot      | **Stale** until next submission (VAL014 classification) | Auto-corrected (names read live) | **Stale** — recreate | —                      |
-| **Pending Report exists**         | —                        | —                                                       | —                                | —                    | — (submission blocked) |
+| Change                                   | Waste balance                        | Row states                              | Uploads                                                        | Computed reports                                 | Stored reports                                                               | PRNs                | Admin and regulator exports                     |
+| ---------------------------------------- | ------------------------------------ | --------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| **Summary Log submitted**                | Moves by the credit total difference | New submission current, freshly stamped | Others **refused** at submission                               | Next read                                        | In-progress and ready **marked stale**; submitted **flagged** where restated | —                   | Next read                                       |
+| **Report submitted**                     | —                                    | —                                       | Earlier ones **refused** at submission                         | —                                                | Period closed; later changes flag it                                         | —                   | Next read                                       |
+| **PRN raised or deleted before issue**   | Available balance moves at once      | —                                       | —                                                              | Unaffected                                       | Unaffected                                                                   | —                   | Next read                                       |
+| **PRN issued**                           | Total balance debited at once        | —                                       | —                                                              | Next read                                        | Cannot be affected                                                           | —                   | Next read                                       |
+| **PRN rejected or cancelled**            | Restored when cancellation completes | —                                       | —                                                              | PRN dropped at once                              | Issue month's active report **marked stale**; submitted **not flagged**      | —                   | Next read                                       |
+| **Accreditation dates changed**          | **Stale** until next submission      | **Stale** until next submission         | —                                                              | Figures unaffected; monthly periods due move     | Unaffected                                                                   | Keep copied details | Reclassified at once; **disagree** with balance |
+| **Accreditation suspended or cancelled** | **Stale** until next submission      | **Stale** until next submission         | —                                                              | Figures unaffected; cancelled moves to quarterly | Unaffected                                                                   | Issue refused       | Reclassified at once; **disagree** with balance |
+| **Accreditation granted**                | New stream from first submission     | —                                       | Accredited template required; continuity baseline starts empty | Monthly; registered-only rows drop out           | Quarterly reports drop out of the list                                       | —                   | Read every stream                               |
+| **Registration details changed**         | Unaffected                           | Unaffected                              | Checked against the new values                                 | Current material and site                        | Current material and site shown                                              | Keep copied details | Next read                                       |
+| **Organisation details changed**         | Unaffected                           | Unaffected                              | —                                                              | Unaffected                                       | Unaffected                                                                   | Keep copied name    | Next read                                       |
+| **Overseas site data changed**           | **Stale** until next submission      | **Stale** until next submission         | —                                                              | Next read                                        | **Stale**, not flagged                                                       | —                   | Reclassified at once; **disagree** with balance |
 
 ## Key Architectural Insight
 
-The system has three correction mechanisms, each with different latency:
+**There is no background recalculation.** Accreditation and overseas site changes reach the balance and the stamped row classifications only when the operator submits another summary log. Until then PRN balance checks use the old figure, and the exports that reclassify rows disagree with the balance.
 
-1. **Immediate** — PRN events append to the stream and move the balance straight away.
-2. **On next submission** — Each submission re-evaluates all waste records against the current accreditation state and freezes a fresh `creditTotal` snapshot into a new `summary-log-submitted` event. Changes to accreditation dates or suspension status are **not reflected in the waste balance until the operator uploads a new summary log** — they only enter the balance through the next submission's recomputed snapshot.
-3. **On read** — Computed reports always aggregate from current waste records, so they self-correct. Persisted reports are snapshots that must be manually deleted and recreated.
+Stored reports are corrected only through a flag the operator acts on. A summary log submission or a PRN cancellation raises one. A change that raises none, such as an overseas site change or a PRN cancelled after its month was submitted, leaves a stored report stale until the operator asks to resubmit it.
 
-**There is no background recalculation.** If a regulator changes accreditation dates and no new summary log is submitted, the waste balance remains incorrect. This also means PRN balance sufficiency checks may use stale figures.
-
-PRNs and waste records deliberately use a **snapshot** pattern for denormalised data (organisation name, accreditation details, ORS names). This preserves what was true at the time of creation for audit purposes, but means these snapshots become stale when upstream entities change.
+Two kinds of copy are kept on purpose and never refreshed. A PRN copies organisation and accreditation details when it is drafted, so it keeps what was true then. A row state keeps the classification stamped at its submission, which is why credited tonnage and the other reclassifying exports can differ from it.
