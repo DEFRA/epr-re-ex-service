@@ -119,6 +119,54 @@ PRN-issuance data. Those stay in the store for the backend's own use.
 
 Auth is unchanged: `organisationRead` and `adminRead`.
 
+### Backend-only fields
+
+The backend's own processing reads the model above plus the following. They are not returned.
+
+```js
+/**
+ * @typedef {Organisation & {
+ *   version: number
+ *   statusTimeline: StatusTimeline
+ *   companiesHouseNumber?: string
+ *   registeredAddress?: Address
+ *   users: { email: string, roles: string[], contactId?: string }[]
+ *   submitterContactDetails: Contact
+ *   linkedDefraOrganisation?: { linkedBy: { id: string } }
+ * }} StoredOrganisation
+ *
+ * @typedef {Registration & {
+ *   statusTimeline: StatusTimeline
+ *   site: { address: { region?: string, country?: string } } | null
+ *   submitterContactDetails: Contact
+ *   applicationContactDetails: Contact
+ *   approvedPersons: Contact[]
+ * }} StoredRegistration
+ *
+ * @typedef {Accreditation & {
+ *   statusTimeline: StatusTimeline
+ *   prnIssuance: { tonnageBand: string, signatories: Contact[] }
+ *   submitterContactDetails: Contact
+ * }} StoredAccreditation
+ *
+ * @typedef {{ fullName: string, email: string, phone?: string }} Contact
+ */
+```
+
+| Field | Read by |
+| --- | --- |
+| `version` | Optimistic locking on every write |
+| `statusTimeline` (ADR-0051) | Current status and transition rules; the accreditation's is read at a date for row classification and monthly reports owed |
+| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register |
+| `users`, contact details, `approvedPersons`, `prnIssuance.signatories` | Collating users for linking and Defra roles; report submission contact export |
+| `linkedDefraOrganisation.linkedBy.id` | Unlinking |
+| `prnIssuance.tonnageBand` | Public register, PRN tonnage, market insights |
+
+An accreditation's material, processing type, site and regulator — used for the PRN snapshot, the
+PRN/PERN flag, the December pool and PRN numbering — are read from its registration, as they are
+for the frontends. The registration–accreditation match rule already guarantees material,
+processing type and site postcode agree; the regulator needs the same guarantee.
+
 ## Consequences
 
 - One shape for both frontends. The `/overview` projection, the `registrations`/`accreditations`
