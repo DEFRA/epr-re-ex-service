@@ -4,6 +4,8 @@ This document provides a complete reference for all validation failure codes tha
 
 For the response format specification, see [ADR 20: Summary Log Validation Output Formats](../decisions/0020-summary-log-validation-output-formats.md).
 
+> **Snapshot.** This is a hand-maintained reference, last verified against the `VALIDATION_CODE` enum (`epr-backend`, `src/common/enums/validation.js`) on 2026-09-14. Re-check it against that enum when validation codes change.
+
 <!-- prettier-ignore-start -->
 <!-- TOC -->
 
@@ -18,6 +20,7 @@ For the response format specification, see [ADR 20: Summary Log Validation Outpu
   - [Data-level FATAL failures](#data-level-fatal-failures)
     - [Structural failures (before row validation)](#structural-failures-before-row-validation)
     - [Rejected-row failures (VAL010)](#rejected-row-failures-val010)
+    - [Specific field error codes (`errorCode`)](#specific-field-error-codes-errorcode)
     - [Data business failure](#data-business-failure)
   - [System failures](#system-failures)
   - [Key behaviours](#key-behaviours)
@@ -181,6 +184,8 @@ These failures occur before validation begins, when CDP Uploader rejects the fil
 | `FILE_DOWNLOAD_FAILED` | Could not download from CDP        |
 | `FILE_REJECTED`        | Fallback for unknown upload errors |
 
+These codes are mapped from the CDP Uploader's error message: `FILE_VIRUS_DETECTED`, `FILE_EMPTY` and `FILE_DOWNLOAD_FAILED` match the message exactly, while `FILE_TOO_LARGE`, `FILE_WRONG_TYPE` and `FILE_UPLOAD_FAILED` match on a message prefix. Any unrecognised message falls back to `FILE_REJECTED`.
+
 ## Meta-level validation failures (FATAL severity)
 
 These failures occur during validation of the spreadsheet's metadata (Cover sheet). The summary log status becomes `invalid`.
@@ -244,11 +249,38 @@ Each fatal row failure carries a specific `errorCode` identifying the exact rule
 | `INVALID_DATE`              | Value is not a valid date or is outside the allowed range | `MUST_BE_A_VALID_DATE`                                                                                            |
 | `CALCULATED_VALUE_MISMATCH` | A cross-field calculation check fails                     | `NET_WEIGHT_CALCULATION_MISMATCH`, `TONNAGE_CALCULATION_MISMATCH`, `UK_PACKAGING_PROPORTION_CALCULATION_MISMATCH` |
 
+### Specific field error codes (`errorCode`)
+
+The complete set of specific `errorCode` values carried on a rejected-row failure. Each is the copy-ready reason the frontend translates into user-facing text; it pairs with one of the deprecated broad `code` values above.
+
+| `errorCode`                                    | Meaning                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| `MUST_BE_A_NUMBER`                             | Value is not a number.                                       |
+| `MUST_BE_A_STRING`                             | Value is not text.                                           |
+| `MUST_BE_A_VALID_DATE`                         | Value is not a valid date.                                   |
+| `MUST_BE_GREATER_THAN_ZERO`                    | Number must be greater than 0.                               |
+| `MUST_BE_AT_LEAST_ZERO`                        | Number must be 0 or more.                                    |
+| `MUST_BE_LESS_THAN_1`                          | Number must be less than 1.                                  |
+| `MUST_BE_AT_MOST_1`                            | Number must be 1 or less.                                    |
+| `MUST_BE_AT_MOST_1000`                         | Number must be 1000 or less.                                 |
+| `MUST_BE_AT_MOST_100_CHARS`                    | Text must be 100 characters or fewer.                        |
+| `MUST_BE_YES_OR_NO`                            | Value must be "Yes" or "No".                                 |
+| `MUST_CONTAIN_ONLY_PERMITTED_CHARACTERS`       | Text contains disallowed characters.                         |
+| `MUST_BE_3_DIGIT_ID`                           | Value must be a 3-digit ID (001-999).                        |
+| `MUST_BE_VALID_EWC_CODE`                       | Value must be a valid EWC code.                              |
+| `MUST_BE_VALID_RECYCLABLE_PROPORTION_METHOD`   | Value must be a valid recyclable-proportion method.          |
+| `MUST_BE_VALID_WASTE_DESCRIPTION`              | Value must be a valid waste description.                     |
+| `MUST_BE_VALID_BASEL_CODE`                     | Value must be a valid Basel code.                            |
+| `MUST_BE_VALID_EXPORT_CONTROL`                 | Value must be a valid export control.                        |
+| `NET_WEIGHT_CALCULATION_MISMATCH`              | Net weight does not equal gross minus tare minus pallet.     |
+| `TONNAGE_CALCULATION_MISMATCH`                 | Tonnage does not equal its calculated value.                 |
+| `UK_PACKAGING_PROPORTION_CALCULATION_MISMATCH` | UK packaging proportion does not equal its calculated value. |
+
 ### Data business failure
 
-| Code                     | Trigger                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `SEQUENTIAL_ROW_REMOVED` | Gap in row sequence (row was deleted from previous upload) |
+| Code                     | Trigger                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SEQUENTIAL_ROW_REMOVED` | Gap in row sequence (a row present in the previous submission is missing). Only checked on resubmissions; skipped when the registration has no prior submitted summary log. |
 
 ## System failures
 

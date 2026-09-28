@@ -1,0 +1,50 @@
+# Local Grafana + CloudWatch metrics overlay
+#
+# Usage:
+#   npm run dev:metrics
+#
+# or directly:
+#   docker compose -f compose.yml -f compose.metrics.yml --profile all up --watch
+#
+# Access Grafana at: http://localhost:3400 (anonymous admin)
+#
+# See docs/guides/local-grafana-metrics.md for how metrics reach floci and
+# which dashboard panels don't render locally.
+
+services:
+  emf-collector:
+    build:
+      context: ./compose/emf-collector
+    depends_on:
+      floci-init:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: eu-west-2
+      EMF_TARGET_SERVICES: epr-backend,epr-frontend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Docker socket's group: 984 on most Linux hosts, 0 on macOS.
+    # `npm run dev:metrics` detects and overrides this automatically.
+    group_add:
+      - '${DOCKER_GID:-984}'
+    networks:
+      - cdp-tenant
+
+  grafana:
+    image: grafana/grafana:11.3.0@sha256:a0f881232a6fb71a0554a47d0fe2203b6888fe77f4cefb7ea62bed7eb54e13c3
+    ports:
+      - '${GRAFANA_PORT:-3400}:3000'
+    depends_on:
+      floci-init:
+        condition: service_completed_successfully
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: true
+    volumes:
+      - ./compose/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - cdp-tenant
