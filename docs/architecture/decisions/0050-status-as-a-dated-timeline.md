@@ -5,8 +5,9 @@ Date: 2026-09-04
 ## Status
 
 Proposed. Amends [ADR-0044](./0044-registration-and-accreditation-validity-and-status-rules.md):
-the validity dates and the entitlement rules stand, but the representation they are expressed
-against changes. Two parts of ADR-0044 do not survive it — the transition table, and rules 4 and 5,
+the entitlement rules and a registration's `validFrom` stand, but the representation they are
+expressed against changes. An accreditation's `validFrom` and `validTo` are replaced by a scheme
+`year`. Two further parts of ADR-0044 do not survive it — the transition table, and rules 4 and 5,
 which define a change's effective date to be the moment it was recorded. A third, that reinstating a
 registration does not revive its force-cancelled accreditation, is raised as an open question below
 rather than settled here.
@@ -94,9 +95,11 @@ those two, and would be revisited rather than rewritten if they changed.
 
 Settling them does settle some further things, and they should be visible rather than smuggled in.
 This ADR also fixes the timeline's own shape and read rule, the tie-break where two events claim one
-day, the contract the projection needs from whatever the events turn out to be, that granting or
-amending a validity window produces events like anything else, and that an accreditation's liveness
-is derived rather than cascaded onto it. Each is argued for in its own section below.
+day, the contract the projection needs from whatever the events turn out to be, that an
+accreditation is bounded by its scheme year rather than a validity window, that granting or
+amending a registration's `validFrom` produces events like anything else, and that an
+accreditation's liveness is derived rather than cascaded onto it. Each is argued for in its own
+section below.
 
 What is **not** settled is the shape of the commands or the shape of the events. Both depend on what
 regulators need to express, and neither has to be answered for the projection to be right. Open
@@ -164,8 +167,7 @@ From the events we project a **status timeline**: a map from date to status.
   "status": {
     "2026-01-01": { "status": "approved" },
     "2026-03-15": { "status": "suspended" },
-    "2026-04-01": { "status": "approved" },
-    "2027-01-01": { "status": "ended" }
+    "2026-04-01": { "status": "approved" }
   }
 }
 ```
@@ -180,9 +182,9 @@ The shape is chosen for what it makes impossible:
   rather than two.
 - **No `to`.** An entry runs until the next one. Gaps and overlaps — the two failure modes that make
   time-series data untrustworthy — cannot be written down.
-- **Termination is an entry like any other.** The timeline is total: "what was the status a week
-  after it ended?" answers "ended", rather than falling off the end of a window into whatever each
-  consumer decided to do about that.
+- **No terminal entry.** An accreditation's timeline is total within its scheme year, and outside
+  that year the accreditation simply does not apply. There is no `ended` status and no window edge
+  for each consumer to handle in its own way.
 - **One ordering.** The current status is the greatest key not in the future — the same lookup, with
   today as the date. The array-position reading and the timestamp reading collapse into one.
 - **A retrospective change needs no special handling.** The events absorb it, and the timeline is
@@ -194,12 +196,9 @@ and 5 intend — a load dated on the day of a suspension is excluded — while d
 reach it. Those rules get there by declaring the recording timestamp to be the effective date,
 which is the conflation this ADR removes.
 
-An event effective after the window has closed **extends the timeline** rather than being dropped:
-its entry sits after the closing one and supersedes it, exactly as any later entry supersedes an
-earlier one. So the claim above is that gaps, overlaps and duplicate days are unrepresentable — not
-that a state cannot outlive its window. It can, and it should: a regulator reinstating an
-accreditation after it expired is a real thing to record, and refusing the event would break the
-guarantee that everything the timeline says is accounted for in the events.
+An event dated outside the accreditation's scheme year is still recorded, not refused — refusing it
+would break the guarantee that everything the timeline says is accounted for in the events — but it
+has no effect on classification, which only ever asks about dates within the year.
 
 ### The timeline always agrees with the events
 
@@ -215,19 +214,19 @@ an optimisation, and ADR-0047 sets out what an argument for one has to carry.
 
 ### Validity dates
 
-`validFrom` and `validTo` remain facts about the accreditation: the entitlement window, determined
-by the regulator, and what ADR-0044 says about them stands. They are also what opens and closes the
-timeline — `validFrom` opens it as `approved`, and the day after `validTo` closes it as `ended`.
+An accreditation carries a `year` instead of `validFrom` and `validTo`. ADR-0034 already gives one
+accreditation per scheme year, so the year, not a window, bounds its timeline: 1 January to
+31 December of `year`. A registration keeps `validFrom`, which opens its timeline, and has no
+`validTo` (PAE-1904), so it closes only when something closes it.
 
-**So granting or amending a window has to produce events too**, or the timeline would have a second
-input that moves without one, and it would no longer be true that everything the timeline says is
-accounted for in the audit trail. This is not a technicality. Today, amending an accreditation's
-window silently restates the classification of every load ever submitted under it, with no record
-of what the window used to be — the same defect as editing a status entry in place, in a different
-field. Bringing validity changes into the event stream closes both at once.
-
-Registrations no longer carry a `validTo` (PAE-1904), so a registration timeline opens at
-`validFrom` and closes only when something closes it.
+**Anything that changes what the timeline says has to be an event**, or the timeline would have a
+second input that moves without one, and it would no longer be true that everything the timeline
+says is accounted for in the audit trail. So an accreditation's grant is an event on its timeline,
+dated at the approval's effective date, rather than a `validFrom` field, and granting or amending a
+registration's `validFrom` produces events too. This is not a technicality. Today, amending an
+accreditation's window silently restates the classification of every load ever submitted under it,
+with no record of what the window used to be — the same defect as editing a status entry in place,
+in a different field.
 
 Classification, then, reads the timeline alone. ADR-0044's standing instruction to combine the
 window with the history goes away, and with it the opportunity for each consumer to combine them
@@ -281,17 +280,16 @@ modelling question the engineering team should settle alone.
 the document above leans on both.
 
 Accreditation statuses are `created`, `approved`, `rejected`, `cancelled` and `suspended`. If the
-timeline is the record's status over time, then `created` opens it — not `validFrom` — and `rejected`
-needs a place on it. If instead it is the record's _entitlement_ over time, `created` and `rejected`
-are application-lifecycle facts that never belonged on it, `ended` is a reasonable name for expiry,
-and the admin UI keeps reading a separate current status for its tag. Classification only ever wanted
-the entitlement reading.
+timeline is the record's status over time, then `created` opens it — not the approval — and
+`rejected` needs a place on it. If instead it is the record's _entitlement_ over time, `created` and
+`rejected` are application-lifecycle facts that never belonged on it, and the admin UI keeps reading
+a separate current status for its tag. Classification only ever wanted the entitlement reading.
 
 The awkward consequence of choosing entitlement is that a grant back-dates it. ADR-0044 rule 3 says
-`validFrom` may fall before the day approval was recorded, so a January `validFrom` granted in April
-projects `approved` across three months the record spent under consideration. That is right for the
-waste balance and wrong as a statement of what was true, which is why the two readings have to be
-told apart and the timeline named for whichever it is.
+approval may take effect before the day it was recorded, so an approval effective in January but
+granted in April projects `approved` across three months the record spent under consideration. That
+is right for the waste balance and wrong as a statement of what was true, which is why the two
+readings have to be told apart and the timeline named for whichever it is.
 
 **2. Should reinstating a registration revive the accreditation it force-cancelled?** ADR-0044 says
 no: a cancelled registration force-cancels its accreditation, and reinstating the registration
@@ -335,8 +333,11 @@ about what an appeal should mean, not about how to model it.
 - A projection has to be kept in step with the events it derives from. That is an obligation the
   current single-array model does not carry, and ADR-0047 is the record of what happens when it is
   not met.
-- ADR-0044 needs revising. Its entitlement rules and validity dates survive; its transition table
-  does not, nor do rules 4 and 5, which define a change's effective date as the moment it was
+- Accreditations need migrating from `validFrom` and `validTo` to `year`, and PRN year attribution,
+  which ADR-0044 takes from `validFrom`, reads `year` instead.
+- ADR-0044 needs revising. Its entitlement rules and a registration's `validFrom` survive; an
+  accreditation's `validFrom` and `validTo` are replaced by `year`. Its transition table does not
+  survive, nor do rules 4 and 5, which define a change's effective date as the moment it was
   recorded — the outcome they intend is preserved, their mechanism is not. Its instruction to
   combine the window with the history goes too, and the PAE-1809 edit route is superseded rather
   than amended.
@@ -349,4 +350,4 @@ about what an appeal should mean, not about how to model it.
   is intended to reconcile. Rejected, and retained as a point-in-time record rather than a living
   specification, so some of its detail has since been overtaken by the code
 - [ADR-0034](./0034-multi-year-accreditation-model.md) — one accreditation per scheme year, so one
-  timeline per accreditation
+  timeline per accreditation, and `year` is now the accreditation's only period
