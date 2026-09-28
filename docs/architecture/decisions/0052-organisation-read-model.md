@@ -70,8 +70,24 @@ registration's accreditations nested within it, carrying only the fields the fro
  *       postcode: string
  *     }
  *   } | null
+ *   overseasSites: OverseasSite[]
  *   accreditations: Accreditation[]
  * }} Registration
+ *
+ * @typedef {{
+ *   orsId: string
+ *   name: string
+ *   country: string
+ *   address: {
+ *     line1: string
+ *     line2?: string
+ *     townOrCity: string
+ *     stateOrRegion?: string
+ *     postcode?: string
+ *   }
+ *   coordinates?: string
+ *   validFrom: string | null
+ * }} OverseasSite
  *
  * @typedef {{
  *   id: string
@@ -87,12 +103,17 @@ registration's accreditations nested within it, carrying only the fields the fro
 - **Accreditations are ordered by `year`.** The current accreditation is the one whose `year` is
   the current scheme year. Its material, processing type, site and regulator are its
   registration's.
-- **`site` is `null` for exporters.**
+- **`site` is `null` for exporters, and `overseasSites` is empty for reprocessors.**
+- **Overseas sites are a list ordered by `orsId`**, the three-digit id used in summary logs, rather
+  than today's map from `orsId` to a site id. Site details are resolved from the `overseas-sites`
+  collection. `validFrom` is the regulator's approval date, and `null` for an unapproved or interim
+  site ([ADR-0041](./0041-interim-site-modelling-and-ingestion.md)).
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 
 Not returned, and not read by either frontend: `statusHistory`, accreditation `validFrom`/`validTo`,
 `registration.accreditationId` (nesting replaces it), `glassRecyclingProcess` (ADR-0050),
-accreditation `material`/`wasteProcessingType`/`site`/`submittedToRegulator`, `registration.orgName`
+accreditation `material`/`wasteProcessingType`/`site`/`submittedToRegulator`, the overseas site's
+internal `overseasSiteId`, `createdAt` and `updatedAt`, `registration.orgName`
 (the organisation's `name` replaces it), and all form, contact, permit, file upload, user and
 PRN-issuance data. Those stay in the store for the backend's own use.
 
@@ -100,8 +121,10 @@ Auth is unchanged: `organisationRead` and `adminRead`.
 
 ## Consequences
 
-- One shape for both frontends. The `/overview` projection and the `registrations`/`accreditations`
-  sub-resources become redundant, and are retired once their callers have moved.
+- One shape for both frontends. The `/overview` projection, the `registrations`/`accreditations`
+  sub-resources and the registration and accreditation `overseas-sites` routes become redundant,
+  and are retired once their callers have moved. The admin ORS list, a cross-organisation report,
+  and the per-report export activity are not organisation reads and are unaffected.
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
   is live; the reapply journey reads `year` rather than parsing it from `validFrom`, and date-range
   display uses `year`.
@@ -117,5 +140,7 @@ Auth is unchanged: `organisationRead` and `adminRead`.
   scheme year
 - [ADR-0035](./0035-read-organisation-data-with-basic-auth.md) — basic-auth access to organisation
   data
+- [ADR-0041](./0041-interim-site-modelling-and-ingestion.md) — interim sites, which have no
+  `validFrom`
 - [ADR-0050](./0050-glass-as-two-material-types.md) — `material` carries the glass type
 - [ADR-0051](./0051-status-as-a-dated-timeline.md) — status timeline and accreditation `year`
