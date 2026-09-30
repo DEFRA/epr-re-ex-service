@@ -106,21 +106,23 @@ merged or copied into 2027.
 
 ### 2. The carry-forward set
 
-A new `carry-forward-rows` collection, keyed on the **target** stream's
-`{organisationId, registrationId, year, accreditationId}`, the same key as everything else under ADR-0048.
+The carry-forward set is **derived, not stored**. It is read from the source stream's latest submitted row
+states ([ADR-0037](./0037-summary-log-row-states-with-membership.md)), which are persisted for every submission
+and year-scoped under ADR-0048, and filtered by the membership rule below. There is no new collection.
+`deriveCarryForwardSet(targetStream)` is the one function every reader uses.
 
-Each entry is a snapshot of a qualifying source row, with a reference to the source SL and `rowId`. A row
-qualifies when it is on an accredited exporter's source-year SL, was received in the source year, and **any**
-of its continuation dates (`DATE_OF_EXPORT`, `DATE_RECEIVED_BY_OSR`,
+A row is a member when it is on an accredited exporter's source-year SL, was received in the source year, and
+**any** of its continuation dates (`DATE_OF_EXPORT`, `DATE_RECEIVED_BY_OSR`,
 `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED`) falls within the target accreditation.
 
 Membership is deliberately wider than credit. The set feeds both the balance and the reports, and a row can have
 a target-year report event without earning target-year credit: a load refused overseas, or one exported but not
 yet received. Whether a member earns credit is decided by the classifier (section 4), not by membership.
 
-The set is rebuilt in full from the latest submitted source SL, never patched, so rebuilding it is always safe
-to repeat. `reconcileCarryForward(registration)` either computes the set without saving it (to preview it at
-upload) or saves it (on submit). It does nothing when the content hash of the new set matches the stored one.
+The set has two readers: 2027 report generation (section 5) and `reconcileCarryForward(targetStream)`, which
+brings the 2027 balance into line with it (section 4). At upload, validation derives the set from the uploaded
+file's rows instead, for the check-page preview (section 7). What was carried, and when, is recorded by the
+`carry-forward-updated` events and the service's audit logs.
 
 #### Worked example: five loads received in November 2026
 
@@ -139,8 +141,8 @@ Every row lives in the 2026 SL.
   accreditations, so it is credited once, in 2027. It is general-pool tonnage: ADR-0049 keys December on the OSR
   date, which is in January.
 - **B** has both balance dates inside 2027, so if it were entered in the 2027 SL that SL would credit it too.
-  The prior-year receipt rule (section 6) keeps it out, and its January 2027 export reaches the January 2027 report only through
-  the set.
+  The prior-year receipt rule (section 6) keeps it out, and its January 2027 export reaches the January 2027
+  report only through the set.
 - **C** and **D** credit nothing in 2027 but have 2027 report events: the refusal, reported in the month it
   happens, and the export. They are in the set for the reports' sake. D's credit follows once its OSR date is
   added.
@@ -151,9 +153,12 @@ through the 2027 reports (section 5).
 
 ### 3. Triggers
 
-The set is reconciled on:
+Reports derive the set when they are generated, so they need no trigger. The balance does: it moves only when a
+`carry-forward-updated` event is appended. `reconcileCarryForward` runs on:
 
-1. **source-year SL submit**, the usual case: the operator has just added a 2027 OSR date;
+1. **source-year SL submit**, the usual case: the operator has just added a 2027 OSR date. It runs in the
+   submit job after the source stream's own ledger event and before the SL is marked `SUBMITTED`, so a failed
+   job is retried whole;
 2. **target-year SL submit**, so the first 2027 submission picks up rows already waiting;
 3. **a startup sweep on each deploy**, in the ADR-0047 pattern: `mongo-locks` guarded, dry-run by default,
    repair behind a feature flag. It is limited to accredited exporters with a post-year-end date on a source row
@@ -190,44 +195,63 @@ nothing, which keeps the reason visible for audit.
 bucketed on `DATE_RECEIVED_BY_OSR`. A load exported in December 2026 and received overseas in January 2027 is
 2027 general-pool tonnage, not December waste. The field is carried for consistency and will almost always be 0.
 
+`reconcileCarryForward` appends an event only when it would change something, and never from a superseded
+source:
+
+- **No duplicate appends.** If the latest `carry-forward-updated` event already has this `sourceSummaryLogId`
+  and the same totals, it appends nothing. A retried submit job therefore appends at most once. (The
+  `summary-log-submitted` append does not have this property today.)
+- **No appends from a superseded source.** Just before appending, it checks that `sourceSummaryLogId` is still
+  the source stream's latest submitted SL. If a newer source submission has landed in the meantime, the job
+  fails and is retried, and the retry derives the set again from the newer source. The ledger's unique slot
+  index already stops two appends colliding; this check stops a slow reconcile appending totals from an older
+  2026 SL after a newer one.
+
 #### Worked example: the 2027 stream
 
 The 2027 accredited stream of the exporter in section 2's example, with A at 50 t, B at 70 t and D at 30 t.
 `decemberCreditTotal` is 0 throughout: none of these loads reaches the overseas site in December.
 
-| #   | Trigger                                         | `kind`                  | `payload`             | closingBalance (amount / availableAmount) | Notes                                       |
-| --- | ----------------------------------------------- | ----------------------- | --------------------- | ----------------------------------------- | ------------------------------------------- |
-| 1   | 15 Jan: 2026 SL resubmitted, A's OSR date added | `carry-forward-updated` | `{ SL-26-3, 50, 0 }`  | 50 / 50                                   | No previous carry-forward event; delta = 50 |
-| 2   | 3 Feb: first 2027 SL submitted                  | `summary-log-submitted` | `{ SL-27-1, 200 }`    | 250 / 250                                 | No previous SL event; delta = 200           |
-| 3   | 10 Feb: PERN raised                             | `prn-created`           | `{ PRN-1, 100 }`      | 250 / 150                                 | Ringfence on availableAmount                |
-| 4   | 20 Feb: 2026 SL corrects A's tonnage to 40 t    | `carry-forward-updated` | `{ SL-26-4, 40, 0 }`  | 240 / 140                                 | Against #1; delta = −10                     |
-| 5   | 20 Mar: 2026 SL resubmitted, B's OSR date added | `carry-forward-updated` | `{ SL-26-5, 110, 0 }` | 310 / 210                                 | Against #4, not #2; delta = 70              |
-| 6   | 15 Apr: 2027 SL resubmitted                     | `summary-log-submitted` | `{ SL-27-2, 260 }`    | 370 / 270                                 | Against #2, not #5; delta = 60              |
-| 7   | June: 2026 SL resubmitted, D's OSR date added   | `carry-forward-updated` | `{ SL-26-6, 140, 0 }` | 400 / 300                                 | Against #5; delta = 30                      |
+| #   | Trigger                                                    | `kind`                  | `payload`             | closingBalance (amount / availableAmount) | Notes                                       |
+| --- | ---------------------------------------------------------- | ----------------------- | --------------------- | ----------------------------------------- | ------------------------------------------- |
+| 1   | 15 Jan: 2026 SL resubmitted, A's OSR date added            | `carry-forward-updated` | `{ SL-26-3, 50, 0 }`  | 50 / 50                                   | No previous carry-forward event; delta = 50 |
+| 2   | 3 Feb: first 2027 SL submitted                             | `summary-log-submitted` | `{ SL-27-1, 200 }`    | 250 / 250                                 | No previous SL event; delta = 200           |
+| 3   | 10 Feb: PERN raised                                        | `prn-created`           | `{ PRN-1, 100 }`      | 250 / 150                                 | Ringfence on availableAmount                |
+| 4   | 20 Feb: 2026 SL corrects A's tonnage to 40 t               | `carry-forward-updated` | `{ SL-26-4, 40, 0 }`  | 240 / 140                                 | Against #1; delta = −10                     |
+| 5   | 20 Mar: 2026 SL resubmitted, B's OSR date added            | `carry-forward-updated` | `{ SL-26-5, 110, 0 }` | 310 / 210                                 | Against #4, not #2; delta = 70              |
+| 6   | 25 Mar: 2026 SL records C's refusal and March repatriation | `carry-forward-updated` | `{ SL-26-6, 110, 0 }` | 310 / 210                                 | Against #5; delta = 0                       |
+| 7   | 15 Apr: 2027 SL resubmitted                                | `summary-log-submitted` | `{ SL-27-2, 260 }`    | 370 / 270                                 | Against #2, not #6; delta = 60              |
+| 8   | June: 2026 SL resubmitted, D's OSR date added              | `carry-forward-updated` | `{ SL-26-7, 140, 0 }` | 400 / 300                                 | Against #6; delta = 30                      |
 
 - **#1** lands before any 2027 SL exists. B and D are already in the set, with January 2027 export dates, but
   credit nothing until their OSR dates are added. Had the 2027 accreditation not yet been approved, the sweep
   would write this event on the first deploy after approval. The same 2026 submission writes to the 2026 stream
   as usual, where A credits nothing because it is `OUTSIDE_ACCREDITATION_PERIOD`.
-- **#2** credits only the 2027 SL's own rows. Its reconcile finds the set unchanged, so it writes no
-  carry-forward event, and the prior-year receipt rule keeps A and B out of the 2027 SL.
+- **#2** credits only the 2027 SL's own rows. Its reconcile appends nothing, because the latest
+  `carry-forward-updated` event (#1) already has the current source SL, SL-26-3, and the same totals. The
+  prior-year receipt rule keeps A and B out of the 2027 SL.
 - **#3** draws on the pooled balance without reference to where the tonnage came from.
 - **#4** is a correction to a non-continuation field, so it is only possible before the post-deadline lock.
-- **#5** and **#7** change only continuation fields on cross-year rows, so the post-deadline lock allows them.
+- **#5** and **#8** change only continuation fields on cross-year rows, so the post-deadline lock allows them.
   They show a 2026 SL moving the 2027 balance without a 2027 submission.
-- **#6** shows a 2027 submission leaving carried tonnage alone.
+- **#6** moves nothing: C is refused, so it earns no credit. It is still appended, because it comes from a new
+  source SL, and it marks the March 2027 report stale so that the refusal appears there (section 5).
+- **#7** shows a 2027 submission leaving carried tonnage alone.
 
 The closing amount of 400 is the 2027 SL's 260 plus the carried 140; the available 300 is that less the 100 t
 PERN.
 
 ### 5. Reports
 
-2027 report generation reads the 2027 SL's rows plus the carried rows. `readSubmissionRowStates` already loads
-one input and `filterRecordsByDateField` places rows by date in memory, so the existing date filter puts a
+2027 report generation reads the 2027 SL's rows plus the set, derived at generation time from the 2026 row
+states. `readSubmissionRowStates` already loads one input and `filterRecordsByDateField` places rows by date in
+memory, so the existing date filter puts a
 carried row's export and repatriation, when dated 2027, in the right 2027 period. Receipt dates are in 2026, so
 they never land in a 2027 period, and a carried row's 2026-dated events stay in the 2026 reports only.
 
-When the set changes, active 2027 reports go stale. Submitted reports follow the resubmission comparison from
+A `carry-forward-updated` event is the signal that the set may have changed. `reconcileCarryForward` appends
+one for every new source SL, even when the totals are unchanged (a refusal or an export date can change the
+reports without changing the credit), and active 2027 reports go stale when it does. Submitted reports follow the resubmission comparison from
 PAE-1983 (regenerate, compare with the frozen report, flag only on a difference), which also covers the
 Confluence concern that a 2026 OSR-only edit must not flag closed 2026 periods. No carry-forward-specific
 resubmission logic is added.
@@ -253,7 +277,7 @@ resubmission logic is added.
 
 ### 7. Frontend
 
-The 2026 check page shows "N loads count towards 2027 (X tonnes)", from the compute-only reconcile. N and X
+The 2026 check page shows "N loads count towards 2027 (X tonnes)", derived at validation from the uploaded file's rows and stored on the SL alongside `loads`. N and X
 count only the members that earn credit, not the whole set. The 2027 waste balance shows a "carried in from
 2026" line.
 
@@ -285,8 +309,12 @@ ways of implementing idea 2.
   on the 2027 stream says where it came from.
 - **A year-agnostic event store.** One stream per registration spanning years, with year as a projection.
   Rejected: a rewrite that contradicts ADR-0036, ADR-0037 and ADR-0048.
+- **Store the set in a new `carry-forward-rows` collection**, rebuilt on each trigger. Rejected: everything it
+  would hold is derivable from row states that are already persisted for every submission, and the audit logs
+  and `carry-forward-updated` events already record what was carried and when. A stored copy would add a
+  repository, its indexes and a guard against a stale rebuild overwriting a newer one, for no new information.
 - **Key the set on `accreditationId` alone**, so it could ship before ADR-0048. Rejected once PAE-2002 and
-  PAE-2004 were in flight: the set uses the same key as every other stream.
+  PAE-2004 were in flight: the set is derived per target stream, keyed like every other stream.
 - **Trigger on 2027 accreditation approval.** Rejected in favour of SL submit plus the sweep: every change to
   the set comes from an SL submission, which already writes to the ledger and marks reports stale. It also avoids
   coupling to the admin approval workflow, and the sweep corrects anything a trigger missed.
@@ -309,7 +337,7 @@ ways of implementing idea 2.
 
 ### Negative
 
-- A new collection, a new event kind, a sweep and four validation rules, all to handle a small number of rows
+- A new event kind, a sweep and four validation rules, all to handle a small number of rows
   each year.
 - The 2026 SL stays open for continuation fields for a full further year, so "the 2026 SL is closed" is no
   longer a single date.
