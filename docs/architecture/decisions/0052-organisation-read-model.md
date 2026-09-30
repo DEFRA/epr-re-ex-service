@@ -120,18 +120,34 @@ PRN-issuance data. Those stay in the store for the backend's own use.
 
 Auth: the `organisationRead` and `adminRead` scopes.
 
-### Affected endpoints
+### Endpoints
+
+Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
+only what it shows.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /organisations/{organisationNumber}` | `Organisation` |
+| `.../registrations` | `Registration[]` |
+| `.../registrations/{registrationNumber}` | `Registration` |
+| `.../registrations/{registrationNumber}/accreditations` | `Record<string, Accreditation>` |
+| `.../registrations/{registrationNumber}/accreditations/{year}` | `Accreditation` |
+| `.../registrations/{registrationNumber}/overseas-sites` | `Record<string, OverseasSite>` |
+
+Registrations are addressed by `registrationNumber`. A registration not yet granted has none, so it
+appears in the organisation and the list but cannot be fetched on its own.
+
+### Existing endpoints
 
 | Endpoint | Effect |
 | --- | --- |
-| `GET /organisations/{organisationNumber}` | New: returns this model |
 | `GET /v1/organisations/{id}` | Unchanged |
 | `GET /v1/organisations` | Unchanged |
 | `PUT /v1/organisations/{id}` | Unchanged |
-| `GET /v1/organisations/{id}/overview` | Retired |
-| `GET .../registrations`, `.../registrations/{id}` | Retired |
-| `GET .../accreditations`, `.../accreditations/{id}` | Retired |
-| `GET .../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Retired |
+| `GET /v1/organisations/{id}/overview` | Replaced by `GET /organisations/{organisationNumber}` |
+| `GET /v1/.../registrations`, `.../registrations/{id}` | Replaced by the matching new endpoint |
+| `GET /v1/.../accreditations`, `.../accreditations/{id}` | Replaced by the matching new endpoint |
+| `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Replaced by `.../registrations/{registrationNumber}/overseas-sites` |
 
 ### Backend-only fields
 
@@ -183,7 +199,7 @@ processing type and site postcode agree; the regulator needs the same guarantee.
 
 ## Consequences
 
-- One shape for both frontends. The retired routes above go once their callers have moved. The
+- One shape for both frontends. The replaced routes are removed once their callers have moved. The
   admin ORS list, a cross-organisation report, and the per-report export activity are not
   organisation reads and are unaffected.
 - Existing consumers of `GET /v1/organisations/{id}` — the admin JSON editor and basic-auth
@@ -192,8 +208,8 @@ processing type and site postcode agree; the regulator needs the same guarantee.
   is live; the reapply journey reads the accreditation's year rather than parsing it from
   `validFrom`, and date-range display uses the year.
 - Both `overseas-sites` routes accept basic auth, so an external consumer may read them. That
-  consumer needs confirming before they are retired.
-- The new route has a response schema, so its contract is enforced rather than implied by the
+  consumer needs confirming before they are removed.
+- The new routes have response schemas, so their contract is enforced rather than implied by the
   store.
 
 ## Related
