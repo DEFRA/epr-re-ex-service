@@ -33,7 +33,8 @@ events, so the current status is a single derived value.
 
 A new endpoint, `GET /organisations/{organisationNumber}`, returns an organisation with its
 registrations nested, and each registration's accreditations nested within it, carrying only the
-fields the frontends use. `organisationNumber` is the organisation's `orgId`.
+fields the frontends use. `organisationNumber` is the organisation's business reference, stored
+as `orgId` — not its MongoDB `id`.
 `GET /v1/organisations/{id}` is unchanged and goes on returning the stored document.
 
 ```js
