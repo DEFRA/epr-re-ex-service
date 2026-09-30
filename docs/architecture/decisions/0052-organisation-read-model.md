@@ -73,7 +73,6 @@ as `orgId` — not its MongoDB `id`.
  *       postcode: string
  *     }
  *   } | null
- *   overseasSites: Record<string, OverseasSite>
  *   accreditations: Record<string, Accreditation>
  * }} Registration
  *
@@ -95,6 +94,7 @@ as `orgId` — not its MongoDB `id`.
  *   id: string
  *   accreditationNumber: string | null
  *   status: 'created' | 'approved' | 'suspended' | 'rejected' | 'cancelled'
+ *   overseasSites: Record<string, OverseasSite>
  * }} Accreditation
  */
 ```
@@ -105,10 +105,14 @@ as `orgId` — not its MongoDB `id`.
   the current one is `accreditations[currentYear]`. Its material, processing type, site and
   regulator are its registration's.
 - **`site` is `null` for exporters, and `overseasSites` is empty for reprocessors.**
-- **Overseas sites are keyed by `orsId`**, the three-digit id used in summary logs, as they are
-  stored today. Site details are resolved from the `overseas-sites` collection rather than returned
-  as a site id. `validFrom` is the regulator's approval date, and `null` for an unapproved or
-  interim site ([ADR-0041](./0041-interim-site-modelling-and-ingestion.md)).
+- **Overseas sites belong to the accreditation, so they are per scheme year.** Sites do not carry
+  over: at renewal an operator applies for the sites to continue, and may add new ones, each subject
+  to approval and a yearly fee. 2027 sites come from the registration service with the 2027
+  accreditation. Until then, the sites stored on the registration are returned on its accreditation.
+- **Overseas sites are keyed by `orsId`**, the three-digit id used in summary logs. Site details are
+  resolved from the `overseas-sites` collection rather than returned as a site id. `validFrom` is
+  the regulator's approval date, and `null` for an unapproved or interim site
+  ([ADR-0041](./0041-interim-site-modelling-and-ingestion.md)).
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 
 Not returned, and not read by either frontend: `statusHistory`, accreditation `validFrom`/`validTo`,
@@ -135,7 +139,7 @@ only what it shows.
 
 Registrations are addressed by `registrationNumber`. A registration not yet granted has none, so it
 appears in the organisation and the list but cannot be fetched on its own. Overseas sites have no
-endpoint of their own; they are read from the registration.
+endpoint of their own; they are read from the accreditation.
 
 ### Existing endpoints
 
@@ -147,7 +151,7 @@ endpoint of their own; they are read from the registration.
 | `GET /v1/organisations/{id}/overview` | Replaced by `GET /organisations/{organisationNumber}` |
 | `GET /v1/.../registrations`, `.../registrations/{id}` | Replaced by the matching new endpoint |
 | `GET /v1/.../accreditations`, `.../accreditations/{id}` | Replaced by the matching new endpoint |
-| `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Replaced by the registration's `overseasSites` |
+| `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Replaced by the accreditation's `overseasSites` |
 
 ### Backend-only fields
 
@@ -223,6 +227,9 @@ the `/v1` registration and accreditation sub-resources, but neither frontend rea
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
   is live; the reapply journey reads the accreditation's year rather than parsing it from
   `validFrom`, and date-range display uses the year.
+- A registered-only exporter holds overseas sites today but has no accreditation to carry them, so
+  this model does not show them. Whether a registered-only exporter has overseas sites at all, and
+  where they sit if so, needs deciding before its sites page moves to these endpoints.
 - Both `overseas-sites` routes accept basic auth, so an external consumer may read them. That
   consumer needs confirming before they are removed.
 - The new routes have response schemas, so their contract is enforced rather than implied by the
