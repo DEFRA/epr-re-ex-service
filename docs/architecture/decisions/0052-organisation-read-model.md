@@ -197,6 +197,22 @@ PRN/PERN flag, the December pool and PRN numbering — are read from its registr
 for the frontends. The registration–accreditation match rule already guarantees material,
 processing type and site postcode agree; the regulator needs the same guarantee.
 
+### Stored but unused
+
+Written by forms ingest, but read by nothing in the backend, the frontend or the admin frontend,
+other than the admin JSON editor and `GET /v1/organisations/{id}`, which pass the whole document
+through.
+
+| Level | Fields |
+| --- | --- |
+| Organisation | `formSubmission`, `businessType`, `partnership`, `reprocessingNations`, `wasteProcessingTypes`, `managementContactDetails`, `schemaVersion` (only a write-side schema condition) |
+| Registration | `formSubmission`, `validTo` (stripped on read), `yearlyMetrics`, `orsFileUploads`, `samplingInspectionPlanPart1FileUploads`, `cbduNumber`, `wasteManagementPermits`, `noticeAddress`, `exportPorts`, `plantEquipmentDetails`, `suppliers`, `site.gridReference`, `site.siteCapacity` |
+| Accreditation | `formSubmission`, `orgName`, `orsFileUploads`, `samplingInspectionPlanPart2FileUploads`, `prnIssuance.incomeBusinessPlan` |
+| Status history | `updatedBy`: compared by the admin edit guard, but never set |
+
+The registration fields from `cbduNumber` onwards and accreditation `orgName` are passed through
+the `/v1` registration and accreditation sub-resources, but neither frontend reads them.
+
 ## Consequences
 
 - One shape for both frontends. The replaced routes are removed once their callers have moved. The
