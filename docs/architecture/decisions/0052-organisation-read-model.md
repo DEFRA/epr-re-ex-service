@@ -132,10 +132,10 @@ only what it shows.
 | `.../registrations/{registrationNumber}` | `Registration` |
 | `.../registrations/{registrationNumber}/accreditations` | `Record<string, Accreditation>` |
 | `.../registrations/{registrationNumber}/accreditations/{year}` | `Accreditation` |
-| `.../registrations/{registrationNumber}/overseas-sites` | `Record<string, OverseasSite>` |
 
 Registrations are addressed by `registrationNumber`. A registration not yet granted has none, so it
-appears in the organisation and the list but cannot be fetched on its own.
+appears in the organisation and the list but cannot be fetched on its own. Overseas sites have no
+endpoint of their own; they are read from the registration.
 
 ### Existing endpoints
 
@@ -147,7 +147,7 @@ appears in the organisation and the list but cannot be fetched on its own.
 | `GET /v1/organisations/{id}/overview` | Replaced by `GET /organisations/{organisationNumber}` |
 | `GET /v1/.../registrations`, `.../registrations/{id}` | Replaced by the matching new endpoint |
 | `GET /v1/.../accreditations`, `.../accreditations/{id}` | Replaced by the matching new endpoint |
-| `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Replaced by `.../registrations/{registrationNumber}/overseas-sites` |
+| `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Replaced by the registration's `overseasSites` |
 
 ### Backend-only fields
 
