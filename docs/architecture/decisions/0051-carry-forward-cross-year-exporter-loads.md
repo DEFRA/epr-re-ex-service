@@ -296,6 +296,30 @@ boundary". This ADR keeps the part about continuity obligations and SL identity:
 fresh, and nothing crosses between SLs. It adds one exception for **balance and report inputs**: the
 carry-forward set is the only route by which a prior-year row affects a later year's balance or reports.
 
+## What changes for operators
+
+Every option on the [Confluence page](https://eaflood.atlassian.net/wiki/spaces/MWR/pages/6605047784) changes
+how operators use their summary logs; none of them leaves today's "one file per year, closed at the deadline"
+untouched. This is what idea 2 asks of an accredited exporter, so it can be compared with the others.
+
+- **Two summary logs in use at once.** From 1 January 2027 the operator keeps the 2026 SL open alongside the
+  2027 one. They go back to the 2026 file to complete loads received in 2026 (the export date, the date received
+  overseas, and any refusal or repatriation) and resubmit it each time. This can go on for the whole of 2027.
+- **Loads received in 2026 never go in the 2027 SL.** The 2027 SL rejects them, even if exported in 2027. This
+  replaces the 28 September guidance that the 2027 SL can include 2026-dated rows.
+- **Tonnage reaches the 2027 balance only when the 2026 SL is resubmitted.** The load then shows as "carried in
+  from 2026" on the 2027 balance, and cannot back a PERN before that. The 2026 check page says how many loads,
+  and how many tonnes, will count towards 2027 before the operator submits.
+- **A 2026 resubmission can reopen 2027 reports.** If it changes what a 2027 report would contain, that report
+  goes stale or, if already submitted, needs resubmitting. Operators may be asked to resubmit a 2027 report
+  because of an edit to their 2026 file.
+- **The 2026 SL mostly locks at the end of February 2027.** After that, only the continuation fields on
+  cross-year loads can change. A 2026 load not recorded by then cannot be added through the service.
+- **Reprocessors and registered-only operators** cannot put 2027 dates in their 2026 SL. Their 2027 events go
+  in the 2027 SL, as today.
+- **They need a way to reach the 2026 SL from 1 January 2027** (open question 4), and **guidance** on all of
+  the above.
+
 ## Alternatives considered
 
 The alternatives to idea 2 itself (manual updates, copying rows into the 2027 SL, referencing 2026 row IDs, a
@@ -337,6 +361,8 @@ ways of implementing idea 2.
 
 ### Negative
 
+- Operators work with two summary logs at once for most of 2027, and a change to one year's file can affect the
+  other year's reports (see "What changes for operators").
 - A new event kind, a sweep and four validation rules, all to handle a small number of rows
   each year.
 - The 2026 SL stays open for continuation fields for a full further year, so "the 2026 SL is closed" is no
