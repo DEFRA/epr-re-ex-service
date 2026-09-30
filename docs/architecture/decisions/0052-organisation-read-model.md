@@ -31,8 +31,10 @@ events, so the current status is a single derived value.
 
 ## Decision
 
-`GET /v1/organisations/{id}` returns an organisation with its registrations nested, and each
-registration's accreditations nested within it, carrying only the fields the frontends use.
+A new endpoint, `GET /organisations/{organisationNumber}`, returns an organisation with its
+registrations nested, and each registration's accreditations nested within it, carrying only the
+fields the frontends use. `organisationNumber` is the organisation's `orgId`.
+`GET /v1/organisations/{id}` is unchanged and goes on returning the stored document.
 
 ```js
 /**
@@ -115,15 +117,16 @@ internal `overseasSiteId`, `createdAt` and `updatedAt`, `registration.orgName`
 (the organisation's `name` replaces it), and all form, contact, permit, file upload, user and
 PRN-issuance data. Those stay in the store for the backend's own use.
 
-Auth is unchanged: `organisationRead` and `adminRead`.
+Auth: the `organisationRead` and `adminRead` scopes.
 
 ### Affected endpoints
 
 | Endpoint | Effect |
 | --- | --- |
-| `GET /v1/organisations/{id}` | Returns this model |
-| `GET /v1/organisations` | Items take this shape; both list pages read a subset of it |
-| `PUT /v1/organisations/{id}` | Unchanged: writes the stored document, alongside the admin JSON editor's read |
+| `GET /organisations/{organisationNumber}` | New: returns this model |
+| `GET /v1/organisations/{id}` | Unchanged |
+| `GET /v1/organisations` | Unchanged |
+| `PUT /v1/organisations/{id}` | Unchanged |
 | `GET /v1/organisations/{id}/overview` | Retired |
 | `GET .../registrations`, `.../registrations/{id}` | Retired |
 | `GET .../accreditations`, `.../accreditations/{id}` | Retired |
@@ -182,16 +185,14 @@ processing type and site postcode agree; the regulator needs the same guarantee.
 - One shape for both frontends. The retired routes above go once their callers have moved. The
   admin ORS list, a cross-organisation report, and the per-report export activity are not
   organisation reads and are unaffected.
-- The admin list page can no longer show an accreditation linked to no registration, since nesting
-  cannot express one.
+- Existing consumers of `GET /v1/organisations/{id}` — the admin JSON editor and basic-auth
+  clients — are unaffected.
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
-  is live; the reapply journey reads `year` rather than parsing it from `validFrom`, and date-range
-  display uses `year`.
-- The admin JSON editor needs the stored document, so it moves to its own `adminRead`-scoped route.
-- `GET /v1/organisations/{id}` and both `overseas-sites` routes accept basic auth, so an external
-  consumer may read them. That consumer needs confirming before the response narrows or the routes
-  are retired.
-- A response schema is added to the route, so the contract is enforced rather than implied by the
+  is live; the reapply journey reads the accreditation's year rather than parsing it from
+  `validFrom`, and date-range display uses the year.
+- Both `overseas-sites` routes accept basic auth, so an external consumer may read them. That
+  consumer needs confirming before they are retired.
+- The new route has a response schema, so its contract is enforced rather than implied by the
   store.
 
 ## Related
