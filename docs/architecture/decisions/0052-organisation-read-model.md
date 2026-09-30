@@ -70,12 +70,11 @@ registration's accreditations nested within it, carrying only the fields the fro
  *       postcode: string
  *     }
  *   } | null
- *   overseasSites: OverseasSite[]
- *   accreditations: Accreditation[]
+ *   overseasSites: Record<string, OverseasSite>
+ *   accreditations: Record<string, Accreditation>
  * }} Registration
  *
  * @typedef {{
- *   orsId: string
  *   name: string
  *   country: string
  *   address: {
@@ -91,7 +90,6 @@ registration's accreditations nested within it, carrying only the fields the fro
  *
  * @typedef {{
  *   id: string
- *   year: number
  *   accreditationNumber: string | null
  *   status: 'created' | 'approved' | 'suspended' | 'rejected' | 'cancelled'
  * }} Accreditation
@@ -100,14 +98,14 @@ registration's accreditations nested within it, carrying only the fields the fro
 
 - **`status` is today's value on the timeline** (ADR-0051). The timeline and its events are not
   returned; nothing in either frontend reads them.
-- **Accreditations are ordered by `year`.** The current accreditation is the one whose `year` is
-  the current scheme year. Its material, processing type, site and regulator are its
-  registration's.
+- **Accreditations are keyed by scheme year** (`"2026"`), so there cannot be two for one year and
+  the current one is `accreditations[currentYear]`. Its material, processing type, site and
+  regulator are its registration's.
 - **`site` is `null` for exporters, and `overseasSites` is empty for reprocessors.**
-- **Overseas sites are a list ordered by `orsId`**, the three-digit id used in summary logs, rather
-  than today's map from `orsId` to a site id. Site details are resolved from the `overseas-sites`
-  collection. `validFrom` is the regulator's approval date, and `null` for an unapproved or interim
-  site ([ADR-0041](./0041-interim-site-modelling-and-ingestion.md)).
+- **Overseas sites are keyed by `orsId`**, the three-digit id used in summary logs, as they are
+  stored today. Site details are resolved from the `overseas-sites` collection rather than returned
+  as a site id. `validFrom` is the regulator's approval date, and `null` for an unapproved or
+  interim site ([ADR-0041](./0041-interim-site-modelling-and-ingestion.md)).
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 
 Not returned, and not read by either frontend: `statusHistory`, accreditation `validFrom`/`validTo`,
@@ -118,6 +116,18 @@ internal `overseasSiteId`, `createdAt` and `updatedAt`, `registration.orgName`
 PRN-issuance data. Those stay in the store for the backend's own use.
 
 Auth is unchanged: `organisationRead` and `adminRead`.
+
+### Affected endpoints
+
+| Endpoint | Effect |
+| --- | --- |
+| `GET /v1/organisations/{id}` | Returns this model |
+| `GET /v1/organisations` | Items take this shape; both list pages read a subset of it |
+| `PUT /v1/organisations/{id}` | Unchanged: writes the stored document, alongside the admin JSON editor's read |
+| `GET /v1/organisations/{id}/overview` | Retired |
+| `GET .../registrations`, `.../registrations/{id}` | Retired |
+| `GET .../accreditations`, `.../accreditations/{id}` | Retired |
+| `GET .../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Retired |
 
 ### Backend-only fields
 
@@ -169,16 +179,18 @@ processing type and site postcode agree; the regulator needs the same guarantee.
 
 ## Consequences
 
-- One shape for both frontends. The `/overview` projection, the `registrations`/`accreditations`
-  sub-resources and the registration and accreditation `overseas-sites` routes become redundant,
-  and are retired once their callers have moved. The admin ORS list, a cross-organisation report,
-  and the per-report export activity are not organisation reads and are unaffected.
+- One shape for both frontends. The retired routes above go once their callers have moved. The
+  admin ORS list, a cross-organisation report, and the per-report export activity are not
+  organisation reads and are unaffected.
+- The admin list page can no longer show an accreditation linked to no registration, since nesting
+  cannot express one.
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
   is live; the reapply journey reads `year` rather than parsing it from `validFrom`, and date-range
   display uses `year`.
 - The admin JSON editor needs the stored document, so it moves to its own `adminRead`-scoped route.
-- The route's `BASIC_AUTH` strategy means an external consumer may already read the full document
-  from it. That consumer needs confirming before the response narrows.
+- `GET /v1/organisations/{id}` and both `overseas-sites` routes accept basic auth, so an external
+  consumer may read them. That consumer needs confirming before the response narrows or the routes
+  are retired.
 - A response schema is added to the route, so the contract is enforced rather than implied by the
   store.
 
