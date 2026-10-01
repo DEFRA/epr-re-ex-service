@@ -70,30 +70,42 @@ downstream that currently keys off `accreditationId` alone:
   quarterly, accredited is always monthly, and both can apply at once. This replaces
   `isRegistrationAccredited(registration) ? monthly : quarterly` (`src/reports/routes/get.js`), which
   looks at current status rather than the stream being requested.
-- **Upload validation**: with the route itself identifying the year and stream (Part 2), the target SL
-  is no longer inferred from the file — it's created on first upload of the year for that stream, or
-  rejected on the accredited branch if no accreditation is open for that year. `meta.PROCESSING_TYPE`
-  on the uploaded file still distinguishes registered-only from accredited templates, so it is checked
-  against the endpoint's stream and rejected on mismatch, catching a file uploaded to the wrong
-  endpoint.
+- **Upload validation**: the summary log (SL) routes identify the year but not the stream (Part 2).
+  The stream is already stated by the file: `meta.PROCESSING_TYPE` says whether the template is
+  registered-only or accredited, and an accredited template carries its `ACCREDITATION_NUMBER`.
 
 ## Part 2 — Endpoints
 
-Every stream nests under `accreditations/`, matching the shape PRN already uses. `{year}` sits
-immediately after `{registrationId}`, not before it: the registration is the stable anchor spanning
-years, so the year belongs to what comes after it, not to the registration's own address. The two
-branches then differ only in the accreditation slot — a real `accreditationId`, or a `none`
+### Summary logs
+
+SL routes carry `{year}` after `summary-logs`, with no accreditation segment:
+
+```
+.../registrations/{registrationId}/summary-logs/{year}
+.../registrations/{registrationId}/summary-logs/{year}/{summaryLogId}/upload-completed
+```
+
+Putting `accreditationId` (or `none`) in the SL path is redundant, for three reasons:
+
+1. The SL template already says whether it is for an accredited or a registered-only stream.
+2. An accredited template carries its `accreditationNumber`.
+3. An `accreditationId` is specific to one year, so the year on the route together with 1 and 2 already
+   identifies the accreditation.
+
+### Reports and waste-balance ledger
+
+Reports and ledger streams nest under `accreditation/`, nesting the way PRN does (which uses `accreditations/{accreditationId}`). `{year}`
+sits immediately after `{registrationId}`, not before it: the registration is the stable anchor
+spanning years, so the year belongs to what comes after it, not to the registration's own address. The
+two branches then differ only in the accreditation slot — a real `accreditationId`, or a `none`
 sentinel for the non-accredited stream:
 
 ```
-.../registrations/{registrationId}/{year}/accreditations/{accreditationId}/summary-logs/...
-.../registrations/{registrationId}/{year}/accreditations/none/summary-logs/...
+.../registrations/{registrationId}/{year}/accreditation/{accreditationId}/reports/{cadence}/...
+.../registrations/{registrationId}/{year}/accreditation/none/reports/{cadence}/...
 
-.../registrations/{registrationId}/{year}/accreditations/{accreditationId}/reports/{cadence}/...
-.../registrations/{registrationId}/{year}/accreditations/none/reports/{cadence}/...
-
-.../registrations/{registrationId}/{year}/accreditations/{accreditationId}/waste-balance-ledger
-.../registrations/{registrationId}/{year}/accreditations/none/waste-balance-ledger
+.../registrations/{registrationId}/{year}/accreditation/{accreditationId}/waste-balance-ledger
+.../registrations/{registrationId}/{year}/accreditation/none/waste-balance-ledger
 ```
 
 `year` is stated explicitly even on the accredited branch, where `accreditationId` already implies it,
@@ -124,7 +136,10 @@ upload or view.
 - **Query param instead of a path segment** (`?stream=&year=`). Rejected — breaks bookmarkable,
   cacheable per-stream URLs and contradicts the path-based convention PRN and waste-balance already
   use.
-- **Optional path segment** (`accreditations/{accreditationId?}/...`) instead of a sentinel. Rejected
+- **`accreditation/{accreditationId|none}` in the SL path.** Rejected — redundant with the template
+  type, the template's `accreditationNumber` and the year on the route (Part 2), and it would force a
+  frontend entry link per stream before dual-stream upload exists.
+- **Optional path segment** (`accreditation/{accreditationId?}/...`) instead of a sentinel. Rejected
   — same intent as the sentinel, but awkward to express in Hapi routing without effectively
   registering two routes anyway.
 
