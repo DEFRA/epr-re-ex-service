@@ -119,8 +119,8 @@ Membership is deliberately wider than credit. The set feeds both the balance and
 a target-year report event without earning target-year credit: a load refused overseas, or one exported but not
 yet received. Whether a member earns credit is decided by the classifier (section 4), not by membership.
 
-The set has two readers: 2027 report generation (section 5) and `reconcileCarryForward(targetStream)`, which
-brings the 2027 balance into line with it (section 4). At upload, validation derives the set from the uploaded
+The set has three readers: 2027 report generation (section 5), `reconcileCarryForward(targetStream)`, which
+brings the 2027 balance into line with it (section 4), and the admin credited-tonnage report (section 8). At upload, validation derives the set from the uploaded
 file's rows instead, for the check-page preview (section 7). What was carried, and when, is recorded by the
 `carry-forward-updated` events and the service's audit logs.
 
@@ -281,6 +281,21 @@ The 2026 check page shows "N loads count towards 2027 (X tonnes)", derived at va
 count only the members that earn credit, not the whole set. The 2027 waste balance shows a "carried in from
 2026" line.
 
+### 8. Admin views
+
+The regulator sees each stream through the admin frontend. Two views would hide carried tonnage without a change:
+
+- **Waste balance events.** The page shows each event's subject as a summary log or a PRN. A
+  `carry-forward-updated` event shows its `sourceSummaryLogId`, labelled as the prior-year SL it came from, so
+  a 2027 balance movement can be traced to the 2026 submission that caused it.
+- **Credited-tonnage CSV.** The report reads each stream's latest submitted SL and checks its rows against one
+  accreditation. A carried row fails that check against either year's accreditation and is not in the 2027 SL,
+  so the CSV would never show tonnage the 2027 balance holds. For each target stream the report also reads the
+  set and applies the two-accreditation check from section 4, bucketing by `DATE_RECEIVED_BY_OSR` as today.
+
+Tonnage monitoring needs no change. It totals exported tonnage by `DATE_OF_EXPORT` from every stream's latest
+SL without classifying it, so a January 2027 export already appears in January 2027 through the 2026 SL.
+
 ### Scope
 
 Accredited exporters only. For reprocessors, sent-on waste is recorded independently of the received load
@@ -319,6 +334,28 @@ untouched. This is what idea 2 asks of an accredited exporter, so it can be comp
   in the 2027 SL, as today.
 - **They need a way to reach the 2026 SL from 1 January 2027** (open question 4), and **guidance** on all of
   the above.
+
+## What changes for the regulator
+
+What the regulator can see of an accredited exporter's activity under idea 2:
+
+- **Each load is one record.** Receipt, export, arrival overseas and any refusal sit on one row in the
+  source-year SL, which stays the complete record of that load. No load is entered twice, so there are no
+  duplicates to reconcile across years.
+- **Activity is reported in the month it happens.** A carried load's 2027 export or refusal appears in the 2027
+  report for that month (section 5). Its receipt stays in the 2026 report.
+- **A 2027 balance can move without a 2027 submission.** Every such movement is a `carry-forward-updated` event
+  naming the 2026 SL that caused it, shown on the waste balance events page (section 8). The 2027 balance shows
+  the carried tonnage as its own line, and the credited-tonnage CSV includes it.
+- **The 2026 SL keeps changing through 2027.** After the end of February only continuation fields on cross-year
+  rows can change. A submitted 2026 report changes only if an edit changes its content, such as a 2026 export
+  date recorded late; adding a 2027 date does not touch it (PAE-1983). But the 2026 SL is no longer final on a
+  single date.
+- **A submitted 2027 report can be reopened by a 2026 edit.** If a 2026 resubmission changes what a 2027 report
+  contains, the operator is asked to resubmit that report.
+- **A carried load's full history is in the prior year's SL.** It never appears in the 2027 SL.
+- **Late 2026 loads fall to the regulator.** A 2026 load not recorded by the deadline cannot be added through
+  the service (open question 2).
 
 ## Alternatives considered
 
@@ -386,8 +423,8 @@ ways of implementing idea 2.
 
 ### Rollout
 
-The carry-forward set, triggers, sweep, ledger event, report inputs, the post-deadline lock and the frontend
-ship behind one feature flag ([ADR-0045](./0045-feature-flag-mechanism-across-epr-services.md)). The other three
+The carry-forward set, triggers, sweep, ledger event, report inputs, the post-deadline lock, the frontend and the
+admin views ship behind one feature flag ([ADR-0045](./0045-feature-flag-mechanism-across-epr-services.md)). The other three
 validation rules do not. All of it is needed by 1 January 2027, except the post-deadline lock, which is needed
 by the end of February 2027.
 
