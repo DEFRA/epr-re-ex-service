@@ -129,13 +129,13 @@ file's rows instead, for the check-page preview (section 7). What was carried, a
 The exporter holds a 2026 and a 2027 accreditation, and the overseas site is approved on every relevant date.
 Every row lives in the 2026 SL.
 
-| Load | Exported | At the overseas site          | In the set?                | Credit                    | Report events                                       |
-| ---- | -------- | ----------------------------- | -------------------------- | ------------------------- | --------------------------------------------------- |
-| A    | Dec 2026 | Received Jan 2027             | Yes (OSR date)             | 2027, general pool        | Receipt Nov 2026, export Dec 2026                   |
-| B    | Jan 2027 | Received Mar 2027             | Yes (export and OSR dates) | 2027                      | Receipt Nov 2026, export Jan 2027                   |
-| C    | Dec 2026 | Refused, repatriated Mar 2027 | Yes (repatriation date)    | None (`WASTE_REFUSED`)    | Receipt Nov 2026, export Dec 2026, refusal Mar 2027 |
-| D    | Jan 2027 | Not yet received              | Yes (export date)          | None yet (OSR date blank) | Receipt Nov 2026, export Jan 2027                   |
-| E    | Nov 2026 | Received Dec 2026             | No                         | 2026, December pool       | Receipt and export Nov 2026                         |
+| Received | Load | Exported | At the overseas site          | In the set?                | Credit                    | Report events                                       |
+| -------- | ---- | -------- | ----------------------------- | -------------------------- | ------------------------- | --------------------------------------------------- |
+| Nov 2026 | A    | Dec 2026 | Received Jan 2027             | Yes (OSR date)             | 2027, general pool        | Receipt Nov 2026, export Dec 2026                   |
+| Nov 2026 | B    | Jan 2027 | Received Mar 2027             | Yes (export and OSR dates) | 2027                      | Receipt Nov 2026, export Jan 2027                   |
+| Nov 2026 | C    | Dec 2026 | Refused, repatriated Mar 2027 | Yes (repatriation date)    | None (`WASTE_REFUSED`)    | Receipt Nov 2026, export Dec 2026, refusal Mar 2027 |
+| Nov 2026 | D    | Jan 2027 | Not yet received              | Yes (export date)          | None yet (OSR date blank) | Receipt Nov 2026, export Jan 2027                   |
+| Nov 2026 | E    | Nov 2026 | Received Dec 2026             | No                         | 2026, December pool       | Receipt and export Nov 2026                         |
 
 - **A** is the core case. The 2026 classifier marks it `OUTSIDE_ACCREDITATION_PERIOD` because its dates span two
   accreditations, so it is credited once, in 2027. It is general-pool tonnage: ADR-0049 keys December on the OSR
