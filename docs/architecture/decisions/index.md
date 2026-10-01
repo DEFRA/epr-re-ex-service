@@ -50,3 +50,4 @@
 * [48. Dual and multi-year summary logs for registration and accreditation periods](0048-dual-multi-year-summary-logs.md)
 * [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
 * [50. Glass as two material types](0050-glass-as-two-material-types.md)
+* [51. Read 2026 accreditations over HTTP](0051-read-2026-accreditations-over-http.md)
