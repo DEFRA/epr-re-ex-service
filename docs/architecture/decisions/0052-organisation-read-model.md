@@ -44,6 +44,11 @@ anyone.
 The new routes serve only registrations and accreditations that have been granted a number. The
 admin frontend goes on reading unapproved records from the `/v1` routes.
 
+These are the domain types the MongoDB repository returns, and the backend's own processing reads
+them too. A response serves each type without the fields marked `not served`. The stored format
+stays private to the repository, and its shapes, set before the data was well understood, can be
+tightened separately.
+
 ```js
 /**
  * @typedef {{
@@ -51,59 +56,80 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *   name: string
  *   tradingName?: string
  *   status: 'created' | 'approved' | 'active' | 'rejected'
+ *   statusTimeline: StatusTimeline // not served
  *   submittedToRegulator: Regulator
+ *   companiesHouseNumber?: string // not served
+ *   registeredAddress?: UkAddress // not served
  *   linkedDefraOrganisation?: {
  *     defraOrganisation: { id: string, name: string }
  *     linkedAt: string
- *     linkedBy: { email: string }
+ *     linkedBy: {
+ *       id: string // not served
+ *       email: string
+ *     }
  *   }
- *   registrations: Record<string, RegistrationResource>
- * }} OrganisationResource
+ *   users: { email: string, roles: string[], contactId?: string }[] // not served
+ *   submitterContactDetails: Contact // not served
+ *   version: number // not served
+ *   registrations: Record<string, Registration>
+ * }} Organisation
  *
  * @typedef {{ code: 'ea' | 'nrw' | 'sepa' | 'niea' }} Regulator
  *
- * @typedef {ReprocessorRegistrationResource | ExporterRegistrationResource} RegistrationResource
+ * @typedef {ReprocessorRegistration | ExporterRegistration} Registration
  *
  * @typedef {{
  *   status: 'approved' | 'cancelled'
+ *   statusTimeline: StatusTimeline // not served
  *   validFrom: string
  *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
  *     | 'steel' | 'wood'
  *   submittedToRegulator: Regulator
- * }} RegistrationCommonResource
+ *   submitterContactDetails: Contact // not served
+ *   applicationContactDetails: Contact // not served
+ *   approvedPersons: Contact[] // not served
+ * }} RegistrationCommon
  *
- * @typedef {RegistrationCommonResource & {
+ * @typedef {RegistrationCommon & {
  *   wasteProcessingType: 'reprocessor'
  *   reprocessingType: 'input' | 'output'
- *   site: { address: UkAddress }
- *   accreditations: Record<string, AccreditationResource>
- * }} ReprocessorRegistrationResource
+ *   site: {
+ *     address: UkAddress & {
+ *       region?: string // not served
+ *       country?: string // not served
+ *     }
+ *   }
+ *   accreditations: Record<string, Accreditation>
+ * }} ReprocessorRegistration
  *
- * @typedef {RegistrationCommonResource & {
+ * @typedef {RegistrationCommon & {
  *   wasteProcessingType: 'exporter'
- *   overseasSites: Record<string, OverseasSiteResource>
- *   accreditations: Record<string, ExporterAccreditationResource>
- * }} ExporterRegistrationResource
+ *   overseasSites: Record<string, OverseasSite>
+ *   accreditations: Record<string, ExporterAccreditation>
+ * }} ExporterRegistration
  *
  * @typedef {{
  *   name: string
  *   address: OverseasAddress
  *   coordinates?: string
- * }} OverseasSiteResource
+ * }} OverseasSite
  *
  * @typedef {{
  *   accreditationNumber: string
  *   status: 'approved' | 'suspended' | 'cancelled'
- * }} AccreditationResource
+ *   statusTimeline: StatusTimeline // not served
+ *   prnIssuance: { tonnageBand: string, signatories: Contact[] } // not served
+ *   submitterContactDetails: Contact // not served
+ * }} Accreditation
  *
- * @typedef {AccreditationResource & {
- *   overseasSites: Record<string, AccreditedOverseasSiteResource>
- * }} ExporterAccreditationResource
+ * @typedef {Accreditation & {
+ *   overseasSites: Record<string, AccreditedOverseasSite>
+ * }} ExporterAccreditation
  *
  * @typedef {
  *   | { status: 'pending' }
  *   | { status: 'approved', approvedOn: string }
- * } AccreditedOverseasSiteResource
+ * } AccreditedOverseasSite
  *
  * @typedef {{
  *   line1: string
@@ -121,6 +147,8 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *   postcode?: string
  *   country: string
  * }} OverseasAddress
+ *
+ * @typedef {{ fullName: string, email: string, phone?: string }} Contact
  */
 ```
 
@@ -158,7 +186,8 @@ accreditation `validFrom`/`validTo`,
 accreditation `material`/`wasteProcessingType`/`site`/`submittedToRegulator`, the overseas site's
 internal `overseasSiteId`, `createdAt` and `updatedAt`, `registration.orgName`
 (the organisation's `name` replaces it), and all form, contact, permit, file upload, user and
-PRN-issuance data. Those stay in the store for the backend's own use.
+PRN-issuance data. The ones the backend reads are in the model above, marked `not served`, and
+the rest stay in the store.
 
 Auth: the `organisationRead` and `adminRead` scopes.
 
@@ -167,13 +196,13 @@ Auth: the `organisationRead` and `adminRead` scopes.
 Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
 only what it shows. Every response body is an object.
 
-| Endpoint                                                       | Returns                                                                     |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `GET /organisations/{organisationNumber}`                      | `OrganisationResource`                                                      |
-| `.../registrations`                                            | `{ registrations: Record<string, RegistrationResource> }`                   |
-| `.../registrations/{registrationNumber}`                       | `RegistrationResource`                                                      |
-| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, as the registration holds them                        |
-| `.../registrations/{registrationNumber}/accreditations/{year}` | `AccreditationResource`, or `ExporterAccreditationResource` for an exporter |
+| Endpoint                                                       | Returns                                                     |
+| -------------------------------------------------------------- | ----------------------------------------------------------- |
+| `GET /organisations/{organisationNumber}`                      | `Organisation`                                              |
+| `.../registrations`                                            | `{ registrations: Record<string, Registration> }`           |
+| `.../registrations/{registrationNumber}`                       | `Registration`                                              |
+| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, as the registration holds them        |
+| `.../registrations/{registrationNumber}/accreditations/{year}` | `Accreditation`, or `ExporterAccreditation` for an exporter |
 
 Each resource is addressed by the key its parent holds it under. Overseas sites are embedded in
 their registration and accreditation. They can be given addresses of their own when a client needs
@@ -198,46 +227,9 @@ it, and logs what it dropped:
 | `GET /v1/.../accreditations`, `.../accreditations/{id}`                                   | Unchanged, for unapproved records; operators move to the matching new endpoint                 |
 | `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Unchanged. They carry interim sites for the registration service (ADR-0041)                    |
 
-### Domain model
+### Fields that are not served
 
-The repository returns the domain model below, and the backend's own processing reads it. It is
-the representation above plus fields that are not served. The stored format stays private to the
-MongoDB repository, and its shapes, set before the data was well understood, can be tightened
-separately.
-
-```js
-/**
- * @typedef {OrganisationResource & {
- *   version: number
- *   statusTimeline: StatusTimeline
- *   companiesHouseNumber?: string
- *   registeredAddress?: UkAddress
- *   users: { email: string, roles: string[], contactId?: string }[]
- *   submitterContactDetails: Contact
- *   linkedDefraOrganisation?: { linkedBy: { id: string } }
- *   registrations: Record<string, Registration>
- * }} Organisation
- *
- * @typedef {(
- *   | ReprocessorRegistrationResource & { site: { address: { region?: string, country?: string } } }
- *   | ExporterRegistrationResource
- * ) & {
- *   statusTimeline: StatusTimeline
- *   submitterContactDetails: Contact
- *   applicationContactDetails: Contact
- *   approvedPersons: Contact[]
- *   accreditations: Record<string, Accreditation>
- * }} Registration
- *
- * @typedef {AccreditationResource & {
- *   statusTimeline: StatusTimeline
- *   prnIssuance: { tonnageBand: string, signatories: Contact[] }
- *   submitterContactDetails: Contact
- * }} Accreditation
- *
- * @typedef {{ fullName: string, email: string, phone?: string }} Contact
- */
-```
+The backend reads the fields marked `not served` for its own processing.
 
 | Field                                                                                     | Read by                                                                                                                    |
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
