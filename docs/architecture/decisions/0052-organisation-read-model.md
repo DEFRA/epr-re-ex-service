@@ -99,7 +99,7 @@ tightened separately.
  *       country?: string // not served
  *     }
  *   }
- *   accreditations: Record<string, Accreditation>
+ *   accreditations: Record<string, ReprocessorAccreditation>
  * }} ReprocessorRegistration
  *
  * @typedef {RegistrationCommon & {
@@ -120,9 +120,11 @@ tightened separately.
  *   statusTimeline: StatusTimeline // not served
  *   prnIssuance: { tonnageBand: string, signatories: Contact[] } // not served
  *   submitterContactDetails: Contact // not served
- * }} Accreditation
+ * }} AccreditationCommon
  *
- * @typedef {Accreditation & {
+ * @typedef {AccreditationCommon} ReprocessorAccreditation
+ *
+ * @typedef {AccreditationCommon & {
  *   overseasSites: Record<string, AccreditedOverseasSite>
  * }} ExporterAccreditation
  *
@@ -196,15 +198,17 @@ Auth: the `organisationRead` and `adminRead` scopes.
 Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
 only what it shows. Every response body is an object.
 
-| Endpoint                                                       | Returns                                                     |
-| -------------------------------------------------------------- | ----------------------------------------------------------- |
-| `GET /organisations/{organisationNumber}`                      | `Organisation`                                              |
-| `.../registrations`                                            | `{ registrations: Record<string, Registration> }`           |
-| `.../registrations/{registrationNumber}`                       | `Registration`                                              |
-| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, as the registration holds them        |
-| `.../registrations/{registrationNumber}/accreditations/{year}` | `Accreditation`, or `ExporterAccreditation` for an exporter |
+| Endpoint                                                       | Returns                                                                |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /organisations/{organisationNumber}`                      | `Organisation`                                                         |
+| `.../registrations`                                            | `{ registrations: Record<string, Registration> }`                      |
+| `.../registrations/{registrationNumber}`                       | `Registration`                                                         |
+| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, keyed by year                                    |
+| `.../registrations/{registrationNumber}/accreditations/{year}` | `ReprocessorAccreditation` or `ExporterAccreditation`, by registration |
 
-Each resource is addressed by the key its parent holds it under. Overseas sites are embedded in
+Each resource is addressed by the key its parent holds it under. An accreditation's shape is set
+by its registration, which is always in its path, so a reprocessor's registration cannot hold an
+exporter's accreditation or the reverse. Overseas sites are embedded in
 their registration and accreditation. They can be given addresses of their own when a client needs
 to fetch one alone.
 
