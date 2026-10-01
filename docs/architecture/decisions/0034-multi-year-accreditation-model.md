@@ -6,6 +6,8 @@ Date: 2026-05-12
 
 Accepted
 
+Part 2 amendment (2026-10-01): Proposed. 2026 accreditations are also read over HTTP. See [Decision](#decision).
+
 ## Context
 
 Operators apply for accreditation via DEFRA forms each year. The re-ex service currently stores accreditations as a
@@ -256,7 +258,8 @@ Promise < Accreditation[] >
 
 - **Phase 1 (now)** — reads 2026 data only from local organisations repository. Ships before
   the registration service is ready.
-- **Phase 2 (Option C)** — calls `fetch-json.js` for 2027, merges with local 2026 read.
+- **Phase 2 (Option C)** — reads every year over HTTP: 2026 from epr-backend, 2027 from the
+  registration service (see the Part 2 amendment under Decision).
 - **Phase 3 (optional)** — if live-call latency is unacceptable, switch to an Option A or B
   adapter backed by a locally synced store. Port interface unchanged throughout.
 
@@ -268,7 +271,19 @@ Promise < Accreditation[] >
 optional. 2026 sub-docs and registration documents remain untouched: the Phase 1 adapter resolves
 2026 accreditations via the existing `registration.accreditationId` link.
 
-**Part 2:** Option C — on-demand fetch from the registration service for 2027; local read for 2026.
+**Part 2:** Option C — on-demand fetch from the registration service for 2027. ~~Local read for 2026.~~
+
+**Part 2 amendment (2026-10-01, proposed):** 2026 accreditations are also read over HTTP, not
+from the organisation documents. epr-backend serves 2026 accreditations from an endpoint with
+the same contract the registration service will serve for 2027. REEX then reads every year
+the same way, and the registration service can take over 2026 later without changing REEX.
+
+Reason: on 21 September 2026 the REEX and registration service teams agreed that the
+registration service owns accreditation data and REEX reads it when it needs it. Reading 2026
+the same way means REEX has one read path instead of two, and finds the problems with that
+path now, using live 2026 data, instead of when 2027 goes live. The
+[PAE-1965](https://eaflood.atlassian.net/browse/PAE-1965) proof of concept showed that this
+works and measured what it costs (see Consequences).
 
 **Rationale.** This is the lowest-risk delivery path. Adding `registrationId` and `year` to the
 existing accreditation sub-docs (back-reference) keeps 2026 data untouched, makes migration
@@ -277,3 +292,55 @@ and all sync infrastructure while its API stabilises, keeping it the single sour
 accreditations module ships immediately with 2026-only reads and is extended in Phase 2 when the API contract is agreed;
 if live-call latency proves problematic, the adapter can be swapped for a locally synced store
 without touching application code.
+
+## Consequences
+
+### Performance (Part 2 amendment)
+
+The PAE-1965 proof of concept read 2026 accreditations over HTTP on the perf-test and test
+environments. The results:
+
+- **About +28ms for each organisation read.** Endpoints that don't read an organisation did not
+  change, so the slowdown comes from the HTTP call.
+- **No noticeable change for operators.** Operator pages, and most regulator pages, show one
+  registration at a time.
+- **Frontend pages are +100 to +250ms slower,** because each page reads the organisation
+  several times.
+- **Admin pages that list many organisations are two to five times slower:**
+
+  | Page                                    | Before    | After |
+  | --------------------------------------- | --------- | ----- |
+  | Organisations list                      | 200–450ms | 1–2s  |
+  | Summary log uploads                     | ~450ms    | ~2.5s |
+  | PRN tonnage                             | 0.8–1.2s  | ~2.7s |
+  | Overseas sites                          | ~1s       | ~2.5s |
+  | Public register (download)              | 2.6s      | ~6s   |
+  | Regulator: reprocessor/exporter figures | ~4s       | ~6.5s |
+
+- **Slow reports barely change.** The 22–35s reports (credited tonnage, UK waste balance,
+  market insights workbook) are slow for other reasons.
+- **These numbers are the best case.** The proof of concept called epr-backend, the same
+  service and database. Calls to the registration service go to another service and its own
+  database, so they will be slower. Run the performance tests again against the registration
+  service before 2027 goes live.
+
+What this means:
+
+- Admin pages that list many organisations need fewer, larger requests (a batch endpoint), and
+  shouldn't fetch accreditations they don't use.
+- Frontend pages need fewer organisation reads per request, or to cache accreditations for the
+  length of a request.
+- If latency is still too high after that, Phase 3 (a locally synced store) is the fallback.
+  Because a synced copy can fall out of date, using it needs a new ADR.
+
+### Other consequences
+
+- **Each service needs the other running.** REEX calls the registration service for
+  accreditations, and the registration service calls REEX for organisations. If either is down,
+  both are affected. The HTTP client needs timeouts, retries and a circuit breaker.
+- **Some reads can't go through an HTTP lookup.** These need reworking before 2026 can be
+  served entirely over HTTP:
+  - searching by accreditation id or number
+  - aggregations that join on accreditation fields
+  - checks when an organisation is saved
+- **Existing mechanisms for changing accreditation cannot be re-used for 2027.** Status change functionality and the JSON editor (in Admin UI) cannot be used as-is for editing 2027 accreditation data (as the REEX service has a read-only view of it).
