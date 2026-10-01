@@ -55,7 +55,7 @@ tightened separately.
  *   organisationNumber: number
  *   name: string
  *   tradingName?: string
- *   status: 'created' | 'approved' | 'active' | 'rejected'
+ *   status: 'created' | 'approved' | 'active' | 'rejected' // computed from statusTimeline
  *   statusTimeline: StatusTimeline // not served
  *   submittedToRegulator: Regulator
  *   companiesHouseNumber?: string // not served
@@ -79,7 +79,7 @@ tightened separately.
  * @typedef {ReprocessorRegistration | ExporterRegistration} Registration
  *
  * @typedef {{
- *   status: 'approved' | 'cancelled'
+ *   status: 'approved' | 'cancelled' // computed from statusTimeline
  *   statusTimeline: StatusTimeline // not served
  *   validFrom: string
  *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
@@ -116,7 +116,7 @@ tightened separately.
  *
  * @typedef {{
  *   accreditationNumber: string
- *   status: 'approved' | 'suspended' | 'cancelled'
+ *   status: 'approved' | 'suspended' | 'cancelled' // computed from statusTimeline
  *   statusTimeline: StatusTimeline // not served
  *   prnIssuance: { tonnageBand: string, signatories: Contact[] } // not served
  *   submitterContactDetails: Contact // not served
@@ -154,8 +154,10 @@ tightened separately.
  */
 ```
 
-- **`status` is today's value on the timeline** (ADR-0051). The timeline and its events are not
-  returned; nothing in either frontend reads them.
+- **`status` is today's value on the timeline** (ADR-0051). The domain computes it from
+  `statusTimeline`, at today or at a given date, rather than holding it beside the timeline, so the
+  two cannot disagree. A response serves it as a field. The timeline itself is not served; nothing
+  in either frontend reads it.
 - **Every enumeration is open.** A client handles a value it does not know, so a new status or
   material is not a breaking change.
 - **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` is a date-time.
