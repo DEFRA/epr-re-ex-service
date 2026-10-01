@@ -270,6 +270,10 @@ the `/v1` registration and accreditation sub-resources, but neither frontend rea
   records and for clients the team cannot see; retiring them is a separate decision. The
   admin ORS list, a cross-organisation report, and the per-report export activity are not
   organisation reads and are unaffected.
+- An unapproved registration or accreditation is an application awaiting a decision. Handling
+  applications moves to another team by the end of 2026, after which this service holds only
+  numbered records. The new routes already serve only those, so the handover leaves them
+  unchanged and removes only the `/v1` reads of unapproved records.
 - Existing consumers of `GET /v1/organisations/{id}` — the admin JSON editor and basic-auth
   clients — are unaffected.
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
