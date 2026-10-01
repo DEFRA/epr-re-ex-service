@@ -57,12 +57,12 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *     linkedAt: string
  *     linkedBy: { email: string }
  *   }
- *   registrations: Record<string, Registration>
- * }} Organisation
+ *   registrations: Record<string, RegistrationResource>
+ * }} OrganisationResource
  *
  * @typedef {{ code: 'ea' | 'nrw' | 'sepa' | 'niea' }} Regulator
  *
- * @typedef {ReprocessorRegistration | ExporterRegistration} Registration
+ * @typedef {ReprocessorRegistrationResource | ExporterRegistrationResource} RegistrationResource
  *
  * @typedef {{
  *   status: 'approved' | 'cancelled'
@@ -70,40 +70,40 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
  *     | 'steel' | 'wood'
  *   submittedToRegulator: Regulator
- * }} RegistrationCommon
+ * }} RegistrationCommonResource
  *
- * @typedef {RegistrationCommon & {
+ * @typedef {RegistrationCommonResource & {
  *   wasteProcessingType: 'reprocessor'
  *   reprocessingType: 'input' | 'output'
  *   site: { address: UkAddress }
- *   accreditations: Record<string, Accreditation>
- * }} ReprocessorRegistration
+ *   accreditations: Record<string, AccreditationResource>
+ * }} ReprocessorRegistrationResource
  *
- * @typedef {RegistrationCommon & {
+ * @typedef {RegistrationCommonResource & {
  *   wasteProcessingType: 'exporter'
- *   overseasSites: Record<string, OverseasSite>
- *   accreditations: Record<string, ExporterAccreditation>
- * }} ExporterRegistration
+ *   overseasSites: Record<string, OverseasSiteResource>
+ *   accreditations: Record<string, ExporterAccreditationResource>
+ * }} ExporterRegistrationResource
  *
  * @typedef {{
  *   name: string
  *   address: OverseasAddress
  *   coordinates?: string
- * }} OverseasSite
+ * }} OverseasSiteResource
  *
  * @typedef {{
  *   accreditationNumber: string
  *   status: 'approved' | 'suspended' | 'cancelled'
- * }} Accreditation
+ * }} AccreditationResource
  *
- * @typedef {Accreditation & {
- *   overseasSites: Record<string, AccreditedOverseasSite>
- * }} ExporterAccreditation
+ * @typedef {AccreditationResource & {
+ *   overseasSites: Record<string, AccreditedOverseasSiteResource>
+ * }} ExporterAccreditationResource
  *
  * @typedef {
  *   | { status: 'pending' }
  *   | { status: 'approved', approvedOn: string }
- * } AccreditedOverseasSite
+ * } AccreditedOverseasSiteResource
  *
  * @typedef {{
  *   line1: string
@@ -167,19 +167,17 @@ Auth: the `organisationRead` and `adminRead` scopes.
 Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
 only what it shows. Every response body is an object.
 
-| Endpoint                                                        | Returns                                                     |
-| --------------------------------------------------------------- | ----------------------------------------------------------- |
-| `GET /organisations/{organisationNumber}`                       | `Organisation`                                              |
-| `.../registrations`                                             | `{ registrations: Record<string, Registration> }`           |
-| `.../registrations/{registrationNumber}`                        | `Registration`                                              |
-| `.../registrations/{registrationNumber}/overseas-sites`         | `{ overseasSites: Record<string, OverseasSite> }`           |
-| `.../registrations/{registrationNumber}/overseas-sites/{orsId}` | `OverseasSite`                                              |
-| `.../registrations/{registrationNumber}/accreditations`         | `{ accreditations: Record<string, Accreditation> }`         |
-| `.../registrations/{registrationNumber}/accreditations/{year}`  | `Accreditation`                                             |
-| `.../accreditations/{year}/overseas-sites`                      | `{ overseasSites: Record<string, AccreditedOverseasSite> }` |
-| `.../accreditations/{year}/overseas-sites/{orsId}`              | `AccreditedOverseasSite`                                    |
+| Endpoint                                                       | Returns                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /organisations/{organisationNumber}`                      | `OrganisationResource`                                                      |
+| `.../registrations`                                            | `{ registrations: Record<string, RegistrationResource> }`                   |
+| `.../registrations/{registrationNumber}`                       | `RegistrationResource`                                                      |
+| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, as the registration holds them                        |
+| `.../registrations/{registrationNumber}/accreditations/{year}` | `AccreditationResource`, or `ExporterAccreditationResource` for an exporter |
 
-Each resource is addressed by the key its parent holds it under.
+Each resource is addressed by the key its parent holds it under. Overseas sites are embedded in
+their registration and accreditation. They can be given addresses of their own when a client needs
+to fetch one alone.
 
 Where the store is looser than these types, the conversion from the store maps the record or drops
 it, and logs what it dropped:
@@ -200,35 +198,42 @@ it, and logs what it dropped:
 | `GET /v1/.../accreditations`, `.../accreditations/{id}`                                   | Unchanged, for unapproved records; operators move to the matching new endpoint                 |
 | `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Unchanged. They carry interim sites for the registration service (ADR-0041)                    |
 
-### Backend-only fields
+### Domain model
 
-The backend's own processing reads the model above plus the following. They are not returned.
+The repository returns the domain model below, and the backend's own processing reads it. It is
+the representation above plus fields that are not served. The stored format stays private to the
+MongoDB repository, and its shapes, set before the data was well understood, can be tightened
+separately.
 
 ```js
 /**
- * @typedef {Organisation & {
+ * @typedef {OrganisationResource & {
  *   version: number
  *   statusTimeline: StatusTimeline
  *   companiesHouseNumber?: string
- *   registeredAddress?: Address
+ *   registeredAddress?: UkAddress
  *   users: { email: string, roles: string[], contactId?: string }[]
  *   submitterContactDetails: Contact
  *   linkedDefraOrganisation?: { linkedBy: { id: string } }
- * }} StoredOrganisation
+ *   registrations: Record<string, Registration>
+ * }} Organisation
  *
- * @typedef {Registration & {
+ * @typedef {(
+ *   | ReprocessorRegistrationResource & { site: { address: { region?: string, country?: string } } }
+ *   | ExporterRegistrationResource
+ * ) & {
  *   statusTimeline: StatusTimeline
- *   site: { address: { region?: string, country?: string } } | null
  *   submitterContactDetails: Contact
  *   applicationContactDetails: Contact
  *   approvedPersons: Contact[]
- * }} StoredRegistration
+ *   accreditations: Record<string, Accreditation>
+ * }} Registration
  *
- * @typedef {Accreditation & {
+ * @typedef {AccreditationResource & {
  *   statusTimeline: StatusTimeline
  *   prnIssuance: { tonnageBand: string, signatories: Contact[] }
  *   submitterContactDetails: Contact
- * }} StoredAccreditation
+ * }} Accreditation
  *
  * @typedef {{ fullName: string, email: string, phone?: string }} Contact
  */
