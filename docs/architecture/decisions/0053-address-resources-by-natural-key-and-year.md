@@ -100,8 +100,8 @@ proposed for review:
 .../registrations/{registrationNumber}/reports/{year}/{cadence}/...
 .../registrations/{registrationNumber}/accreditations/{year}/reports/{cadence}/...
 
-.../registrations/{registrationNumber}/waste-balance-ledger/{year}
-.../registrations/{registrationNumber}/accreditations/{year}/waste-balance-ledger
+.../registrations/{registrationNumber}/ledger/{year}
+.../registrations/{registrationNumber}/accreditations/{year}/ledger
 
 .../registrations/{registrationNumber}/accreditations/{year}/waste-balance
 /organisations/{organisationNumber}/waste-balances?year={year}
@@ -113,6 +113,9 @@ They replace ADR 0048's `{year}/accreditation/{accreditationId|none}` branch. Th
 goes, because the registered-only stream no longer sits in the accreditation slot. PRNs are
 accredited-only, so they have only the accredited route. A PRN number is quoted on its own, so it is
 served as a field and found through a query on the collection.
+
+Both streams have a ledger of events, but only an accredited ledger's events move a balance, so the
+resource is a `ledger` and not a waste-balance ledger.
 
 A waste balance belongs to an accreditation, so it is addressed through the accreditation slot. The
 organisation-level collection serves pages that show several balances at once. It is filtered by
