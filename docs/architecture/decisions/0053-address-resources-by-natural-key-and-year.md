@@ -91,7 +91,7 @@ its own stream.
 The routes beneath a summary log, such as `upload-completed`, `submit` and `file`, keep their
 `{summaryLogId}` and move under these two addresses.
 
-### Reports, waste-balance ledger and PRNs
+### Reports, waste balances, ledger and PRNs
 
 The discussion that agreed this ADR did not cover these routes. They apply the same rules, and are
 proposed for review:
@@ -103,6 +103,9 @@ proposed for review:
 .../registrations/{registrationNumber}/waste-balance-ledger/{year}
 .../registrations/{registrationNumber}/accreditations/{year}/waste-balance-ledger
 
+.../registrations/{registrationNumber}/accreditations/{year}/waste-balance
+/organisations/{organisationNumber}/waste-balances?year={year}
+
 .../registrations/{registrationNumber}/accreditations/{year}/packaging-recycling-notes/...
 ```
 
@@ -111,8 +114,34 @@ goes, because the registered-only stream no longer sits in the accreditation slo
 accredited-only, so they have only the accredited route. A PRN number is quoted on its own, so it is
 served as a field and found through a query on the collection.
 
+A waste balance belongs to an accreditation, so it is addressed through the accreditation slot. The
+organisation-level collection serves pages that show several balances at once. It is filtered by
+year instead of by a list of accreditation ids, and each balance in it names its registration number
+and year.
+
 The new PRN search for RPD obligations is a breaking change for that consumer anyway, so it is the
 point at which it moves to these keys.
+
+### Routes that span a registration's years
+
+Some routes read across every year and both streams of a registration, so they stay at registration
+level, and only the registration's key changes:
+
+```
+.../registrations/{registrationNumber}/waste-records/export.csv
+.../registrations/{registrationNumber}/summary-logs/files/{fileId}
+.../registrations/{registrationNumber}/summary-logs/files/{fileId}/records.csv
+```
+
+Waste-balance ledger events carry the file id of the summary log they came from, so a page reached
+from the ledger downloads the file by that id. The file id is the upload's own key, as above.
+
+### Actions on an organisation
+
+Linking a Defra ID organisation, and adding a user to an organisation, act on the organisation. They
+move to `/organisations/{organisationNumber}/link` and `/organisations/{organisationNumber}/user`
+with the organisation's other routes. Where they live once organisations have their own service is
+part of the agreement with that service, below.
 
 ### Storage
 
@@ -133,7 +162,9 @@ data proves the assumption before any key depends on it.
 - **Old page URLs redirect.** Anyone with a bookmark is sent on to the new URL. In `epr-frontend` the
   organisation the user is signed in to already carries the natural keys of its registrations and
   accreditations. In `epr-re-ex-admin-frontend` the redirect reads the record through the existing
-  route, which returns its numbers. An unapproved record has no number, so its page URL does not
+  route, which returns its numbers. The regulator pages in `epr-frontend` are not signed in to one
+  organisation, so they redirect the same way. Their organisation list already returns `orgId`, so
+  they build their links from that. An unapproved record has no number, so its page URL does not
   change.
 - **The JSON editor stays on 2026 data** through the existing routes, so it never shows or edits 2027
   data. This assumes the registration service's case management covers that work for 2027.
@@ -151,6 +182,11 @@ data proves the assumption before any key depends on it.
 - **`summary-log` under an accreditation.** An accreditation has one summary log, so the singular
   names a single resource. The design rules do not settle whether a resource that only ever has one
   child names it in the singular or the plural.
+- **The reporting calendar.** `.../registrations/{registrationId}/reports/calendar` lists a
+  registration's reporting periods. With reports split into a registered-only stream and an
+  accredited stream, it could serve one calendar per stream, under each stream's reports address, or
+  one calendar covering both. That waits on how a year with both streams is reported, which is not
+  settled.
 - **Storage for organisations and registrations.** Their data moves to other services too, so their
   keys could change when it does, or now.
 - **Cutover.** The change is wide but shallow: every route and page changes the same way. Three ways
