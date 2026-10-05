@@ -44,19 +44,33 @@ anyone.
 The new routes serve only registrations and accreditations that have been granted a number. The
 admin frontend goes on reading unapproved records from the `/v1` routes.
 
+These are the domain types the MongoDB repository returns, and the backend's own processing reads
+them too. A response serves each type without the fields marked `not served`. The stored format
+stays private to the repository, and its shapes, set before the data was well understood, can be
+tightened separately.
+
 ```js
 /**
  * @typedef {{
  *   organisationNumber: number
  *   name: string
  *   tradingName?: string
- *   status: 'created' | 'approved' | 'active' | 'rejected'
+ *   status: 'created' | 'approved' | 'active' | 'rejected' // computed from statusTimeline
+ *   statusTimeline: StatusTimeline // not served
  *   submittedToRegulator: Regulator
+ *   companiesHouseNumber?: string // not served
+ *   registeredAddress?: UkAddress // not served
  *   linkedDefraOrganisation?: {
  *     defraOrganisation: { id: string, name: string }
  *     linkedAt: string
- *     linkedBy: { email: string }
+ *     linkedBy: {
+ *       id: string // not served
+ *       email: string
+ *     }
  *   }
+ *   users: { email: string, roles: string[], contactId?: string }[] // not served
+ *   submitterContactDetails: Contact // not served
+ *   version: number // not served
  *   registrations: Record<string, Registration>
  * }} Organisation
  *
@@ -65,18 +79,27 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  * @typedef {ReprocessorRegistration | ExporterRegistration} Registration
  *
  * @typedef {{
- *   status: 'approved' | 'cancelled'
+ *   status: 'approved' | 'cancelled' // computed from statusTimeline
+ *   statusTimeline: StatusTimeline // not served
  *   validFrom: string
  *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
  *     | 'steel' | 'wood'
  *   submittedToRegulator: Regulator
+ *   submitterContactDetails: Contact // not served
+ *   applicationContactDetails: Contact // not served
+ *   approvedPersons: Contact[] // not served
  * }} RegistrationCommon
  *
  * @typedef {RegistrationCommon & {
  *   wasteProcessingType: 'reprocessor'
  *   reprocessingType: 'input' | 'output'
- *   site: { address: UkAddress }
- *   accreditations: Record<string, Accreditation>
+ *   site: {
+ *     address: UkAddress & {
+ *       region?: string // not served
+ *       country?: string // not served
+ *     }
+ *   }
+ *   accreditations: Record<string, ReprocessorAccreditation>
  * }} ReprocessorRegistration
  *
  * @typedef {RegistrationCommon & {
@@ -93,10 +116,15 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *
  * @typedef {{
  *   accreditationNumber: string
- *   status: 'approved' | 'suspended' | 'cancelled'
- * }} Accreditation
+ *   status: 'approved' | 'suspended' | 'cancelled' // computed from statusTimeline
+ *   statusTimeline: StatusTimeline // not served
+ *   prnIssuance: { tonnageBand: string, signatories: Contact[] } // not served
+ *   submitterContactDetails: Contact // not served
+ * }} AccreditationCommon
  *
- * @typedef {Accreditation & {
+ * @typedef {AccreditationCommon} ReprocessorAccreditation
+ *
+ * @typedef {AccreditationCommon & {
  *   overseasSites: Record<string, AccreditedOverseasSite>
  * }} ExporterAccreditation
  *
@@ -124,11 +152,15 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *   postcode?: string
  *   country: string
  * }} OverseasAddress
+ *
+ * @typedef {{ fullName: string, email: string, phone?: string }} Contact
  */
 ```
 
-- **`status` is today's value on the timeline** (ADR-0051). The timeline and its events are not
-  returned; nothing in either frontend reads them.
+- **`status` is today's value on the timeline** (ADR-0051). The domain computes it from
+  `statusTimeline`, at today or at a given date, rather than holding it beside the timeline, so the
+  two cannot disagree. A response serves it as a field. The timeline itself is not served; nothing
+  in either frontend reads it.
 - **Every enumeration is open.** A client handles a value it does not know, so a new status or
   material is not a breaking change.
 - **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` is a date-time.
@@ -166,7 +198,8 @@ accreditation `validFrom`/`validTo`,
 accreditation `material`/`wasteProcessingType`/`site`/`submittedToRegulator`, the overseas site's
 internal `overseasSiteId`, `createdAt` and `updatedAt`, `registration.orgName`
 (the organisation's `name` replaces it), and all form, contact, permit, file upload, user and
-PRN-issuance data. Those stay in the store for the backend's own use.
+PRN-issuance data. The ones the backend reads are in the model above, marked `not served`, and
+the rest stay in the store.
 
 Auth: the `organisationRead` and `adminRead` scopes.
 
@@ -175,19 +208,19 @@ Auth: the `organisationRead` and `adminRead` scopes.
 Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
 only what it shows. Every response body is an object.
 
-| Endpoint                                                        | Returns                                                     |
-| --------------------------------------------------------------- | ----------------------------------------------------------- |
-| `GET /organisations/{organisationNumber}`                       | `Organisation`                                              |
-| `.../registrations`                                             | `{ registrations: Record<string, Registration> }`           |
-| `.../registrations/{registrationNumber}`                        | `Registration`                                              |
-| `.../registrations/{registrationNumber}/overseas-sites`         | `{ overseasSites: Record<string, OverseasSite> }`           |
-| `.../registrations/{registrationNumber}/overseas-sites/{orsId}` | `OverseasSite`                                              |
-| `.../registrations/{registrationNumber}/accreditations`         | `{ accreditations: Record<string, Accreditation> }`         |
-| `.../registrations/{registrationNumber}/accreditations/{year}`  | `Accreditation`                                             |
-| `.../accreditations/{year}/overseas-sites`                      | `{ overseasSites: Record<string, AccreditedOverseasSite> }` |
-| `.../accreditations/{year}/overseas-sites/{orsId}`              | `AccreditedOverseasSite`                                    |
+| Endpoint                                                       | Returns                                                                |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /organisations/{organisationNumber}`                      | `Organisation`                                                         |
+| `.../registrations`                                            | `{ registrations: Record<string, Registration> }`                      |
+| `.../registrations/{registrationNumber}`                       | `Registration`                                                         |
+| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, keyed by year                                    |
+| `.../registrations/{registrationNumber}/accreditations/{year}` | `ReprocessorAccreditation` or `ExporterAccreditation`, by registration |
 
-Each resource is addressed by the key its parent holds it under.
+Each resource is addressed by the key its parent holds it under. An accreditation's shape is set
+by its registration, which is always in its path, so a reprocessor's registration cannot hold an
+exporter's accreditation or the reverse. Overseas sites are embedded in
+their registration and accreditation. They can be given addresses of their own when a client needs
+to fetch one alone.
 
 Where the store is looser than these types, the conversion from the store maps the record or drops
 it, and logs what it dropped:
@@ -211,39 +244,9 @@ it, and logs what it dropped:
 | `GET /v1/.../accreditations`, `.../accreditations/{id}`                                   | Unchanged, for unapproved records; operators move to the matching new endpoint                 |
 | `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Unchanged. They carry interim sites for the registration service (ADR-0041)                    |
 
-### Backend-only fields
+### Fields that are not served
 
-The backend's own processing reads the model above plus the following. They are not returned.
-
-```js
-/**
- * @typedef {Organisation & {
- *   version: number
- *   statusTimeline: StatusTimeline
- *   companiesHouseNumber?: string
- *   registeredAddress?: Address
- *   users: { email: string, roles: string[], contactId?: string }[]
- *   submitterContactDetails: Contact
- *   linkedDefraOrganisation?: { linkedBy: { id: string } }
- * }} StoredOrganisation
- *
- * @typedef {Registration & {
- *   statusTimeline: StatusTimeline
- *   site: { address: { region?: string, country?: string } } | null
- *   submitterContactDetails: Contact
- *   applicationContactDetails: Contact
- *   approvedPersons: Contact[]
- * }} StoredRegistration
- *
- * @typedef {Accreditation & {
- *   statusTimeline: StatusTimeline
- *   prnIssuance: { tonnageBand: string, signatories: Contact[] }
- *   submitterContactDetails: Contact
- * }} StoredAccreditation
- *
- * @typedef {{ fullName: string, email: string, phone?: string }} Contact
- */
-```
+The backend reads the fields marked `not served` for its own processing.
 
 | Field                                                                                     | Read by                                                                                                                    |
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
