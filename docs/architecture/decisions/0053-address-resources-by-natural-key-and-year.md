@@ -204,6 +204,11 @@ data proves the assumption before any key depends on it.
 ## Consequences
 
 - Every frontend page URL for an approved record changes, in both frontends.
+- A summary log's stream comes from its route, not from the registration's current accreditation.
+  Today the template check, the accreditation a year-scoped upload is stored against, and the
+  reporting cadence all read the registration's current status. So an operator accredited in July
+  cannot upload their registered-only log for January to June. All three change to read the stream
+  from the route.
 - The authorisation layer in `epr-backend` resolves an organisation by its number, not its id.
 - The accreditations port from ADR 0034 takes a registration number and a year, so the 2027 adapter
   can ask the registration service with keys it knows.
