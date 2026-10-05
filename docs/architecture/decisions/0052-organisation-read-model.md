@@ -105,13 +105,16 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
  *   | { status: 'approved', approvedOn: string }
  * } AccreditedOverseasSite
  *
- * @typedef {{
- *   line1: string
- *   line2?: string
- *   town: string
- *   county?: string
- *   postcode: string
- * }} UkAddress
+ * @typedef {
+ *   | {
+ *       line1: string
+ *       line2?: string
+ *       town: string
+ *       county?: string
+ *       postcode: string
+ *     }
+ *   | { fullAddress: string }
+ * } UkAddress
  *
  * @typedef {{
  *   line1: string
@@ -148,6 +151,11 @@ admin frontend goes on reading unapproved records from the `/v1` routes.
     with the 2027 accreditation. Every ORS id it lists is one its registration holds.
   - Until then, the accreditation lists every site on its registration, with the approval date
     stored on the site today.
+- **A UK address is either its parts or the address as submitted.** Forms ingest splits the
+  submitted address on commas, and it can only place the town when the address has exactly one
+  or three parts between the first line and the postcode. Otherwise it keeps the whole string as
+  `fullAddress`, which is then the only part that is served. An operator who fills in exactly one of
+  line 2 or county produces such an address.
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 - **The Defra ID organisation is grouped on its own** within the link, apart from when and by whom
   the link was made.
@@ -185,6 +193,9 @@ Where the store is looser than these types, the conversion from the store maps t
 it, and logs what it dropped:
 
 - a registration or accreditation without a number is not served;
+- registrations that share a number, or accreditations that share a year, are all dropped, since
+  the view cannot tell which is right;
+- a reprocessor whose site address has neither its parts nor `fullAddress` is dropped;
 - a site reference whose overseas site record no longer exists is dropped;
 - an accredited site whose ORS id its registration does not hold is dropped.
 
