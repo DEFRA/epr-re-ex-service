@@ -1,0 +1,12 @@
+apiVersion: 1
+datasources:
+  - name: CloudWatch
+    type: cloudwatch
+    uid: cc080e90-24cc-4caf-ab5b-a71159c46702
+    jsonData:
+      authType: keys
+      defaultRegion: eu-west-2
+      endpoint: http://floci:4566
+    secureJsonData:
+      accessKey: test
+      secretKey: test

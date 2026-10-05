@@ -5,12 +5,12 @@
       "path": "lib/epr-frontend"
     },
     {
-      "name": "journey-tests",
+      "name": "journey tests",
       "path": "lib/epr-re-ex-journey-tests"
     },
     {
-      "name": "frontend-performance-tests",
-      "path": "lib/epr-frontend-performance-tests"
+      "name": "performance tests",
+      "path": "lib/epr-re-ex-performance-tests"
     }
   ],
   "settings": {

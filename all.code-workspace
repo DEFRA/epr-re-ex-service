@@ -5,7 +5,7 @@
       "path": "."
     },
     {
-      "name": "entra-stub",
+      "name": "entra stub",
       "path": "lib/epr-re-ex-entra-stub"
     },
     {
@@ -13,28 +13,20 @@
       "path": "lib/epr-re-ex-admin-frontend"
     },
     {
-      "name": "admin-performance-tests",
-      "path": "lib/epr-re-ex-admin-fe-perf-tests"
-    },
-    {
       "name": "backend",
       "path": "lib/epr-backend"
-    },
-    {
-      "name": "backend-performance-tests",
-      "path": "lib/epr-backend-performance-tests"
     },
     {
       "name": "frontend",
       "path": "lib/epr-frontend"
     },
     {
-      "name": "frontend-performance-tests",
-      "path": "lib/epr-frontend-performance-tests"
+      "name": "journey tests",
+      "path": "lib/epr-re-ex-journey-tests"
     },
     {
-      "name": "journey-tests",
-      "path": "lib/epr-re-ex-journey-tests"
+      "name": "performance tests",
+      "path": "lib/epr-re-ex-performance-tests"
     }
   ],
   "settings": {

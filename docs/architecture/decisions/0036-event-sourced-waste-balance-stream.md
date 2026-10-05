@@ -4,7 +4,7 @@ Date: 2026-06-02
 
 ## Status
 
-Accepted. Supersedes [ADR-0031](./0031-waste-balance-transaction-ledger.md).
+Accepted. Supersedes [ADR-0031](./0031-waste-balance-transaction-ledger.md). Extended by [ADR-0049](./0049-december-waste-prns.md), which adds an additive December portion to `closingBalance` and a `decemberCreditTotal` to the `summary-log-submitted` payload.
 
 ## Context
 
@@ -296,6 +296,7 @@ The exhaustive transition-to-event mapping is owned by the write-side decider in
 ## Related
 
 - [ADR-0031](./0031-waste-balance-transaction-ledger.md) — the per-row transaction ledger this design supersedes
+- [ADR-0049](./0049-december-waste-prns.md) — extends this stream with an additive December dimension for December-waste PRNs
 - [Waste balance LLD](../defined/pepr-lld.md#waste-balance) — the underlying `amount = sum(credits) − sum(debits)` projection
 - [Waste balance ledger rollout](../discovery/waste-balance-ledger-rollout.md) — rollout and cutover design (the `canonicalSource` marker that gates each accreditation onto the stream)
 - [PAE-1382](https://eaflood.atlassian.net/browse/PAE-1382) — parent Jira ticket

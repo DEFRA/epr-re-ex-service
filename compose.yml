@@ -21,11 +21,19 @@ services:
       FLOCI_DEFAULT_REGION: eu-west-2
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+    # The image ships a 5s healthcheck. Nothing gates on floci being healthy
+    # (floci-init waits on service_started), so at idle it is pure cost.
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:4566/_floci/health || exit 1']
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
+      retries: 5
     networks:
       - cdp-tenant
 
   floci-init:
-    image: amazon/aws-cli:2.36.18@sha256:a807ac61090901c63dd4600eef3e6c8b010afdd07530e30d932a988e5a8405fa
+    image: amazon/aws-cli:2.37.8@sha256:420ab345e847291b541b45d989535f55bcff957c27fa1100fae4aa233e86398c
     entrypoint: /bin/sh
     command: /setup/init.sh
     depends_on:
@@ -44,7 +52,7 @@ services:
       - cdp-tenant
 
   mongodb:
-    image: mongo:8.3.7@sha256:2f02e2184c6d91c3208e5ab75a0707d1386a05377b20fdaf49a314815774d863
+    image: mongo:7.0.28@sha256:4510cf3d7050003e958745adb25d2deb3fb907430716162d9cc1a92eda2a6047
     networks:
       - cdp-tenant
     ports:
@@ -57,8 +65,9 @@ services:
     image: redis:8.0.6-alpine3.21@sha256:5f61955be8ab2ccee9372b84ae4d4da2e2b156f87281e3f218544055e7ee04d4
     healthcheck:
       test: ['CMD', 'redis-cli', 'PING']
-      interval: 5s
-      start_period: 2s
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
       retries: 5
     networks:
       - cdp-tenant
@@ -68,7 +77,7 @@ services:
       - data-redis:/data
 
   cdp-uploader:
-    image: defradigital/cdp-uploader:1.23.0@sha256:eb53d5372c4c12306d3d55debdfb5bc81f06ffc5a3b63239647769399cfdd694
+    image: defradigital/cdp-uploader:1.27.0@sha256:4749a2ff6ddd34ccdc2caf63afaac1f26f3b8f0dcfd775eb36511725f39deedd
     ports:
       - '${UPLOADER_PORT:-7337}:7337'
     depends_on:
@@ -102,8 +111,9 @@ services:
       - 'localhost:host-gateway'
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:7337/health']
-      interval: 5s
-      start_period: 10s
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
       retries: 5
     networks:
       - cdp-tenant
@@ -129,14 +139,15 @@ services:
       USE_SINGLE_INSTANCE_CACHE: true
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3200/health']
-      interval: 5s
-      start_period: 10s
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
       retries: 5
     networks:
       - cdp-tenant
 
   entra-stub:
-    image: defradigital/epr-re-ex-entra-stub:0.103.0@sha256:6d31c8e1ec02793142668895d85b2bf7e1c1033c35ba5066365b2d2495a87abd
+    image: defradigital/epr-re-ex-entra-stub:0.131.0@sha256:5a1421ee28441277f0cb0d1e55fcca3f6cd3bb9514e0d3cc39c68b43851b69c9
     ports:
       - '${ENTRA_STUB_PORT:-3010}:3010'
     depends_on:
@@ -155,15 +166,16 @@ services:
       USE_SINGLE_INSTANCE_CACHE: true
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3010/health']
-      interval: 5s
-      start_period: 10s
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
       retries: 5
     networks:
       - cdp-tenant
 
   # Copies cognito seed files into a volume so cognito-stub has its own copies
   cognito-stub-init:
-    image: alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+    image: alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
     volumes:
       - ./compose/cognito-local/clients.json:/seed/clients.json:ro
       - ./compose/cognito-local/local_4D8shcYm.json:/seed/local_4D8shcYm.json:ro
@@ -196,8 +208,9 @@ services:
       - --verbose
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8080/__admin/health']
-      interval: 5s
-      start_period: 5s
+      interval: 30s
+      start_interval: 1s
+      start_period: 60s
       retries: 5
     networks:
       - cdp-tenant
@@ -294,7 +307,12 @@ services:
     env_file:
       - ./compose/aws.env
     environment:
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-false}
+      ANALYTICS_MEASUREMENT_ID: ${ANALYTICS_MEASUREMENT_ID:-G-LOCALDEV000}
       APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
+      AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-frontend
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
       DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_CONFIGURATION_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
@@ -305,10 +323,14 @@ services:
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-tenantId}
       EPR_BACKEND_URL: http://epr-backend:3001
       FEATURE_FLAG_REGULATOR_ACCESS: ${FEATURE_FLAG_REGULATOR_ACCESS:-true}
+      FEATURE_FLAG_SATISFACTION_SURVEYS: ${FEATURE_FLAG_SATISFACTION_SURVEYS:-false}
       LOG_FORMAT: ${LOG_FORMAT:-ecs}
       NODE_ENV: development
       PORT: 3000
       REDIS_HOST: redis
+      SATISFACTION_SURVEY_PRN_URL: ${SATISFACTION_SURVEY_PRN_URL:-}
+      SATISFACTION_SURVEY_REPORT_URL: ${SATISFACTION_SURVEY_REPORT_URL:-}
+      SATISFACTION_SURVEY_SUMMARY_LOG_URL: ${SATISFACTION_SURVEY_SUMMARY_LOG_URL:-}
       SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
       USE_SINGLE_INSTANCE_CACHE: true
       WASTE_ORGANISATIONS_API_USE_INMEMORY: ${WASTE_ORGANISATIONS_API_USE_INMEMORY:-false}
@@ -316,8 +338,8 @@ services:
       WASTE_ORGANISATIONS_API_USERNAME: testuser
       WASTE_ORGANISATIONS_API_PASSWORD: testpassword
       REAPPLY_ACCREDITATION_BASE_URL: https://epr-register-enrol-frontend.dev.cdp-int.defra.cloud
-      REAPPLY_ACCREDITATION_WINDOW_START_MONTH: 1
-      REAPPLY_ACCREDITATION_WINDOW_END_MONTH: 12
+      REAPPLY_ACCREDITATION_WINDOW_START: "01-01T00:00"
+      REAPPLY_ACCREDITATION_WINDOW_END: "12-31T23:59"
     networks:
       - cdp-tenant
 
@@ -355,10 +377,14 @@ services:
       ADMIN_UI_ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       APP_BASE_URL: http://epr-backend:3001
       AUDIT_ENABLED: true
+      AWS_EMF_ENVIRONMENT: Local
+      AWS_EMF_NAMESPACE: epr-backend
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-basicAuthUsername}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-basicAuthPassword}
       CDP_UPLOADER_URL: http://cdp-uploader:7337
       COPY_FILES_UPLOADED_FROM_DATE: ${COPY_FILES_UPLOADED_FROM_DATE:-2025-12-01T00:00:00.000Z}
+      DECEMBER_WASTE_WINDOW_START: ${DECEMBER_WASTE_WINDOW_START:-01-01T00:00}
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL:-http://entra-stub:3010/.well-known/openid-configuration}
