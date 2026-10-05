@@ -19,9 +19,9 @@ into our external interface.
 From 2027 the registration service holds accreditations, and later registrations too, and the
 organisation will live in its own service. Those services will not know our ids, and they may not
 use MongoDB at all. A 2027 accreditation arrives from the registration service with no
-`epr-backend` id, so a route that names `{accreditationId}` cannot address it. A consumer that already
-holds our ids, such as the registration service reading `GET /v1/organisations/{id}`, would have to
-carry them into its own database.
+`epr-backend` id, so a route that names `{accreditationId}` cannot address it. A consumer that
+already receives our ids, such as the registration service reading `GET /v1/organisations`, would
+have to carry them into its own database.
 
 The domain already issues an identifier for each of these resources, and users quote them:
 
@@ -76,7 +76,7 @@ Reading back needs two routes. An operator who was suspended, or accredited part
 has both a registered-only and an accredited summary log for that year. The frontend shows them as
 two rows, and each row links to its own stream.
 
-### Reports and waste-balance ledger
+### Reports, waste-balance ledger and PRNs
 
 These follow the same rule:
 
@@ -86,10 +86,14 @@ These follow the same rule:
 
 /organisations/{organisationNumber}/registrations/{registrationNumber}/waste-balance-ledger/{year}
 /organisations/{organisationNumber}/registrations/{registrationNumber}/accreditation/{year}/waste-balance-ledger
+
+/organisations/{organisationNumber}/registrations/{registrationNumber}/accreditation/{year}/packaging-recycling-notes/...
 ```
 
 This replaces ADR 0048's `{year}/accreditation/{accreditationId|none}` branch. The `none` sentinel
-goes, because the registered-only stream no longer sits in the accreditation slot.
+goes, because the registered-only stream no longer sits in the accreditation slot. PRNs are
+accredited-only, so they have only the accredited route, and ADR 0048's exception for PRN routes no
+longer applies.
 
 ### Storage
 
@@ -102,7 +106,7 @@ ADR 0048 scopes summary logs, row state, row history and the ledger by
 ### What stays as it is
 
 - **Existing routes stay for their current consumers** until those consumers move, so nothing they
-  call breaks. The registration service's read of `GET /v1/organisations/{id}` is one of them.
+  call breaks. The registration service's read of `GET /v1/organisations` is one of them.
 - **Old page URLs redirect.** Anyone with a bookmark is sent on to the new URL. The organisation the
   user is signed in to already carries the natural keys of its registrations and accreditations,
   so the lookup needs no new call.
