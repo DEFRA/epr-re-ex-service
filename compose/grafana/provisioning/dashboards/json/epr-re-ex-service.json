@@ -99,9 +99,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -175,9 +173,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -186,9 +182,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -297,9 +291,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -373,9 +365,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -384,9 +374,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -495,9 +483,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -571,9 +557,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -582,9 +566,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -693,9 +675,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -769,9 +749,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -780,9 +758,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -891,9 +867,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -967,9 +941,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -978,9 +950,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -1089,9 +1059,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -1165,9 +1133,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -1176,9 +1142,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -1287,9 +1251,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -1363,9 +1325,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -1374,9 +1334,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -1485,9 +1443,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -1561,9 +1517,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -1572,9 +1526,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -1683,9 +1635,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -1759,9 +1709,7 @@
           "options": {
             "includeTimeField": false,
             "mode": "reduceFields",
-            "reducers": [
-              "sum"
-            ]
+            "reducers": ["sum"]
           }
         },
         {
@@ -1770,9 +1718,7 @@
             "alias": "Completed",
             "mode": "reduceRow",
             "reduce": {
-              "include": [
-                "Finished"
-              ],
+              "include": ["Finished"],
               "reducer": "sum"
             }
           }
@@ -2009,9 +1955,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -2841,9 +2785,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -3282,9 +3224,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -3464,9 +3404,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -3542,9 +3480,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -3560,12 +3496,8 @@
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
           "dimensions": {
-            "operation": [
-              "*"
-            ],
-            "processingType": [
-              "*"
-            ]
+            "operation": ["*"],
+            "processingType": ["*"]
           },
           "label": "",
           "matchExact": false,
@@ -3648,9 +3580,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -3666,12 +3596,8 @@
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
           "dimensions": {
-            "processingType": [
-              "*"
-            ],
-            "status": [
-              "submitted"
-            ]
+            "processingType": ["*"],
+            "status": ["submitted"]
           },
           "label": "",
           "matchExact": false,
@@ -3735,9 +3661,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "max"
-          ],
+          "calcs": ["max"],
           "fields": "",
           "values": false
         },
@@ -3815,9 +3739,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "max"
-          ],
+          "calcs": ["max"],
           "fields": "",
           "values": false
         },
@@ -4095,9 +4017,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -4460,9 +4380,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -4780,9 +4698,7 @@
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "sum"
-          ],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
