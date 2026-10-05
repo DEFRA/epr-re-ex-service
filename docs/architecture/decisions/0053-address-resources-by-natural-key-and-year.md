@@ -4,7 +4,7 @@ Date: 2026-10-05
 
 ## Status
 
-Proposed
+Accepted
 
 Supersedes Part 2 of [ADR 0048](0048-dual-multi-year-summary-logs.md), and the line in its
 Consequences about breaking the report and ledger routes. Part 1 of ADR 0048 still stands, except
@@ -93,8 +93,7 @@ The routes beneath a summary log, such as `upload-completed`, `submit` and `file
 
 ### Reports, waste balances, ledger and PRNs
 
-The discussion that agreed this ADR did not cover these routes. They apply the same rules, and are
-proposed for review:
+These routes apply the same rules:
 
 ```
 .../registrations/{registrationNumber}/reports/{year}/{cadence}/...
