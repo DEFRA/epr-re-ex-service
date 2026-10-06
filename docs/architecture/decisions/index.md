@@ -50,4 +50,5 @@
 * [48. Dual and multi-year summary logs for registration and accreditation periods](0048-dual-multi-year-summary-logs.md)
 * [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
 * [50. Glass as two material types](0050-glass-as-two-material-types.md)
+* [52. Organisation read model](0052-organisation-read-model.md)
 * [53. Address resources by natural key and year](0053-address-resources-by-natural-key-and-year.md)
