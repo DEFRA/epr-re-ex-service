@@ -13,10 +13,7 @@
       },
       { 'name': 'organisations', 'description': 'Organisation management' },
       { 'name': 'summary-logs', 'description': 'Waste summary log uploads' },
-      {
-        'name': 'reports',
-        'description': 'Periodic reporting (feature-flagged)'
-      },
+      { 'name': 'reports', 'description': 'Periodic reporting' },
       { 'name': 'waste-balances', 'description': 'Waste balance queries' },
       {
         'name': 'tonnage',
@@ -26,10 +23,7 @@
         'name': 'packaging-recycling-notes',
         'description': 'PRN lifecycle management'
       },
-      {
-        'name': 'overseas-sites',
-        'description': 'Overseas site management (feature-flagged)'
-      },
+      { 'name': 'overseas-sites', 'description': 'Overseas site management' },
       { 'name': 'system-logs', 'description': 'System audit logs' },
       {
         'name': 'public-register',
@@ -466,9 +460,41 @@
                 {
                   '200':
                     {
-                      'description': 'Overseas sites resolved for this accreditation\'s registration, keyed by ORS id',
+                      'description': "Overseas sites resolved for this accreditation's registration, keyed by ORS id",
                       'schema':
                         { '$ref': '#/definitions/AccreditationOverseasSitesResponse' }
+                    }
+                }
+            }
+        },
+      '/v1/organisations/{organisationId}/registrations/{registrationId}/overseas-sites':
+        {
+          'get':
+            {
+              'operationId': 'getRegistrationOverseasSites',
+              'tags': ['overseas-sites'],
+              'parameters':
+                [
+                  {
+                    'type': 'string',
+                    'name': 'organisationId',
+                    'in': 'path',
+                    'required': true
+                  },
+                  {
+                    'type': 'string',
+                    'name': 'registrationId',
+                    'in': 'path',
+                    'required': true
+                  }
+                ],
+              'responses':
+                {
+                  '200':
+                    {
+                      'description': 'Overseas sites resolved for this registration, keyed by ORS id',
+                      'schema':
+                        { '$ref': '#/definitions/RegistrationOverseasSitesResponse' }
                     }
                 }
             }
@@ -834,7 +860,7 @@
             {
               'operationId': 'getV1ReportsCalendar',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Returns reporting periods with report object (or null if no report exists).',
+              'description': 'Returns reporting periods with report object (or null if no report exists).',
               'parameters':
                 [
                   {
@@ -884,7 +910,7 @@
             {
               'operationId': 'getV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
+              'description': 'Returns a stored report if one exists, otherwise generates aggregated report data on the fly.',
               'parameters':
                 [
                   {
@@ -936,7 +962,7 @@
             {
               'operationId': 'postV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Creates a report for the given period.',
+              'description': 'Creates a report for the given period.',
               'parameters':
                 [
                   {
@@ -990,7 +1016,7 @@
             {
               'operationId': 'deleteV1Report',
               'tags': ['reports'],
-              'description': 'Behind isReportsEnabled feature flag. Soft-deletes a report for the given period.',
+              'description': 'Soft-deletes a report for the given period.',
               'parameters':
                 [
                   {
@@ -1410,7 +1436,6 @@
             {
               'operationId': 'getV1OverseasSites',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1443,7 +1468,6 @@
             {
               'operationId': 'postV1OverseasSite',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1469,7 +1493,6 @@
             {
               'operationId': 'getV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1492,7 +1515,6 @@
             {
               'operationId': 'putV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1521,7 +1543,6 @@
             {
               'operationId': 'deleteV1OverseasSiteById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1540,7 +1561,6 @@
             {
               'operationId': 'postV1OverseasSiteImport',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1584,7 +1604,6 @@
             {
               'operationId': 'getV1OverseasSiteImportById',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -1631,7 +1650,6 @@
             {
               'operationId': 'postV1OverseasSiteImportUploadCompleted',
               'tags': ['overseas-sites'],
-              'description': 'Behind isOverseasSitesEnabled feature flag',
               'parameters':
                 [
                   {
@@ -2008,7 +2026,9 @@
               'properties':
                 {
                   'amount': { 'type': 'number' },
-                  'availableAmount': { 'type': 'number' }
+                  'availableAmount': { 'type': 'number' },
+                  'decemberAmount': { 'type': 'number' },
+                  'decemberAvailableAmount': { 'type': 'number' }
                 },
               'required': ['amount', 'availableAmount']
             }
@@ -2488,9 +2508,10 @@
                   'required': ['id', 'name']
                 },
               'tonnage': { 'type': 'integer', 'minimum': 1 },
+              'isDecemberWaste': { 'type': 'boolean' },
               'notes': { 'type': 'string', 'maxLength': 200 }
             },
-          'required': ['issuedToOrganisation', 'tonnage']
+          'required': ['issuedToOrganisation', 'tonnage', 'isDecemberWaste']
         },
       'PaginatedPrnResponse':
         {
@@ -3025,7 +3046,7 @@
       'OrganisationYearlyMetrics':
         {
           'type': 'object',
-          'description': 'A reprocessor registration\'s declared input/output tonnages for a single year',
+          'description': "A reprocessor registration's declared input/output tonnages for a single year",
           'properties':
             {
               'year': { 'type': 'number' },
@@ -3207,7 +3228,7 @@
               'overseasSites':
                 {
                   'type': 'object',
-                  'description': 'Map keyed by the registration\'s 3-digit ORS id, each value { overseasSiteId }'
+                  'description': "Map keyed by the registration's 3-digit ORS id, each value { overseasSiteId }"
                 },
               'yearlyMetrics':
                 {
@@ -3316,6 +3337,28 @@
           'type': 'object',
           'description': 'Map keyed by the 3-digit ORS id',
           'additionalProperties': { '$ref': '#/definitions/AccreditationOverseasSite' }
+        },
+      'RegistrationOverseasSite':
+        {
+          'type': 'object',
+          'description': 'Every field is null when no stored overseas-site record carries the referenced id, and coordinates is null on its own when the site records none. Approval dates are served by the accreditation-keyed route',
+          'properties':
+            {
+              'name': { 'type': 'string', 'x-nullable': true },
+              'country': { 'type': 'string', 'x-nullable': true },
+              'address':
+                {
+                  'allOf': [{ '$ref': '#/definitions/OverseasSiteAddress' }],
+                  'x-nullable': true
+                },
+              'coordinates': { 'type': 'string', 'x-nullable': true }
+            }
+        },
+      'RegistrationOverseasSitesResponse':
+        {
+          'type': 'object',
+          'description': 'Map keyed by the 3-digit ORS id',
+          'additionalProperties': { '$ref': '#/definitions/RegistrationOverseasSite' }
         }
     }
 }
