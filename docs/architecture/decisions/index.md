@@ -51,3 +51,4 @@
 * [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
 * [50. Glass as two material types](0050-glass-as-two-material-types.md)
 * [51. Carry forward cross-year exporter loads into the next accreditation year](0051-carry-forward-cross-year-exporter-loads.md)
+* [53. Address resources by natural key and year](0053-address-resources-by-natural-key-and-year.md)
