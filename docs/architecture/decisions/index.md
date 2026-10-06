@@ -51,3 +51,5 @@
 * [49. December-waste PRNs via an additive waste-balance dimension](0049-december-waste-prns.md)
 * [50. Glass as two material types](0050-glass-as-two-material-types.md)
 * [51. Registration and accreditation status as a dated timeline](0051-status-as-a-dated-timeline.md)
+* [52. Organisation read model](0052-organisation-read-model.md)
+* [53. Address resources by natural key and year](0053-address-resources-by-natural-key-and-year.md)

@@ -6,6 +6,10 @@ Date: 2026-08-28
 
 Proposed
 
+Part 2, and the line in Consequences about breaking the report and ledger routes, are superseded by
+[ADR 0053](0053-address-resources-by-natural-key-and-year.md). Part 1's storage keys hold the
+accreditation number in place of `accreditationId`.
+
 ## Context
 
 An operator can hold a registered-only period and an accredited period for the same registration at
