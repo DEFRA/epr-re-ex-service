@@ -52,26 +52,26 @@ tightened separately.
 ```js
 /**
  * @typedef {{
- *   organisationNumber: number
- *   name: string
- *   tradingName?: string
- *   status: 'created' | 'approved' | 'active' | 'rejected' // computed from statusTimeline
- *   statusTimeline: StatusTimeline // not served
- *   submittedToRegulator: Regulator
  *   companiesHouseNumber?: string // not served
- *   registeredAddress?: UkAddress // not served
  *   linkedDefraOrganisation?: {
  *     defraOrganisation: { id: string, name: string }
  *     linkedAt: string
  *     linkedBy: {
- *       id: string // not served
  *       email: string
+ *       id: string // not served
  *     }
  *   }
- *   users: { email: string, roles: string[], contactId?: string }[] // not served
- *   submitterContactDetails: Contact // not served
- *   version: number // not served
+ *   name: string
+ *   organisationNumber: number
+ *   registeredAddress?: UkAddress // not served
  *   registrations: Record<string, Registration>
+ *   status: 'created' | 'approved' | 'active' | 'rejected' // computed from statusTimeline
+ *   statusTimeline: StatusTimeline // not served
+ *   submittedToRegulator: Regulator
+ *   submitterContactDetails: Contact // not served
+ *   tradingName?: string
+ *   users: { contactId?: string, email: string, roles: string[] }[] // not served
+ *   version: number // not served
  * }} Organisation
  *
  * @typedef {{ code: 'ea' | 'nrw' | 'sepa' | 'niea' }} Regulator
@@ -79,46 +79,46 @@ tightened separately.
  * @typedef {ReprocessorRegistration | ExporterRegistration} Registration
  *
  * @typedef {{
- *   status: 'approved' | 'cancelled' // computed from statusTimeline
- *   statusTimeline: StatusTimeline // not served
- *   validFrom: string
- *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
- *     | 'steel' | 'wood'
- *   submittedToRegulator: Regulator
- *   submitterContactDetails: Contact // not served
  *   applicationContactDetails: Contact // not served
  *   approvedPersons: Contact[] // not served
+ *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
+ *     | 'steel' | 'wood'
+ *   status: 'approved' | 'cancelled' // computed from statusTimeline
+ *   statusTimeline: StatusTimeline // not served
+ *   submittedToRegulator: Regulator
+ *   submitterContactDetails: Contact // not served
+ *   validFrom: string
  * }} RegistrationCommon
  *
  * @typedef {RegistrationCommon & {
- *   wasteProcessingType: 'reprocessor'
+ *   accreditations: Record<string, ReprocessorAccreditation>
  *   reprocessingType: 'input' | 'output'
  *   site: {
  *     address: UkAddress & {
- *       region?: string // not served
  *       country?: string // not served
+ *       region?: string // not served
  *     }
  *   }
- *   accreditations: Record<string, ReprocessorAccreditation>
+ *   wasteProcessingType: 'reprocessor'
  * }} ReprocessorRegistration
  *
  * @typedef {RegistrationCommon & {
- *   wasteProcessingType: 'exporter'
- *   overseasSites: Record<string, OverseasSite>
  *   accreditations: Record<string, ExporterAccreditation>
+ *   overseasSites: Record<string, OverseasSite>
+ *   wasteProcessingType: 'exporter'
  * }} ExporterRegistration
  *
  * @typedef {{
- *   name: string
  *   address: OverseasAddress
  *   coordinates?: string
+ *   name: string
  * }} OverseasSite
  *
  * @typedef {{
  *   accreditationNumber: string
+ *   prnIssuance: { signatories: Contact[], tonnageBand: string } // not served
  *   status: 'approved' | 'suspended' | 'cancelled' // computed from statusTimeline
  *   statusTimeline: StatusTimeline // not served
- *   prnIssuance: { tonnageBand: string, signatories: Contact[] } // not served
  *   submitterContactDetails: Contact // not served
  * }} AccreditationCommon
  *
@@ -130,30 +130,30 @@ tightened separately.
  *
  * @typedef {
  *   | { status: 'pending' }
- *   | { status: 'approved', approvedOn: string }
+ *   | { approvedOn: string, status: 'approved' }
  * } AccreditedOverseasSite
  *
  * @typedef {
  *   | {
+ *       county?: string
  *       line1: string
  *       line2?: string
- *       town: string
- *       county?: string
  *       postcode: string
+ *       town: string
  *     }
  *   | { fullAddress: string }
  * } UkAddress
  *
  * @typedef {{
+ *   country: string
  *   line1: string
  *   line2?: string
- *   townOrCity: string
- *   stateOrRegion?: string
  *   postcode?: string
- *   country: string
+ *   stateOrRegion?: string
+ *   townOrCity: string
  * }} OverseasAddress
  *
- * @typedef {{ fullName: string, email: string, phone?: string }} Contact
+ * @typedef {{ email: string, fullName: string, phone?: string }} Contact
  */
 ```
 
@@ -289,7 +289,8 @@ the `/v1` registration and accreditation sub-resources, but neither frontend rea
   numbered records. The new routes already serve only those, so the handover leaves them
   unchanged and removes only the `/v1` reads of unapproved records.
 - Existing consumers of `GET /v1/organisations/{id}` — the admin JSON editor and basic-auth
-  clients — are unaffected.
+  clients — are unaffected. The JSON editor stays on that route, which the registration and
+  accreditation service also reads, so neither sees a breaking change.
 - The frontends stop joining registrations to accreditations and stop deciding which accreditation
   is live; the reapply journey reads the accreditation's year rather than parsing it from
   `validFrom`, and date-range display uses the year.
