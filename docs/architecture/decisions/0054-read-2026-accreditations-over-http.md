@@ -37,16 +37,16 @@ This changes the ADR-0034 adapter phases:
 
 ## Consequences
 
-### Early feedback
+### Up front schema design
 
-Reading 2026 the same way as 2027 means REEX has one read path instead of two,
-and finds the problems with that path now, using live 2026 data, instead of when 2027 goes live.
-The PAE-1965 proof of concept showed that this works and measured what it costs.
+The new accreditation(s) endpoints stood up on epr-backend will serve the same contract the registration service will serve for 2027. This allows us to front-load the design of the schema for those calls, producing an artifact that can be used to articulate REEX's needs for the 2027 endpoints built by the registration service delivery team.
 
-### Performance
+Note: The accreditation detailed in the response payload should be domain-aligned, as per [ADR-0052](./0052-organisation-read-model.md).
+
+### Performance degradation for some pages showing 2026 data
 
 The PAE-1965 proof of concept read 2026 accreditations over HTTP on the perf-test and test
-environments. The results:
+environments. It identified the following performance implications.
 
 - **About +28ms for each organisation read.** Endpoints that don't read an organisation did not
   change, so the slowdown comes from the HTTP call.
@@ -74,20 +74,6 @@ environments. The results:
 
 What this means:
 
-- Admin pages that list many organisations need fewer, larger requests (a batch endpoint), and
-  shouldn't fetch accreditations they don't use.
-- Frontend pages need fewer organisation reads per request, or to cache accreditations for the
-  length of a request.
-- If latency is still too high after that, Phase 3 (a locally synced store) is the fallback.
-  Because a synced copy can fall out of date, using it needs a new ADR.
-
-### Other consequences
-
-- **Some reads can't go through an HTTP lookup.** These need reworking before 2026 can be
-  served entirely over HTTP:
-  - searching by accreditation id or number
-  - aggregations that join on accreditation fields
-  - checks when an organisation is saved
-- **Existing mechanisms for changing accreditation cannot be re-used for 2027.** Status change
-  functionality and the JSON editor (in Admin UI) cannot be used as-is for editing 2027
-  accreditation data (as the REEX service has a read-only view of it).
+- Some pages (mainly in the Admin UI) that are currently performant with 2026 data become (artificially) slower
+- No impact on page performance when viewing 2027 data
+- May force team to bring forward delivery of performance optimisations (that would otherwise not be needed until 2027).
