@@ -71,12 +71,12 @@ effective status at that date — the window alone is not enough.
 
 Registrations have no suspended state: a registration is either live or terminated.
 
-| Transition             | Action    | Notes                                                                                        |
-| ---------------------- | --------- | -------------------------------------------------------------------------------------------- |
-| `created → approved`   | Grant     | Sets `registrationNumber` and `validFrom` (Rule 1)                                            |
-| `created → rejected`   | Reject    | Refuse a non-compliant application                                                            |
-| `rejected → created`   | Reopen    | Application returns for rework                                                                |
-| `approved → cancelled` | Cancel    | Direct cancel; force-cancels the linked live accreditation in the same change                 |
+| Transition             | Action    | Notes                                                                                                               |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `created → approved`   | Grant     | Sets `registrationNumber` and `validFrom` (Rule 1)                                                                  |
+| `created → rejected`   | Reject    | Refuse a non-compliant application                                                                                  |
+| `rejected → created`   | Reopen    | Application returns for rework                                                                                      |
+| `approved → cancelled` | Cancel    | Direct cancel; force-cancels the linked live accreditation in the same change                                       |
 | `cancelled → approved` | Reinstate | After a successful appeal, effective the day actioned; the force-cancelled accreditation is **not** auto-reinstated |
 
 ### Permitted transitions — accreditation
@@ -84,15 +84,15 @@ Registrations have no suspended state: a registration is either live or terminat
 User-driven cancellation is suspended-first: there is no direct `approved → cancelled` action. The
 registration-cancellation cascade is the sole, system-driven exception.
 
-| Transition              | Action    | Notes                                                                     |
-| ----------------------- | --------- | ------------------------------------------------------------------------- |
-| `created → approved`    | Grant     | Sets `accreditationNumber` and `validFrom` (Rule 1)                       |
-| `created → rejected`    | Reject    | Operator stays registered-only                                            |
-| `rejected → created`    | Reopen    | Application returns for rework                                            |
-| `approved → suspended`  | Suspend   | Effective from the transition timestamp (Rule 4)                          |
-| `suspended → approved`  | Reinstate | Original validity window preserved                                        |
-| `suspended → cancelled` | Cancel    | Effective from the transition timestamp (Rule 5)                          |
-| `cancelled → approved`  | Reinstate | After a successful appeal, effective the day actioned                     |
+| Transition              | Action    | Notes                                                 |
+| ----------------------- | --------- | ----------------------------------------------------- |
+| `created → approved`    | Grant     | Sets `accreditationNumber` and `validFrom` (Rule 1)   |
+| `created → rejected`    | Reject    | Operator stays registered-only                        |
+| `rejected → created`    | Reopen    | Application returns for rework                        |
+| `approved → suspended`  | Suspend   | Effective from the transition timestamp (Rule 4)      |
+| `suspended → approved`  | Reinstate | Original validity window preserved                    |
+| `suspended → cancelled` | Cancel    | Effective from the transition timestamp (Rule 5)      |
+| `cancelled → approved`  | Reinstate | After a successful appeal, effective the day actioned |
 
 Either transition to `approved` (grant or reinstate) requires the linked registration to be
 `approved`.
@@ -104,9 +104,9 @@ Issuing is the balance-debiting action, so it is blocked as soon as the accredit
 
 | Accreditation status | Loads counted (within window) | Create (draft) PRN | Issue PRN |
 | -------------------- | ----------------------------- | ------------------ | --------- |
-| `approved`           | ✅                             | ✅                  | ✅         |
-| `suspended`          | ❌ from the suspension date     | ✅                  | ❌         |
-| `cancelled`          | ❌ from the cancellation date   | ❌                  | ❌         |
+| `approved`           | ✅                            | ✅                 | ✅        |
+| `suspended`          | ❌ from the suspension date   | ✅                 | ❌        |
+| `cancelled`          | ❌ from the cancellation date | ❌                 | ❌        |
 
 ## Consequences
 
