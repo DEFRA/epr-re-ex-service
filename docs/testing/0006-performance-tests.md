@@ -4,11 +4,11 @@ The `epr-re-ex-performance-tests` repository holds a single JMeter script, `scen
 
 Three thread groups:
 
-- **Frontend journey** — the operator journey through `epr-frontend`.
-- **Admin frontend journey** — the regulator journey through `epr-re-ex-admin-frontend`.
-- **Backend API** — form submissions, user linking, summary log uploads, waste balance calculation and PRN creation, authenticated via Cognito.
+- **Setup** — fetches a Cognito access token for the backend API calls.
+- **Frontend journey** — the operator journey through `epr-frontend`, with the backend API calls (form submissions, user linking, summary log uploads, waste balance calculation and PRN creation) inline.
+- **Admin frontend journey** — the regulator journey through `epr-re-ex-admin-frontend`, against an organisation it first creates through the backend API.
 
-The frontend journeys are the emphasis and share a thread count; the backend API runs at a fifth of it, since its flows largely overlap with theirs. The CDP Portal profile sets that count — `mid` for 100 threads, `max` for 200, defaulting to 50.
+Both journeys share one thread count, set by the CDP Portal profile — `mid` for 100 threads, `max` for 200, defaulting to 50.
 
 Each run starts with a `DataGenerator` step; its result only seeds data and can be ignored.
 
