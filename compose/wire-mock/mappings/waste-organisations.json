@@ -34,7 +34,7 @@
             {
               "status": "REGISTERED",
               "type": "COMPLIANCE_SCHEME",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         },
@@ -56,7 +56,7 @@
             {
               "status": "REGISTERED",
               "type": "LARGE_PRODUCER",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         },
@@ -78,7 +78,7 @@
             {
               "status": "REGISTERED",
               "type": "COMPLIANCE_SCHEME",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         },
@@ -100,7 +100,7 @@
             {
               "status": "REGISTERED",
               "type": "COMPLIANCE_SCHEME",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         },
@@ -122,7 +122,7 @@
             {
               "status": "REGISTERED",
               "type": "LARGE_PRODUCER",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         },
@@ -144,12 +144,12 @@
             {
               "status": "REGISTERED",
               "type": "LARGE_PRODUCER",
-              "registrationYear": 2025
+              "registrationYear": "{{math request.query.registrationYears '-' 1}}"
             },
             {
               "status": "REGISTERED",
               "type": "LARGE_PRODUCER",
-              "registrationYear": 2026
+              "registrationYear": "{{request.query.registrationYears}}"
             }
           ]
         }
