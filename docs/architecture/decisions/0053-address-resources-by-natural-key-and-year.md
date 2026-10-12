@@ -6,6 +6,9 @@ Date: 2026-10-05
 
 Accepted
 
+Revised 2026-10-07 (PAE-2035): the summary-log routes are listed in full. A summary log is
+addressed by its registration and its own id, and there is no read of a year's summary log.
+
 Supersedes Part 2 of [ADR 0048](0048-dual-multi-year-summary-logs.md), and the line in its
 Consequences about breaking the report and ledger routes. Part 1 of ADR 0048 still stands, except
 that its storage keys hold the accreditation number in place of `accreditationId`.
@@ -71,25 +74,50 @@ until it is given a key of its own.
 
 ### Summary logs
 
+`R` is `/organisations/{organisationNumber}/registrations/{registrationNumber}`.
+
+Starting an upload:
+
 ```
-POST /organisations/{organisationNumber}/registrations/{registrationNumber}/summary-logs/{year}
-GET  /organisations/{organisationNumber}/registrations/{registrationNumber}/summary-logs/{year}
+POST R/summary-logs/{year}
+POST R/accreditations/{year}/summary-log
 
-POST /organisations/{organisationNumber}/registrations/{registrationNumber}/accreditations/{year}/summary-log
-GET  /organisations/{organisationNumber}/registrations/{registrationNumber}/accreditations/{year}/summary-log
+POST R/summary-logs/{year}/{summaryLogId}/upload-completed
+POST R/accreditations/{year}/summary-log/{summaryLogId}/upload-completed
 ```
 
-Each stream has its own address, and an upload is posted to the stream it is for, so a summary log
-is read back from the address it was posted to. The template states its processing type, as ADR 0048
-says, so validation rejects a file whose template does not match the route's stream. This replaces
-ADR 0048's single upload route.
+Managing an upload:
 
-An operator who was suspended, or accredited part way through a year, has both a registered-only and
-an accredited summary log for that year. The frontend shows them as two rows, and each row links to
-its own stream.
+```
+GET  R/summary-logs/{summaryLogId}
+POST R/summary-logs/{summaryLogId}/submit
+GET  R/summary-logs/{summaryLogId}/file
+GET  R/summary-logs/{summaryLogId}/document
+```
 
-The routes beneath a summary log, such as `upload-completed`, `submit` and `file`, keep their
-`{summaryLogId}` and move under these two addresses.
+Downloading a submitted file, from the ledger (see Routes that span a registration's years):
+
+```
+GET  R/summary-logs/files/{fileId}
+GET  R/summary-logs/files/{fileId}/records.csv
+```
+
+An upload is posted to the address for the year and kind it is for: registered-only under the
+registration, accredited under the registration's accreditation for that year. The template states
+its processing type, as ADR 0048 says, so validation rejects a file whose template does not match
+that address. This replaces ADR 0048's single upload route.
+
+The summary log is stored only when the uploader calls `upload-completed`, so that callback carries
+the year and kind chosen when the upload started. Only the uploader calls it.
+
+Once it exists, an upload is named by its own id, so the routes that manage it need no year or kind
+and sit at registration level. The organisation stays in the path because operators are authorised
+by it. A summary log is served only under the organisation and registration it belongs to; any other
+returns `404`.
+
+There is no read of a year's summary log. The frontend reads an upload by its id while it is
+validated and submitted, and a page reached from the ledger downloads a file by its file id. A read
+by year is added when a page needs one.
 
 ### Reports, waste balances, ledger and PRNs
 
@@ -181,9 +209,9 @@ data proves the assumption before any key depends on it.
 - **The upload journey in the frontend.** The routes let a page either take the operator into one
   stream before the upload, or accept any summary log and send it to the stream its template names.
   That is a user experience decision.
-- **`summary-log` under an accreditation.** An accreditation has one summary log, so the singular
-  names a single resource. The design rules do not settle whether a resource that only ever has one
-  child names it in the singular or the plural.
+- **`summary-log` under an accreditation.** The upload address under an accreditation is singular.
+  The design rules do not settle whether a resource that only ever has one child names it in the
+  singular or the plural.
 - **The reporting calendar.** `.../registrations/{registrationId}/reports/calendar` lists a
   registration's reporting periods. With reports split into a registered-only stream and an
   accredited stream, it could serve one calendar per stream, under each stream's reports address, or
@@ -206,11 +234,11 @@ data proves the assumption before any key depends on it.
 ## Consequences
 
 - Every frontend page URL for an approved record changes, in both frontends.
-- A summary log's stream comes from its route, not from the registration's current accreditation.
-  Today the template check, the accreditation a year-scoped upload is stored against, and the
-  reporting cadence all read the registration's current status. So an operator accredited in July
-  cannot upload their registered-only log for January to June. All three change to read the stream
-  from the route.
+- Whether a summary log is registered-only or accredited comes from the address it was uploaded to,
+  not from the registration's current accreditation. Today the template check, the accreditation a
+  year-scoped upload is stored against, and the reporting cadence all read the registration's
+  current status. So an operator accredited in July cannot upload their registered-only log for
+  January to June. All three change to read it from the upload's address.
 - The authorisation layer in `epr-backend` resolves an organisation by its number, not its id.
 - The accreditations port from ADR 0034 takes a registration number and a year, so the 2027 adapter
   can ask the registration service with keys it knows.
