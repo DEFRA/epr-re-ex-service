@@ -13,6 +13,10 @@ Revised 2026-10-13 (PAE-2030): ADR 0052 no longer serves registrations and accre
 own. The registration and accreditation slots are address prefixes for what hangs off them, not
 resources that can be read.
 
+Revised 2026-10-13 (PAE-2064): an organisation's waste balances for a year are at
+`/waste-balances/{year}`, since the year is always required, and are keyed by accreditation number,
+since a balance belongs to an accreditation.
+
 Supersedes Part 2 of [ADR 0048](0048-dual-multi-year-summary-logs.md), and the line in its
 Consequences about breaking the report and ledger routes. Part 1 of ADR 0048 still stands, except
 that its storage keys hold the accreditation number in place of `accreditationId`.
@@ -137,7 +141,7 @@ These routes apply the same rules:
 .../registrations/{registrationNumber}/accreditations/{year}/ledger
 
 .../registrations/{registrationNumber}/accreditations/{year}/waste-balance
-/organisations/{organisationNumber}/waste-balances?year={year}
+/organisations/{organisationNumber}/waste-balances/{year}
 
 .../registrations/{registrationNumber}/accreditations/{year}/packaging-recycling-notes/...
 ```
@@ -151,9 +155,9 @@ Both streams have a ledger of events, but only an accredited ledger's events mov
 resource is a `ledger` and not a waste-balance ledger.
 
 A waste balance belongs to an accreditation, so it is addressed through the accreditation slot. The
-organisation-level collection serves pages that show several balances at once. It is filtered by
-year instead of by a list of accreditation ids, and each balance in it names its registration number
-and year.
+organisation-level collection serves pages that show several balances at once. It is addressed by
+year instead of filtered by a list of accreditation ids, and keys each balance by its accreditation
+number.
 
 The new PRN search for RPD obligations is a breaking change for that consumer anyway, so it is the
 point at which it moves to these keys.
