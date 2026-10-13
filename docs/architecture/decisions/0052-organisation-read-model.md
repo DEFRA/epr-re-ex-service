@@ -8,6 +8,10 @@ Proposed. Depends on [ADR-0051](./0051-status-as-a-dated-timeline.md) (status as
 with an accreditation's validity window replaced by a scheme `year`) and
 [ADR-0050](./0050-glass-as-two-material-types.md) (glass re-melt and glass other as materials).
 
+Revised 2026-10-13 (PAE-2030): the registration and accreditation sub-resources are dropped. Every
+page that reads a registration or accreditation reads its organisation too, so the organisation is
+the only read route.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -34,14 +38,14 @@ events, so the current status is a single derived value.
 A new endpoint, `GET /organisations/{organisationNumber}`, returns an organisation with its
 registrations nested, and each registration's accreditations nested within it.
 `organisationNumber` is the organisation's business reference, stored as `orgId`. It is not the
-MongoDB `id`, and no database id appears in the new routes.
+MongoDB `id`, and no database id appears in the new route.
 `GET /v1/organisations/{id}` is unchanged and goes on returning the stored document.
 
 A field is served when a client needs it, and it is shaped as the domain defines it, not as a page
 shows it. A field that no client needs yet is left out, because adding it later does not break
 anyone.
 
-The new routes serve only registrations and accreditations that have been granted a number. The
+The new route serves only registrations and accreditations that have been granted a number. The
 admin frontend goes on reading unapproved records from the `/v1` routes.
 
 These are the domain types the MongoDB repository returns, and the backend's own processing reads
@@ -205,20 +209,16 @@ Auth: the `organisationRead` and `adminRead` scopes.
 
 ### Endpoints
 
-Each sub-resource returns the matching part of the model, in the same shape, so a page fetches
-only what it shows. Every response body is an object.
+| Endpoint                                  | Returns        |
+| ----------------------------------------- | -------------- |
+| `GET /organisations/{organisationNumber}` | `Organisation` |
 
-| Endpoint                                                       | Returns                                                                |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `GET /organisations/{organisationNumber}`                      | `Organisation`                                                         |
-| `.../registrations`                                            | `{ registrations: Record<string, Registration> }`                      |
-| `.../registrations/{registrationNumber}`                       | `Registration`                                                         |
-| `.../registrations/{registrationNumber}/accreditations`        | `{ accreditations }`, keyed by year                                    |
-| `.../registrations/{registrationNumber}/accreditations/{year}` | `ReprocessorAccreditation` or `ExporterAccreditation`, by registration |
+A page reads the organisation and finds a registration in it by its number, and an accreditation
+within that registration by its year. Every page that shows a registration or an accreditation
+also shows its organisation, so it has no read of its own.
 
-Each resource is addressed by the key its parent holds it under. An accreditation's shape is set
-by its registration, which is always in its path, so a reprocessor's registration cannot hold an
-exporter's accreditation or the reverse. Overseas sites are embedded in
+An accreditation's shape is set by the registration that holds it, so a reprocessor's
+registration cannot hold an exporter's accreditation or the reverse. Overseas sites are embedded in
 their registration and accreditation. They can be given addresses of their own when a client needs
 to fetch one alone.
 
@@ -240,8 +240,8 @@ it, and logs what it dropped:
 | `GET /v1/organisations`                                                                   | Unchanged                                                                                      |
 | `PUT /v1/organisations/{id}`                                                              | Unchanged                                                                                      |
 | `GET /v1/organisations/{id}/overview`                                                     | Unchanged, for unapproved records; operators move to `GET /organisations/{organisationNumber}` |
-| `GET /v1/.../registrations`, `.../registrations/{id}`                                     | Unchanged, for unapproved records; operators move to the matching new endpoint                 |
-| `GET /v1/.../accreditations`, `.../accreditations/{id}`                                   | Unchanged, for unapproved records; operators move to the matching new endpoint                 |
+| `GET /v1/.../registrations`, `.../registrations/{id}`                                     | Unchanged, for unapproved records; operators move to `GET /organisations/{organisationNumber}` |
+| `GET /v1/.../accreditations`, `.../accreditations/{id}`                                   | Unchanged, for unapproved records; operators move to `GET /organisations/{organisationNumber}` |
 | `GET /v1/.../registrations/{id}/overseas-sites`, `.../accreditations/{id}/overseas-sites` | Unchanged. They carry interim sites for the registration service (ADR-0041)                    |
 
 ### Fields that are not served
@@ -286,7 +286,7 @@ the `/v1` registration and accreditation sub-resources, but neither frontend rea
   organisation reads and are unaffected.
 - An unapproved registration or accreditation is an application awaiting a decision. Handling
   applications moves to another team by the end of 2026, after which this service holds only
-  numbered records. The new routes already serve only those, so the handover leaves them
+  numbered records. The new route already serves only those, so the handover leaves it
   unchanged and removes only the `/v1` reads of unapproved records.
 - Existing consumers of `GET /v1/organisations/{id}` — the admin JSON editor and basic-auth
   clients — are unaffected. The JSON editor stays on that route, which the registration and
@@ -299,7 +299,7 @@ the `/v1` registration and accreditation sub-resources, but neither frontend rea
 - The operator frontend still needs database ids to call the summary-log, report, PRN, waste
   balance and ledger routes. It goes on reading them from the `/v1` routes until those routes are
   addressed by domain keys.
-- The new routes have response schemas, so their contract is enforced rather than implied by the
+- The new route has a response schema, so its contract is enforced rather than implied by the
   store.
 
 ## Related

@@ -9,13 +9,17 @@ Accepted
 Revised 2026-10-07 (PAE-2035): the summary-log routes are listed in full. A summary log is
 addressed by its registration and its own id, and there is no read of a year's summary log.
 
+Revised 2026-10-13 (PAE-2030): ADR 0052 no longer serves registrations and accreditations on their
+own. The registration and accreditation slots are address prefixes for what hangs off them, not
+resources that can be read.
+
 Supersedes Part 2 of [ADR 0048](0048-dual-multi-year-summary-logs.md), and the line in its
 Consequences about breaking the report and ledger routes. Part 1 of ADR 0048 still stands, except
 that its storage keys hold the accreditation number in place of `accreditationId`.
 
 Builds on [ADR 0052](0052-organisation-read-model.md), proposed in PR #491, which defines the
-organisation, registration and accreditation resources and their routes. This ADR covers what hangs
-off them: summary logs, reports, the waste-balance ledger and PRNs.
+organisation resource and its route, with its registrations and accreditations nested in it. This
+ADR covers what hangs off them: summary logs, reports, the waste-balance ledger and PRNs.
 
 ## Context
 
@@ -44,9 +48,11 @@ accreditations would follow the same path if each service kept its own.
 
 The second change is the year. [ADR 0034](0034-multi-year-accreditation-model.md) settled that a
 registration has at most one accreditation per year. So the accreditation a request needs is "this
-registration's accreditation for this year": a slot, which returns `404` when it is empty. ADR 0052
-addresses it as `.../registrations/{registrationNumber}/accreditations/{year}`. The accreditation
-number is still the accreditation's identity, and it is served as a field.
+registration's accreditation for this year": a slot, addressed as
+`.../registrations/{registrationNumber}/accreditations/{year}`. The slot is a prefix for the
+accreditation's reports, ledger, waste balance and PRNs; the accreditation itself is read from its
+organisation (ADR 0052). A route under an empty slot returns `404`. The accreditation number is
+still the accreditation's identity, and it is served as a field.
 
 ## Decision
 
