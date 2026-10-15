@@ -119,7 +119,7 @@ services:
       - cdp-tenant
 
   defra-id-stub:
-    image: defradigital/epr-re-ex-defra-id-stub:0.6.0@sha256:a98160ed5fe0c594fc5acfddb46594348624fb768b4e8cf06aa9b3c750981464
+    image: defradigital/epr-re-ex-defra-id-stub:0.7.0@sha256:f9a4187929353c8b82840a6ac937a07ee538e1ca8506d8b83b425fa33bce48fe
     ports:
       - '${DEFRA_ID_STUB_PORT:-3200}:3200'
     depends_on:
@@ -147,7 +147,7 @@ services:
       - cdp-tenant
 
   entra-stub:
-    image: defradigital/epr-re-ex-entra-stub:0.140.0@sha256:aca95c0a225b6ad36b23e637c7664e5b5dd1216d2978264d952fe38323a57857
+    image: defradigital/epr-re-ex-entra-stub:0.141.0@sha256:dd4fc203efe8cb61cf7bbbfb7c9962370f1fb58a1bf2034b868b91015de00c5d
     ports:
       - '${ENTRA_STUB_PORT:-3010}:3010'
     depends_on:
