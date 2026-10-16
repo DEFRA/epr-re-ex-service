@@ -12,6 +12,9 @@ Revised 2026-10-13 (PAE-2030): the registration and accreditation sub-resources 
 page that reads a registration or accreditation reads its organisation too, so the organisation is
 the only read route.
 
+Revised 2026-10-16 (PAE-2063): status nests as `status.current` and `status.timeline`, and the
+registration's and accreditation's timelines are served.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -69,8 +72,10 @@ tightened separately.
  *   organisationNumber: number
  *   registeredAddress?: UkAddress // not served
  *   registrations: Record<string, Registration>
- *   status: 'created' | 'approved' | 'active' | 'rejected' // computed from statusTimeline
- *   statusTimeline: StatusTimeline // not served
+ *   status: {
+ *     current: 'created' | 'approved' | 'active' | 'rejected' // computed from timeline
+ *     timeline: StatusTimeline // not served
+ *   }
  *   submittedToRegulator: Regulator
  *   submitterContactDetails: Contact // not served
  *   tradingName?: string
@@ -87,8 +92,10 @@ tightened separately.
  *   approvedPersons: Contact[] // not served
  *   material: 'aluminium' | 'fibre' | 'glass_re_melt' | 'glass_other' | 'paper' | 'plastic'
  *     | 'steel' | 'wood'
- *   status: 'approved' | 'cancelled' // computed from statusTimeline
- *   statusTimeline: StatusTimeline // not served
+ *   status: {
+ *     current: 'approved' | 'cancelled' // computed from timeline
+ *     timeline: StatusTimeline
+ *   }
  *   submittedToRegulator: Regulator
  *   submitterContactDetails: Contact // not served
  *   validFrom: string
@@ -121,8 +128,10 @@ tightened separately.
  * @typedef {{
  *   accreditationNumber: string
  *   prnIssuance: { signatories: Contact[], tonnageBand: string } // not served
- *   status: 'approved' | 'suspended' | 'cancelled' // computed from statusTimeline
- *   statusTimeline: StatusTimeline // not served
+ *   status: {
+ *     current: 'approved' | 'suspended' | 'cancelled' // computed from timeline
+ *     timeline: StatusTimeline
+ *   }
  *   submitterContactDetails: Contact // not served
  * }} AccreditationCommon
  *
@@ -161,10 +170,10 @@ tightened separately.
  */
 ```
 
-- **`status` is today's value on the timeline** (ADR-0051). The domain computes it from
-  `statusTimeline`, at today or at a given date, rather than holding it beside the timeline, so the
-  two cannot disagree. A response serves it as a field. The timeline itself is not served; nothing
-  in either frontend reads it.
+- **`status.current` is today's value on `status.timeline`** (ADR-0051). The domain computes it
+  from the timeline, at today or at a given date, rather than holding it separately, so the two
+  cannot disagree. A registration's and an accreditation's timelines are served, because the
+  frontend lists only the years they were approved in. The organisation's is not.
 - **Every enumeration is open.** A client handles a value it does not know, so a new status or
   material is not a breaking change.
 - **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` is a date-time.
@@ -251,7 +260,7 @@ The backend reads the fields marked `not served` for its own processing.
 | Field                                                                                     | Read by                                                                                                                    |
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `version`                                                                                 | Optimistic locking on every write                                                                                          |
-| `statusTimeline` (ADR-0051)                                                               | Current status and transition rules; the accreditation's is read at a date for row classification and monthly reports owed |
+| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                                                                        |
 | `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                                                                            |
 | `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; report submission contact export                                              |
 | `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                                                                  |
