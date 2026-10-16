@@ -172,8 +172,10 @@ tightened separately.
 
 - **`status.current` is today's value on `status.timeline`** (ADR-0051). The domain computes it
   from the timeline, at today or at a given date, rather than holding it separately, so the two
-  cannot disagree. A registration's and an accreditation's timelines are served, because the
-  frontend lists only the years they were approved in. The organisation's is not.
+  cannot disagree. A registration's timeline is served because the frontend lists its
+  registered-only years and stretches from it. An accreditation's is served because the frontend
+  derives its accredited date range and stretches within its year from it. The organisation's is
+  not served.
 - **Every enumeration is open.** A client handles a value it does not know, so a new status or
   material is not a breaking change.
 - **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` is a date-time.
