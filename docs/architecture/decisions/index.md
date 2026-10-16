@@ -53,3 +53,4 @@
 * [51. Registration and accreditation status as a dated timeline](0051-status-as-a-dated-timeline.md)
 * [52. Organisation read model](0052-organisation-read-model.md)
 * [53. Address resources by natural key and year](0053-address-resources-by-natural-key-and-year.md)
+* [54. Read 2026 accreditations over HTTP](0054-read-2026-accreditations-over-http.md)
