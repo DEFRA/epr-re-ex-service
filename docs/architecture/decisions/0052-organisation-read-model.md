@@ -15,7 +15,7 @@ the only read route.
 Revised 2026-10-16 (PAE-2063): status nests as `status.current` and `status.timeline`, and the
 registration's and accreditation's timelines are served.
 
-Revised 2026-10-19 (PAE-2063): a status timeline is an ordered list of changes, and
+Revised 2026-10-19 (PAE-2119): a status timeline is an ordered list of changes, and
 `organisationNumber` is a string.
 
 ## Context
