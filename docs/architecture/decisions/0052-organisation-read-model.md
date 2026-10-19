@@ -179,7 +179,8 @@ tightened separately.
 - **A status timeline lists every status change, oldest first**, each with `at`, the time it took
   effect. Nothing in the domain requires two changes to happen at different times, so changes
   that share a time keep the order they were recorded in. ADR-0051's map, with one status per day,
-  is the view that classification reads, and the domain derives it from this list.
+  is the view that classification reads. The domain derives it from this list by each change's UTC
+  date, and the last change on a day gives that day's status.
 - **`status.current` is today's value on `status.timeline`.** The domain computes it from the
   timeline, at today or at a given date, rather than holding it separately, so the two cannot
   disagree. A registration's timeline is served because the frontend lists its
