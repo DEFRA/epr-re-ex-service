@@ -70,8 +70,16 @@ describe('journey test summary', () => {
       })
 
       expect(readResults(dir)).toEqual([
-        { name: 'one', status: 'passed', durationMs: 1000 }
+        { name: 'one', status: 'passed', durationMs: 1000, start: 1000 }
       ])
+    })
+
+    it('should keep the history id that ties retries of a test together', () => {
+      const dir = withResults({
+        'a-result.json': allureResult({ historyId: 'abc:123' })
+      })
+
+      expect(readResults(dir)[0].historyId).toBe('abc:123')
     })
 
     it('should set duration to null when timing is incomplete', () => {
@@ -108,7 +116,7 @@ describe('journey test summary', () => {
       })
 
       expect(readResults(dir)).toEqual([
-        { name: 'deep', status: 'passed', durationMs: 3000 }
+        { name: 'deep', status: 'passed', durationMs: 3000, start: 0 }
       ])
     })
 
@@ -131,28 +139,35 @@ describe('journey test summary', () => {
   describe('buildSummary', () => {
     it('should count passed, failed, broken and skipped results', () => {
       const results = [
-        result({ status: 'passed' }),
-        result({ status: 'failed' }),
-        result({ status: 'broken' }),
-        result({ status: 'skipped' })
+        result({ name: 'one', status: 'passed' }),
+        result({ name: 'two', status: 'failed' }),
+        result({ name: 'three', status: 'broken' }),
+        result({ name: 'four', status: 'skipped' })
       ]
 
       const { markdown } = buildSummary({ results })
 
-      expect(markdown).toContain('| | Passed | Failed | Skipped | Total |')
-      expect(markdown).toContain('| Tests | 1 | 2 | 1 | 4 |')
+      expect(markdown).toContain(
+        '| | Passed | Flaky | Failed | Skipped | Total |'
+      )
+      expect(markdown).toContain('| Tests | 1 | 0 | 2 | 1 | 4 |')
     })
 
     it('should show a failure status line when tests failed', () => {
       const { markdown } = buildSummary({
-        results: [result({ status: 'passed' }), result({ status: 'failed' })]
+        results: [
+          result({ name: 'one', status: 'passed' }),
+          result({ name: 'two', status: 'failed' })
+        ]
       })
 
       expect(markdown).toContain(':x: **1 failed**')
     })
 
     it('should show a success status line when all tests passed', () => {
-      const { markdown } = buildSummary({ results: [result(), result()] })
+      const { markdown } = buildSummary({
+        results: [result({ name: 'one' }), result({ name: 'two' })]
+      })
 
       expect(markdown).toContain(':white_check_mark: All tests passed')
     })
@@ -177,7 +192,10 @@ describe('journey test summary', () => {
 
     it('should omit the failed section when nothing failed', () => {
       const { markdown } = buildSummary({
-        results: [result(), result({ status: 'skipped' })]
+        results: [
+          result({ name: 'one' }),
+          result({ name: 'two', status: 'skipped' })
+        ]
       })
 
       expect(markdown).not.toContain('### Failed Tests')
@@ -243,6 +261,74 @@ describe('journey test summary', () => {
       })
 
       expect(markdown).not.toContain('### Slowest')
+    })
+  })
+
+  describe('retries', () => {
+    const attempt = (start, overrides) =>
+      result({ name: 'upload journey', historyId: 'h1', start, ...overrides })
+
+    it('should count a test that passed on a retry as flaky, not failed', () => {
+      const { markdown } = buildSummary({
+        results: [
+          attempt(2000, { status: 'passed' }),
+          attempt(1000, {
+            status: 'failed',
+            message: 'Test timeout of 120000ms exceeded'
+          })
+        ]
+      })
+
+      expect(markdown).toContain('| Tests | 0 | 1 | 0 | 0 | 1 |')
+      expect(markdown).toContain(
+        ':warning: All tests passed, 1 only on a retry'
+      )
+      expect(markdown).not.toContain('### Failed Tests')
+    })
+
+    it('should list a test that passed on a retry with its failed attempts and first failure', () => {
+      const { markdown } = buildSummary({
+        results: [
+          attempt(1000, {
+            status: 'failed',
+            message: 'Test timeout of 120000ms exceeded'
+          }),
+          attempt(2000, { status: 'passed' })
+        ]
+      })
+
+      expect(markdown).toContain(
+        [
+          '### Passed on a retry',
+          '',
+          '| Test | Failed attempts | First failure |',
+          '|---|---|---|',
+          '| upload journey | 1 of 2 | Test timeout of 120000ms exceeded |'
+        ].join('\n')
+      )
+    })
+
+    it('should count a test that failed every attempt once', () => {
+      const { markdown } = buildSummary({
+        results: [
+          attempt(1000, { status: 'failed', message: 'first' }),
+          attempt(2000, { status: 'failed', message: 'second' })
+        ]
+      })
+
+      expect(markdown).toContain('| Tests | 0 | 0 | 1 | 0 | 1 |')
+      expect(markdown).toContain('| upload journey | second |')
+    })
+
+    it('should tell tests apart by name when there is no history id', () => {
+      const { markdown } = buildSummary({
+        results: [
+          result({ name: 'one', status: 'failed' }),
+          result({ name: 'two', status: 'passed' })
+        ]
+      })
+
+      expect(markdown).toContain('| Tests | 1 | 0 | 1 | 0 | 2 |')
     })
   })
 
