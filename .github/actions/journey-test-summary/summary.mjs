@@ -142,11 +142,15 @@ const cell = (value) => {
 /**
  * @param {number} failed
  * @param {number} flaky
+ * @param {string} outcome
  * @returns {string}
  */
-const statusLine = (failed, flaky) => {
+const statusLine = (failed, flaky, outcome) => {
   if (failed > 0) {
     return `:x: **${failed} failed**`
+  }
+  if (outcome && outcome !== 'success') {
+    return `:x: **Journey tests reported ${outcome}** with no failed test results: a leg may have stopped before its tests ran`
   }
   return flaky > 0
     ? `:warning: All tests passed, ${flaky} only on a retry`
@@ -197,6 +201,7 @@ const failedSection = (results) => {
 /**
  * @param {{
  *   results: Result[],
+ *   outcome?: string,
  *   dockerSeconds?: number | null,
  *   testSeconds?: number | null
  * }} input
@@ -204,6 +209,7 @@ const failedSection = (results) => {
  */
 export const buildSummary = ({
   results,
+  outcome = '',
   dockerSeconds = null,
   testSeconds = null
 }) => {
@@ -217,7 +223,7 @@ export const buildSummary = ({
   const lines = [
     '## Journey Tests',
     '',
-    statusLine(failed, flaky),
+    statusLine(failed, flaky, outcome),
     '',
     '| | Passed | Flaky | Failed | Skipped | Total |',
     '|---|---|---|---|---|---|',
@@ -274,6 +280,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const { markdown } = buildSummary({
     results: readResults(dir),
+    outcome: process.env.OUTCOME,
     dockerSeconds,
     testSeconds
   })

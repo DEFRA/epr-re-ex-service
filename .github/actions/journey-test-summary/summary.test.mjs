@@ -332,6 +332,40 @@ describe('journey test summary', () => {
     })
   })
 
+  describe('outcome', () => {
+    it('should report a failed run even when no test result failed', () => {
+      const { markdown } = buildSummary({
+        results: [result({ name: 'one' })],
+        outcome: 'failure'
+      })
+
+      expect(markdown).toContain(
+        ':x: **Journey tests reported failure** with no failed test results: a leg may have stopped before its tests ran'
+      )
+    })
+
+    it('should still count failed tests when the run failed', () => {
+      const { markdown } = buildSummary({
+        results: [result({ name: 'one', status: 'failed' })],
+        outcome: 'failure'
+      })
+
+      expect(markdown).toContain(':x: **1 failed**')
+    })
+
+    it.each(['success', ''])(
+      'should show all passed when the outcome is %j',
+      (outcome) => {
+        const { markdown } = buildSummary({
+          results: [result({ name: 'one' })],
+          outcome
+        })
+
+        expect(markdown).toContain(':white_check_mark: All tests passed')
+      }
+    )
+  })
+
   describe('writeCommentFile', () => {
     it('should write the markdown to the given path', () => {
       const dir = mkdtempSync(join(tmpdir(), 'allure-'))

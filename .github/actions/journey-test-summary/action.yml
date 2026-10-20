@@ -15,6 +15,12 @@ inputs:
   test-start:
     description: epoch seconds when the tests started (adds a duration line)
     default: ''
+  outcome:
+    description: >-
+      result of the job or matrix that ran the tests, e.g.
+      `needs.<job>.result`; anything other than success marks the summary
+      failed even when no test result failed
+    default: ''
   pr-comment:
     description: >-
       post the summary as a sticky PR comment (needs `pull-requests: write` on
@@ -30,6 +36,7 @@ runs:
         RESULTS_DIR: ${{ inputs.results-dir }}
         BUILD_START: ${{ inputs.build-start }}
         TEST_START: ${{ inputs.test-start }}
+        OUTCOME: ${{ inputs.outcome }}
         COMMENT_FILE: ${{ runner.temp }}/journey-test-summary.md
       run: |
         if [ -n "$BUILD_START" ] && [ -n "$TEST_START" ]; then
