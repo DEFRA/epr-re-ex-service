@@ -38,10 +38,13 @@ runs:
         fi
         node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY" || true
 
+    # The comment is a convenience: a GitHub API error writing it must not fail
+    # a job whose tests passed.
     - name: Post sticky PR comment
       if: >-
         inputs.pr-comment == 'true' && github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.fork == false
+      continue-on-error: true
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         header: journey-tests
