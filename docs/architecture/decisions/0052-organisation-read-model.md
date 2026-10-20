@@ -15,6 +15,9 @@ the only read route.
 Revised 2026-10-16 (PAE-2063): status nests as `status.current` and `status.timeline`, and the
 registration's and accreditation's timelines are served.
 
+Revised 2026-10-19 (PAE-2119): a status timeline is an ordered list of changes, and
+`organisationNumber` is a string.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -41,7 +44,8 @@ events, so the current status is a single derived value.
 A new endpoint, `GET /organisations/{organisationNumber}`, returns an organisation with its
 registrations nested, and each registration's accreditations nested within it.
 `organisationNumber` is the organisation's business reference, stored as `orgId`. It is not the
-MongoDB `id`, and no database id appears in the new route.
+MongoDB `id`, and no database id appears in the new route. It is a string, and pages go on
+calling it "Organisation ID".
 `GET /v1/organisations/{id}` is unchanged and goes on returning the stored document.
 
 A field is served when a client needs it, and it is shaped as the domain defines it, not as a page
@@ -69,7 +73,7 @@ tightened separately.
  *     }
  *   }
  *   name: string
- *   organisationNumber: number
+ *   organisationNumber: string
  *   registeredAddress?: UkAddress // not served
  *   registrations: Record<string, Registration>
  *   status: {
@@ -82,6 +86,8 @@ tightened separately.
  *   users: { contactId?: string, email: string, roles: string[] }[] // not served
  *   version: number // not served
  * }} Organisation
+ *
+ * @typedef {{ at: string, status: string }[]} StatusTimeline
  *
  * @typedef {{ code: 'ea' | 'nrw' | 'sepa' | 'niea' }} Regulator
  *
@@ -170,15 +176,21 @@ tightened separately.
  */
 ```
 
-- **`status.current` is today's value on `status.timeline`** (ADR-0051). The domain computes it
-  from the timeline, at today or at a given date, rather than holding it separately, so the two
-  cannot disagree. A registration's timeline is served because the frontend lists its
+- **A status timeline lists every status change, oldest first**, each with `at`, the time it took
+  effect. Nothing in the domain requires two changes to happen at different times, so changes
+  that share a time keep the order they were recorded in. ADR-0051's map, with one status per day,
+  is the view that classification reads. The domain derives it from this list by each change's UTC
+  date, and the last change on a day gives that day's status.
+- **`status.current` is today's value on `status.timeline`.** The domain computes it from the
+  timeline, at today or at a given date, rather than holding it separately, so the two cannot
+  disagree. A registration's timeline is served because the frontend lists its
   registered-only years and stretches from it. An accreditation's is served because the frontend
   derives its accredited date range and stretches within its year from it. The organisation's is
   not served.
 - **Every enumeration is open.** A client handles a value it does not know, so a new status or
   material is not a breaking change.
-- **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` is a date-time.
+- **Dates are ISO 8601.** `validFrom` and `approvedOn` are dates, and `linkedAt` and a timeline's
+  `at` are date-times.
 - **The regulator is an object**, so it can gain attributes without breaking clients.
 - **Registrations are keyed by registration number**, and the value does not repeat it.
 - **Accreditations are keyed by scheme year** (`"2026"`), so there cannot be two for one year and
@@ -259,14 +271,14 @@ it, and logs what it dropped:
 
 The backend reads the fields marked `not served` for its own processing.
 
-| Field                                                                                     | Read by                                                                                                                    |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `version`                                                                                 | Optimistic locking on every write                                                                                          |
-| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                                                                        |
-| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                                                                            |
-| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; report submission contact export                                              |
-| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                                                                  |
-| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                                                              |
+| Field                                                                                     | Read by                                                                       |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `version`                                                                                 | Optimistic locking on every write                                             |
+| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                           |
+| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                               |
+| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; report submission contact export |
+| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                     |
+| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                 |
 
 An accreditation's material, processing type, site and regulator — used for the PRN snapshot, the
 PRN/PERN flag, the December pool and PRN numbering — are read from its registration, as they are
