@@ -38,12 +38,16 @@ runs:
         TEST_START: ${{ inputs.test-start }}
         OUTCOME: ${{ inputs.outcome }}
         COMMENT_FILE: ${{ runner.temp }}/journey-test-summary.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         if [ -n "$BUILD_START" ] && [ -n "$TEST_START" ]; then
           export DOCKER_SECONDS=$(( TEST_START - BUILD_START ))
           export TEST_SECONDS=$(( $(date +%s) - TEST_START ))
         fi
-        node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY" || true
+        if ! node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY"; then
+          printf '## Journey Tests\n\n:warning: **The summary could not be built.** See the [run](%s) for the results.\n' "$RUN_URL" \
+            | tee -a "$GITHUB_STEP_SUMMARY" > "$COMMENT_FILE"
+        fi
 
     - name: Post sticky PR comment
       if: >-
