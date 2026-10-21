@@ -85,7 +85,7 @@ const toTests = (results) =>
       )
       const failures = ordered.filter((r) => FAILED_STATUSES.has(r.status))
       return {
-        ...ordered[ordered.length - 1],
+        .../** @type {Result} */ (ordered.at(-1)),
         attempts: ordered.length,
         failedAttempts: failures.length,
         firstFailure: failures[0]?.message
