@@ -205,7 +205,10 @@ data proves the assumption before any key depends on it.
   route, which returns its numbers. The regulator pages in `epr-frontend` are not signed in to one
   organisation, so they redirect the same way. Their organisation list already returns `orgId`, so
   they build their links from that. An unapproved record has no number, so its page URL does not
-  change.
+  change. The exception is the admin pages that are of no use before the accreditation is
+  approved: its waste balance events and its overseas sites. Those pages are served by natural key only, so
+  an accreditation with no number has neither, and the registration overview shows them as not
+  applicable.
 - **The JSON editor stays on 2026 data** through the existing routes, so it never shows or edits 2027
   data. This assumes the registration service's case management covers that work for 2027.
 - **The admin listing of every accreditation, including those with no registration, covers 2026
