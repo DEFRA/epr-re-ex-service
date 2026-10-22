@@ -103,5 +103,8 @@ jobs:
       - name: Lint types
         run: npm run lint:types
 
+      - name: Run tests
+        run: npm test
+
       - name: Validate Renovate config
         run: npm run validate:renovate

@@ -15,6 +15,12 @@ inputs:
   test-start:
     description: epoch seconds when the tests started (adds a duration line)
     default: ''
+  outcome:
+    description: >-
+      result of the job or matrix that ran the tests, e.g.
+      `needs.<job>.result`; anything other than success marks the summary
+      failed even when no test result failed
+    default: ''
   pr-comment:
     description: >-
       post the summary as a sticky PR comment (needs `pull-requests: write` on
@@ -30,18 +36,24 @@ runs:
         RESULTS_DIR: ${{ inputs.results-dir }}
         BUILD_START: ${{ inputs.build-start }}
         TEST_START: ${{ inputs.test-start }}
+        OUTCOME: ${{ inputs.outcome }}
         COMMENT_FILE: ${{ runner.temp }}/journey-test-summary.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         if [ -n "$BUILD_START" ] && [ -n "$TEST_START" ]; then
           export DOCKER_SECONDS=$(( TEST_START - BUILD_START ))
           export TEST_SECONDS=$(( $(date +%s) - TEST_START ))
         fi
-        node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY" || true
+        if ! node "${{ github.action_path }}/summary.mjs" >> "$GITHUB_STEP_SUMMARY"; then
+          printf '## Journey Tests\n\n:warning: **The summary could not be built.** See the [run](%s) for the results.\n' "$RUN_URL" \
+            | tee -a "$GITHUB_STEP_SUMMARY" > "$COMMENT_FILE"
+        fi
 
     - name: Post sticky PR comment
       if: >-
         inputs.pr-comment == 'true' && github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.fork == false
+      continue-on-error: true
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         header: journey-tests

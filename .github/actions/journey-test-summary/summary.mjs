@@ -6,8 +6,18 @@ import { join } from 'node:path'
  *   name: string,
  *   status: string,
  *   durationMs: number | null,
- *   message?: string
+ *   message?: string,
+ *   historyId?: string,
+ *   start?: number
  * }} Result
+ */
+
+/**
+ * @typedef {Result & {
+ *   attempts: number,
+ *   failedAttempts: number,
+ *   firstFailure?: string
+ * }} Test
  */
 
 const SLOWEST_LIMIT = 5
@@ -41,7 +51,8 @@ export const readResults = (dir) => {
           status,
           start,
           stop,
-          statusDetails
+          statusDetails,
+          historyId
         } = JSON.parse(readFileSync(join(dir, name), 'utf8'))
         return [
           {
@@ -49,7 +60,9 @@ export const readResults = (dir) => {
             status,
             durationMs:
               start === undefined || stop === undefined ? null : stop - start,
-            message: statusDetails?.message
+            message: statusDetails?.message,
+            historyId,
+            start
           }
         ]
       } catch {
@@ -57,6 +70,34 @@ export const readResults = (dir) => {
       }
     })
 }
+
+/**
+ * Folds the attempts of each test into one entry: its last attempt's outcome,
+ * with how many attempts there were and how many of them failed.
+ * @param {Result[]} results
+ * @returns {Test[]}
+ */
+const toTests = (results) =>
+  Object.values(Object.groupBy(results, (r) => r.historyId ?? r.name)).map(
+    (attempts = []) => {
+      const ordered = attempts.toSorted(
+        (a, b) => (a.start ?? 0) - (b.start ?? 0)
+      )
+      const failures = ordered.filter((r) => FAILED_STATUSES.has(r.status))
+      return {
+        .../** @type {Result} */ (ordered.at(-1)),
+        attempts: ordered.length,
+        failedAttempts: failures.length,
+        firstFailure: failures[0]?.message
+      }
+    }
+  )
+
+/**
+ * @param {Test} test
+ * @returns {boolean}
+ */
+const isFlaky = (test) => test.status === 'passed' && test.failedAttempts > 0
 
 /**
  * @param {number} seconds
@@ -68,7 +109,7 @@ export const formatDuration = (seconds) =>
     : `${seconds}s`
 
 /**
- * @param {Result[]} results
+ * @param {Test[]} results
  * @returns {Array<{ name: string, seconds: number }>}
  */
 const slowest = (results) =>
@@ -100,15 +141,46 @@ const cell = (value) => {
 
 /**
  * @param {number} failed
+ * @param {number} flaky
+ * @param {string} outcome
  * @returns {string}
  */
-const statusLine = (failed) =>
-  failed > 0
-    ? `:x: **${failed} failed**`
+const statusLine = (failed, flaky, outcome) => {
+  if (failed > 0) {
+    return `:x: **${failed} failed**`
+  }
+  if (outcome && outcome !== 'success') {
+    return `:x: **Journey tests reported ${outcome}** with no failed test results: a leg may have stopped before its tests ran`
+  }
+  return flaky > 0
+    ? `:warning: All tests passed, ${flaky} only on a retry`
     : ':white_check_mark: All tests passed'
+}
 
 /**
- * @param {Result[]} results
+ * @param {Test[]} tests
+ * @returns {string[]}
+ */
+const flakySection = (tests) => {
+  const flaky = tests.filter(isFlaky)
+  if (flaky.length === 0) {
+    return []
+  }
+  return [
+    '',
+    '### Passed on a retry',
+    '',
+    '| Test | Failed attempts | First failure |',
+    '|---|---|---|',
+    ...flaky.map(
+      (t) =>
+        `| ${cell(t.name)} | ${t.failedAttempts} of ${t.attempts} | ${cell(t.firstFailure)} |`
+    )
+  ]
+}
+
+/**
+ * @param {Test[]} results
  * @returns {string[]}
  */
 const failedSection = (results) => {
@@ -129,6 +201,7 @@ const failedSection = (results) => {
 /**
  * @param {{
  *   results: Result[],
+ *   outcome?: string,
  *   dockerSeconds?: number | null,
  *   testSeconds?: number | null
  * }} input
@@ -136,23 +209,27 @@ const failedSection = (results) => {
  */
 export const buildSummary = ({
   results,
+  outcome = '',
   dockerSeconds = null,
   testSeconds = null
 }) => {
-  const passed = results.filter((r) => r.status === 'passed').length
-  const failed = results.filter((r) => FAILED_STATUSES.has(r.status)).length
-  const skipped = results.filter((r) => r.status === 'skipped').length
-  const total = results.length
+  const tests = toTests(results)
+  const flaky = tests.filter(isFlaky).length
+  const passed = tests.filter((t) => t.status === 'passed').length - flaky
+  const failed = tests.filter((t) => FAILED_STATUSES.has(t.status)).length
+  const skipped = tests.filter((t) => t.status === 'skipped').length
+  const total = tests.length
 
   const lines = [
     '## Journey Tests',
     '',
-    statusLine(failed),
+    statusLine(failed, flaky, outcome),
     '',
-    '| | Passed | Failed | Skipped | Total |',
-    '|---|---|---|---|---|',
-    `| Tests | ${passed} | ${failed} | ${skipped} | ${total} |`,
-    ...failedSection(results)
+    '| | Passed | Flaky | Failed | Skipped | Total |',
+    '|---|---|---|---|---|---|',
+    `| Tests | ${passed} | ${flaky} | ${failed} | ${skipped} | ${total} |`,
+    ...failedSection(tests),
+    ...flakySection(tests)
   ]
 
   if (dockerSeconds !== null && testSeconds !== null) {
@@ -162,7 +239,7 @@ export const buildSummary = ({
     )
   }
 
-  const slow = slowest(results)
+  const slow = slowest(tests)
   if (slow.length > 0) {
     lines.push(
       '',
@@ -203,6 +280,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const { markdown } = buildSummary({
     results: readResults(dir),
+    outcome: process.env.OUTCOME,
     dockerSeconds,
     testSeconds
   })
