@@ -1432,38 +1432,6 @@
         },
       '/v1/overseas-sites':
         {
-          'get':
-            {
-              'operationId': 'getV1OverseasSites',
-              'tags': ['overseas-sites'],
-              'parameters':
-                [
-                  {
-                    'type': 'string',
-                    'name': 'name',
-                    'in': 'query',
-                    'required': false
-                  },
-                  {
-                    'type': 'string',
-                    'name': 'country',
-                    'in': 'query',
-                    'required': false
-                  }
-                ],
-              'responses':
-                {
-                  '200':
-                    {
-                      'description': 'List of overseas sites',
-                      'schema':
-                        {
-                          'type': 'array',
-                          'items': { '$ref': '#/definitions/OverseasSite' }
-                        }
-                    }
-                }
-            },
           'post':
             {
               'operationId': 'postV1OverseasSite',
@@ -1489,56 +1457,6 @@
         },
       '/v1/overseas-sites/{id}':
         {
-          'get':
-            {
-              'operationId': 'getV1OverseasSiteById',
-              'tags': ['overseas-sites'],
-              'parameters':
-                [
-                  {
-                    'type': 'string',
-                    'name': 'id',
-                    'in': 'path',
-                    'required': true
-                  }
-                ],
-              'responses':
-                {
-                  '200':
-                    {
-                      'description': 'Overseas site details',
-                      'schema': { '$ref': '#/definitions/OverseasSite' }
-                    }
-                }
-            },
-          'put':
-            {
-              'operationId': 'putV1OverseasSiteById',
-              'tags': ['overseas-sites'],
-              'parameters':
-                [
-                  {
-                    'type': 'string',
-                    'name': 'id',
-                    'in': 'path',
-                    'required': true
-                  },
-                  {
-                    'in': 'body',
-                    'name': 'body',
-                    'schema':
-                      { '$ref': '#/definitions/OverseasSiteUpdatePayload' }
-                  }
-                ],
-              'responses':
-                {
-                  '200':
-                    {
-                      'description': 'Overseas site updated',
-                      'schema': { '$ref': '#/definitions/OverseasSite' }
-                    }
-                }
-            },
           'delete':
             {
               'operationId': 'deleteV1OverseasSiteById',
@@ -2617,30 +2535,6 @@
               'validFrom': { 'type': 'string', 'format': 'date-time' }
             },
           'required': ['name', 'address', 'country']
-        },
-      'OverseasSiteUpdatePayload':
-        {
-          'type': 'object',
-          'description': 'At least one field required',
-          'properties':
-            {
-              'name': { 'type': 'string' },
-              'address':
-                {
-                  'type': 'object',
-                  'properties':
-                    {
-                      'line1': { 'type': 'string' },
-                      'line2': { 'type': 'string' },
-                      'townOrCity': { 'type': 'string' },
-                      'stateOrRegion': { 'type': 'string' },
-                      'postcode': { 'type': 'string' }
-                    }
-                },
-              'country': { 'type': 'string' },
-              'coordinates': { 'type': 'string' },
-              'validFrom': { 'type': 'string', 'format': 'date-time' }
-            }
         },
       'OrsImportCreatePayload':
         {
