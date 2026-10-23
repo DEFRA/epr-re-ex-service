@@ -1,0 +1,47 @@
+name: PR Gate
+description: >-
+  Aggregate every blocking job in the calling workflow into the single context
+  the branch ruleset requires. Fails when a job exists but is absent from the
+  caller's `needs`, so a new check cannot be added without also being gated.
+
+inputs:
+  results:
+    description: >-
+      `toJSON(needs)` from the calling job. Its keys are the jobs being gated;
+      their results decide whether the gate passes.
+    required: true
+  separately-required:
+    description: >-
+      Newline-separated job ids excluded because the ruleset requires their
+      context in its own right (e.g. the journey-test aggregate).
+    required: false
+    default: ''
+  advisory:
+    description: >-
+      Newline-separated job ids excluded because they are advisory
+      (continue-on-error) and cannot block a merge.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .nvmrc
+
+    - name: Install action dependencies
+      shell: bash
+      run: npm ci --prefix "${{ github.action_path }}" --no-audit --no-fund
+
+    - name: Check every blocking job is gated and passing
+      shell: bash
+      env:
+        PR_GATE_RESULTS: ${{ inputs.results }}
+        PR_GATE_SEPARATELY_REQUIRED: ${{ inputs.separately-required }}
+        PR_GATE_ADVISORY: ${{ inputs.advisory }}
+      run: node "${{ github.action_path }}/gate.mjs"
