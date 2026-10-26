@@ -1,12 +1,19 @@
 # Test Coverage
 
-The journey tests encompasses the following:
+## Where a test goes
 
-1. Endpoint tests - These are the tests that are run against the actual endpoints of the running application.
-2. Mongo checks - Hitting the Mongo service and performing checks against the data.
-3. Logging tests - Checking the `epr-backend` Docker logs and asserting against the logs.
+A journey test drives a real user's journey through the UI, with the frontend, admin frontend and backend running together. Keep the suite small. A new feature extends an existing journey rather than adding a new spec.
 
-The tests are written in `Cucumber-JS` and an `Allure` report is generated at the end of the journey.
+A journey test calls an API directly only where a third-party service calls ours as part of the journey. The frontend and admin frontend are not third parties, so a journey reaches `epr-backend` through their pages.
+
+Test an API's behaviour, response shape and error messages in `epr-backend`, not in the journey tests.
+
+Along the way, a journey can also check:
+
+1. Mongo - the data the journey left in the Mongo service.
+2. Logs - what `epr-backend` wrote to its Docker logs.
+
+The tests are written with `Playwright Test` and an `Allure` report is generated at the end of the journey.
 
 ## Smoke tests
 
