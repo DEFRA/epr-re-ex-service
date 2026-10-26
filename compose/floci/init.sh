@@ -81,22 +81,13 @@ for pair in \
   "valid-summary-log-input.xlsx:valid-summary-log-input-key" \
   "valid-summary-log-input-2.xlsx:valid-summary-log-input-2-key" \
   "invalid-test-upload.xlsx:invalid-test-upload-key" \
-  "invalid-row-id.xlsx:invalid-row-id-key" \
-  "invalid-table-name.xlsx:invalid-table-name-key" \
-  "reprocessor-output-invalid.xlsx:reprocessor-output-invalid-key" \
-  "reprocessor-output-valid.xlsx:reprocessor-output-valid-key" \
-  "reprocessor-input-invalid.xlsx:reprocessor-input-invalid-key" \
-  "reprocessor-input-valid.xlsx:reprocessor-input-valid-key" \
-  "reprocessor-input-adjustments.xlsx:reprocessor-input-adjustments-key" \
   "reprocessor-output-adjustments.xlsx:reprocessor-output-adjustments-key" \
-  "reprocessor-input-senton-invalid.xlsx:reprocessor-input-senton-invalid-key" \
   "exporter-invalid.xlsx:exporter-invalid-key" \
   "exporter-adjustments.xlsx:exporter-adjustments-key" \
   "exporter.xlsx:exporter-key" \
   "glass-remelt-input.xlsx:glass-remelt-input-key" \
   "glass-other-output.xlsx:glass-other-output-key" \
   "missing-date-row.xlsx:missing-date-row-key" \
-  "reprocessor-regonly-valid.xlsx:reprocessor-regonly-valid-key" \
   "reprocessor-regonly-invalid.xlsx:reprocessor-regonly-invalid-key" \
   "exporter-regonly-valid.xlsx:exporter-regonly-valid-key" \
   "exporter-regonly-invalid.xlsx:exporter-regonly-invalid-key" \
