@@ -4,7 +4,7 @@ A journey test drives a real user's journey through the UI, with the frontend, a
 
 A journey test calls an API directly only where a third-party service calls ours as part of the journey. For example, a producer's system accepts a packaging recycling note through `/v1/packaging-recycling-notes/{prnNumber}/accept`. The frontend and admin frontend are not third parties, so a journey reaches `epr-backend` through their pages.
 
-Test an API's behaviour, response shape and error messages in `epr-backend`, not in the journey tests. A test of one page on its own, such as its content, its validation messages or a standalone accessibility scan, goes in `epr-frontend` or `epr-re-ex-admin-frontend`, whichever serves the page.
+Test an API's behaviour, response shape and error messages in `epr-backend`, not in the journey tests. A test of one page's own content or validation messages goes in `epr-frontend` or `epr-re-ex-admin-frontend`, whichever serves the page.
 
 The tests are written with `Playwright Test` and an `Allure` report is generated at the end of the journey.
 
