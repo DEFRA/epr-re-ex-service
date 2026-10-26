@@ -2,7 +2,9 @@
 
 A journey test drives a real user's journey through the UI, with the frontend, admin frontend and backend running together. Keep the suite small. A new feature extends an existing journey rather than adding a new spec.
 
-A journey test calls an API directly only where a third-party service calls ours as part of the journey. For example, a producer's system accepts a packaging recycling note through `/v1/packaging-recycling-notes/{prnNumber}/accept`. The frontend and admin frontend are not third parties, so a journey reaches `epr-backend` through their pages.
+A journey test may set up its starting data through the API, then drive the rest of the journey through the UI and check its results there. Creating that data through the UI is too slow to repeat in every journey, so only a few journeys do it.
+
+Apart from its setup, a journey test calls an API directly only where a third-party service calls ours as part of the journey. For example, a producer's system accepts a packaging recycling note through `/v1/packaging-recycling-notes/{prnNumber}/accept`. The frontend and admin frontend are not third parties, so a journey reaches `epr-backend` through their pages.
 
 Test an API's behaviour, response shape and error messages in `epr-backend`, not in the journey tests. A test of one page's own content or validation messages goes in `epr-frontend` or `epr-re-ex-admin-frontend`, whichever serves the page.
 
