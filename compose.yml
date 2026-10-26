@@ -77,7 +77,7 @@ services:
       - data-redis:/data
 
   cdp-uploader:
-    image: defradigital/cdp-uploader:1.27.0@sha256:4749a2ff6ddd34ccdc2caf63afaac1f26f3b8f0dcfd775eb36511725f39deedd
+    image: defradigital/cdp-uploader:1.28.0@sha256:c2ad7db7c7141a02d1dfd621ace5bf628bd71d156bbe6bd7dbd976f0468f9845
     ports:
       - '${UPLOADER_PORT:-7337}:7337'
     depends_on:
