@@ -1,6 +1,6 @@
 # Testing
 
-Documentation related to testing of `epr-backend`
+Documentation related to testing of `epr-backend`, the frontends and the journey tests
 
 1. [Pull Request](0001-pull-request.md)
 2. [Where a Test Goes](0002-test-coverage.md)
