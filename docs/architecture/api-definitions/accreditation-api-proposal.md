@@ -58,8 +58,7 @@ REEX only reads accreditations that have been approved, so their status is `appr
 The body is the read model's `Accreditation`, from `src/organisation-read-model/domain/model.js`
 in `epr-backend`:
 
-- **Common fields:** every accreditation has a number, its PRN issuance details, its status and
-  the contact who submitted it.
+- **Common fields:** every accreditation has a number, its PRN issuance details and its status.
 - **Exporter accreditations:** these also carry the overseas sites they're approved for, keyed by
   the registration's ORS id.
 - **Taken from the registration:** material, processing type, site and regulator are left out,
@@ -77,12 +76,7 @@ in `epr-backend`:
   "$defs": {
     "accreditationCommon": {
       "type": "object",
-      "required": [
-        "accreditationNumber",
-        "prnIssuance",
-        "status",
-        "submitterContactDetails"
-      ],
+      "required": ["accreditationNumber", "prnIssuance", "status"],
       "properties": {
         "accreditationNumber": {
           "type": "string",
@@ -135,8 +129,7 @@ in `epr-backend`:
               }
             }
           }
-        },
-        "submitterContactDetails": { "$ref": "#/$defs/contact" }
+        }
       }
     },
     "reprocessorAccreditation": {
@@ -208,11 +201,6 @@ Example: an exporter's 2027 accreditation, suspended in March.
       { "status": "suspended", "at": "2027-03-18T15:40:00.000Z" }
     ]
   },
-  "submitterContactDetails": {
-    "email": "alex@example.com",
-    "fullName": "Alex Jones",
-    "phone": "01234 567890"
-  },
   "overseasSites": {
     "001": { "status": "approved", "approvedOn": "2027-01-10" },
     "002": { "status": "pending" }
@@ -246,7 +234,7 @@ The draft column refers to the draft's `Accreditation` schema.
 | `status.timeline`                   | Not served                                                                                                                                                           | Missing (gap 1)                                                        |
 | `prnIssuance.tonnageBand`           | `prnIssuance.plannedIssuance` (string, nullable, values not listed). The application has `prns.plannedTonnageBand` (`UpTo500`, `UpTo5000`, `UpTo10000`, `Over10000`) | The source and values are unclear (gap 3)                              |
 | `prnIssuance.signatories`           | `prnIssuance.signatories` (nullable list of `ContactDetails`)                                                                                                        | Can be null (gap 5)                                                    |
-| `submitterContactDetails`           | `submitterContactDetails` (nullable `ContactDetails`)                                                                                                                | Can be null (gap 5)                                                    |
+| Not served                          | `submitterContactDetails` (nullable `ContactDetails`)                                                                                                                | Not needed (gap 10)                                                    |
 | `Contact.email`, `Contact.fullName` | `ContactDetails.email`, `.fullName` (both nullable)                                                                                                                  | Can be null (gap 5)                                                    |
 | `Contact.phone`                     | `ContactDetails.phone` (nullable)                                                                                                                                    | None. This API leaves it out rather than sending null                  |
 | Exporter `overseasSites`            | `overseasSites`: a list of ORS ids only. Approval (`selected`, `validFrom`) is on `.../accreditations/{year}/overseas-sites`, paged at 100 or fewer                  | The approval isn't on the accreditation (gap 4)                        |
@@ -269,8 +257,8 @@ The draft column refers to the draft's `Accreditation` schema.
 
 ### What the draft allows to be missing
 
-5. **Contacts.** The draft allows `submitterContactDetails`, `prnIssuance.signatories`, and a
-   contact's `email` and `fullName` to be null. On an approved accreditation, REEX needs all of
+5. **Contacts.** The draft allows `prnIssuance.signatories`, and a contact's `email` and
+   `fullName`, to be null. On an approved accreditation, REEX needs all of
    them. Today REEX leaves out, and logs, any accreditation that lacks one.
 
 ### What isn't decided
@@ -293,13 +281,13 @@ The draft column refers to the draft's `Accreditation` schema.
 
 ### Served but not needed
 
-10. **Fields REEX doesn't read.** The draft's accreditation also carries fields REEX doesn't need.
-    REEX would prefer these weren't served to it, as most are personal or commercial data:
-    - `material`, `glassRecyclingProcess`, `wasteProcessingType` and `siteAddress`, which REEX
-      reads from the registration;
-    - `contactDetails`;
-    - `businessPlan` and `prnIssuance.prnIncomeBusinessPlan`;
-    - `recyclingProcess`, `samplingInspectionPlan` and `formSubmissionTime`.
+10. **Fields REEX doesn't read.** The draft's accreditation also carries fields REEX doesn't need. Highlighting here for completeness.
+
+- `material`, `glassRecyclingProcess`, `wasteProcessingType` and `siteAddress`, which REEX
+  reads from the registration;
+- `contactDetails` and `submitterContactDetails`;
+- `businessPlan` and `prnIssuance.prnIncomeBusinessPlan`;
+- `recyclingProcess`, `samplingInspectionPlan` and `formSubmissionTime`.
 
 ### Other questions for Reg Accred
 
@@ -321,6 +309,7 @@ The draft column refers to the draft's `Accreditation` schema.
     registration it sits under does. A client of this endpoint alone can only tell from whether
     `overseasSites` is present. Adding `wasteProcessingType` would make the two shapes explicit,
     but it would depart from the read model.
+15. **Approved at point in year.** REEX only cares about accreditations that were approved for at least part of the year. Is filtering these from the response a Reg Accred or a REEX concern?
 
 ## Sources
 
@@ -329,6 +318,7 @@ The draft column refers to the draft's `Accreditation` schema.
   - `docs/openapi/registration-accreditation-api.mapping.md`
   - `EprRegisterEnrolBackend/AccreditationApplication/Models/AccreditationApplicationModel.cs`
 - `epr-backend`:
-  - `src/organisation-read-model/domain/model.js` (the response shape)
+  - `src/organisation-read-model/domain/model.js` (the response shape, without
+    `submitterContactDetails` from DEFRA/epr-backend#1949)
   - `src/organisation-read-model/repository/adapter.js` (how REEX builds it today)
   - `src/domain/organisations/model.js` (`TONNAGE_BAND`)
