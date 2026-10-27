@@ -11,25 +11,29 @@ REEX's own data. From 2027 it would call this API in Reg Accred. This proposal h
 accreditation in the shape REEX already uses: the `Accreditation` of the organisation read model
 (ADR-0052). Then REEX's adapter passes the response through without mapping it.
 
-REEX needs accreditations individually (for accreditation specific pages/functionality), across an
-organisation (e.g. for an organisation's dashboard), and across multiple organisations (eg. public register).
+REEX needs accreditations
 
-This proposal starts with one endpoint, which serves one accreditation. Reads of multiple
-accreditations can follow once the shape/auth strategy established with this proposal are agreed.
+1. individually (for accreditation specific pages/functionality)
+1. across an
+   organisation (e.g. for an organisation's dashboard)
+1. across multiple organisations (eg. public register).
 
-## Get one accreditation
+This proposal starts with one endpoint, which serves an organisation's accreditations - this can be used for the first two use-cases above.
+
+Reads of accreditations across organisations can follow once the shape and authentication in this proposal are agreed.
+
+## Get an organisation's accreditations
 
 ```
-GET /organisations/{organisationNumber}/registrations/{registrationNumber}/accreditations/{year}
+GET /organisations/{organisationNumber}/accreditations?year={year}
 ```
 
-| Parameter            | Description                                                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `organisationNumber` | The organisation's number, a positive integer                                                                              |
-| `registrationNumber` | The registration's number, as issued when it was approved                                                                  |
-| `year`               | The scheme year the accreditation covers, such as `2027`. A registration holds at most one accreditation a year (ADR-0034) |
+| Parameter            | In    | Description                                                                                                       |
+| -------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| `organisationNumber` | path  | The organisation's number, a positive integer                                                                     |
+| `year`               | query | Optional. The scheme year, such as `2027`. Given, only that year's accreditations are served; omitted, every year |
 
-The path addresses the accreditation by its domain keys, as REEX's own routes do (ADR-0053). It
+The path addresses the organisation by its domain key, as REEX's own routes do (ADR-0053). It
 carries no version. If the representation ever has to change in a way that isn't additive, the
 client will ask for a new media type in the `Accept` header at the same address.
 
@@ -41,22 +45,33 @@ secrets in its configuration.
 
 ### Responses
 
-| Status | When                                                                                                                              |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `200`  | The accreditation, in the shape below                                                                                             |
-| `401`  | The credentials are missing or wrong                                                                                              |
-| `404`  | No organisation has the number, the registration isn't that organisation's, or the registration has no accreditation for the year |
+| Status | When                                                                       |
+| ------ | -------------------------------------------------------------------------- |
+| `200`  | The organisation's accreditations, in the shape below. `{}` if it has none |
+| `401`  | The credentials are missing or wrong                                       |
+| `404`  | No organisation has the number                                             |
 
 An error body is an RFC 9457 problem details object. REEX acts on the status code alone.
 
-A `404` also covers an accreditation that is still an application, or was rejected or withdrawn.
-REEX only reads accreditations that have been approved, so their status is `approved`,
-`suspended` or `cancelled`.
+The response leaves out an accreditation that is still an application, or was rejected or
+withdrawn. REEX only reads accreditations that have been approved, so their status is `approved`,
+`suspended` or `cancelled`. A registration with no such accreditation is left out too.
 
 ### Response shape
 
-The body is the read model's `Accreditation`, from `src/organisation-read-model/domain/model.js`
-in `epr-backend`:
+The body is an object keyed by registration number, then by year:
+
+```
+{
+  [registrationNumber]: {
+    [year]: Accreditation
+  }
+}
+```
+
+A registration holds at most one accreditation a year (ADR-0034), so each year key holds one
+`Accreditation`. That is the read model's `Accreditation`, from
+`src/organisation-read-model/domain/model.js` in `epr-backend`:
 
 - **Common fields:** every accreditation has a number, its PRN issuance details and its status.
 - **Exporter accreditations:** these also carry the overseas sites they're approved for, keyed by
@@ -167,23 +182,41 @@ in `epr-backend`:
 }
 ```
 
-Example: an exporter's 2027 accreditation, suspended in March.
+Example: `GET /organisations/500001/accreditations?year=2027` for an organisation with two
+registrations. The exporter's accreditation was suspended in March.
 
 ```json
 {
-  "accreditationNumber": "A27ER5000000001PA",
-  "prnIssuance": { "tonnageBand": "up_to_5000" },
-  "status": {
-    "current": "suspended",
-    "timeline": [
-      { "status": "created", "at": "2026-11-02T09:14:00.000Z" },
-      { "status": "approved", "at": "2027-01-01T00:00:00.000Z" },
-      { "status": "suspended", "at": "2027-03-18T15:40:00.000Z" }
-    ]
+  "R27ER5000000001": {
+    "2027": {
+      "accreditationNumber": "A27ER5000000001PA",
+      "prnIssuance": { "tonnageBand": "up_to_5000" },
+      "status": {
+        "current": "suspended",
+        "timeline": [
+          { "status": "created", "at": "2026-11-02T09:14:00.000Z" },
+          { "status": "approved", "at": "2027-01-01T00:00:00.000Z" },
+          { "status": "suspended", "at": "2027-03-18T15:40:00.000Z" }
+        ]
+      },
+      "overseasSites": {
+        "001": { "status": "approved", "approvedOn": "2027-01-10" },
+        "002": { "status": "pending" }
+      }
+    }
   },
-  "overseasSites": {
-    "001": { "status": "approved", "approvedOn": "2027-01-10" },
-    "002": { "status": "pending" }
+  "R27RR5000000002": {
+    "2027": {
+      "accreditationNumber": "A27RR5000000002PL",
+      "prnIssuance": { "tonnageBand": "up_to_500" },
+      "status": {
+        "current": "approved",
+        "timeline": [
+          { "status": "created", "at": "2026-11-05T11:02:00.000Z" },
+          { "status": "approved", "at": "2027-01-01T00:00:00.000Z" }
+        ]
+      }
+    }
   }
 }
 ```
@@ -208,7 +241,8 @@ The draft column refers to the draft's `Accreditation` schema.
 
 | This API                  | Reg Accred draft                                                                                                                                                     | Gap                                                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `year` in the path        | `year` (integer, required)                                                                                                                                           | None                                                                   |
+| `year` as a response key  | `year` (integer, required)                                                                                                                                           | None                                                                   |
+| `registrationNumber`      | The registration's number, as issued when it was approved                                                                                                            | None                                                                   |
 | `accreditationNumber`     | `accreditationReference` (string, required)                                                                                                                          | The name only                                                          |
 | `status.current`          | `status` (string, required, values not listed)                                                                                                                       | The values are unknown, and have no `suspended` or `cancelled` (gap 2) |
 | `status.timeline`         | Not served                                                                                                                                                           | Missing (gap 1)                                                        |
@@ -231,15 +265,16 @@ The draft column refers to the draft's `Accreditation` schema.
    `prns.plannedTonnageBand` carries the band, or whether its values map to the four above.
 4. **Overseas site approvals.** For an exporter, the draft lists only ORS ids on the
    accreditation. Approval is on a separate, paged sub-resource, which would mean one or more extra
-   calls for every exporter accreditation.
+   calls for every exporter accreditation in the organisation.
 
 ### What isn't decided
 
 5. **Authentication.** The draft says "no authentication scheme is defined yet". This proposal
    asks for basic authentication, with credentials Reg Accred issues to REEX.
-6. **The 404 cases.** The draft uses the same path, but its last segment also takes a 12-character
-   reference. REEX uses the year form only, and needs the cases in the table above to return
-   `404`.
+6. **Reading across an organisation.** The draft serves accreditations one registration at a
+   time, at `.../registrations/{registrationNumber}/accreditations/{year or reference}`. REEX
+   needs an organisation's accreditations in one call, and a `404` only when the organisation
+   doesn't exist.
 7. **Where 2027 data comes from.** The draft builds the accreditation from the organisation model,
    joined to the approved application for its year and reference. It isn't clear which of the two
    is the record of truth once an accreditation is approved.
@@ -268,21 +303,20 @@ The draft column refers to the draft's `Accreditation` schema.
 
 10. **Registration numbers.** A registration number can be regenerated
     (`PreviousRegistrationNumbers`). Can that happen after the registration is approved? This
-    endpoint is addressed by the registration number, and REEX keys its own data by registration
+    endpoint keys its response by registration number, and REEX keys its own data by registration
     and accreditation numbers (ADR-0053).
 11. **Records without numbers.** `RegistrationReference` and `OrgId` are nullable on the
     application. Will the API leave out records that lack them, as REEX does for records that
     have no number?
-12. **Lookups.** Lookups by organisation number and registration number aren't indexed on Reg
-    Accred's side. REEX will call this endpoint for each accreditation it reads, so these lookups
-    need to be fast.
+12. **Lookups.** Lookups by organisation number aren't indexed on Reg Accred's side. REEX will
+    call this endpoint on every page load, so this lookup needs to be fast.
 
 ### Open question for REEX
 
 13. **Which shape an accreditation has.** The response doesn't say whether the accreditation
     belongs to a reprocessor or an exporter. The read model doesn't need to say, because the
     registration it sits under does. A client of this endpoint alone can only tell from whether
-    `overseasSites` is present. Adding `wasteProcessingType` would make the two shapes explicit,
+    `overseasSites` is present, as the response gives the registration's number but not its type. Adding `wasteProcessingType` would make the two shapes explicit,
     but it would depart from the read model.
 14. **Approved at point in year.** REEX only cares about accreditations that were approved for at least part of the year. Is filtering these from the response a Reg Accred or a REEX concern?
 
