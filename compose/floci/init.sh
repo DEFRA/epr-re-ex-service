@@ -77,20 +77,14 @@ echo "[floci-init] Uploading summary log fixtures" >&2
 SL_DIR=/summarylogs
 pids=""
 for pair in \
-  "test-upload.xlsx:test-upload-key" \
   "valid-summary-log-input.xlsx:valid-summary-log-input-key" \
   "valid-summary-log-input-2.xlsx:valid-summary-log-input-2-key" \
-  "invalid-test-upload.xlsx:invalid-test-upload-key" \
   "reprocessor-output-adjustments.xlsx:reprocessor-output-adjustments-key" \
   "exporter-invalid.xlsx:exporter-invalid-key" \
   "exporter-adjustments.xlsx:exporter-adjustments-key" \
   "exporter.xlsx:exporter-key" \
   "glass-remelt-input.xlsx:glass-remelt-input-key" \
   "glass-other-output.xlsx:glass-other-output-key" \
-  "missing-date-row.xlsx:missing-date-row-key" \
-  "reprocessor-regonly-invalid.xlsx:reprocessor-regonly-invalid-key" \
-  "exporter-regonly-valid.xlsx:exporter-regonly-valid-key" \
-  "exporter-regonly-invalid.xlsx:exporter-regonly-invalid-key" \
   "valid-summary-log-input.xlsx:staleness-test-file-1-key" \
   "valid-summary-log-input.xlsx:staleness-test-file-2-key"
 do
