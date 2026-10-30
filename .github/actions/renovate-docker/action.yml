@@ -9,16 +9,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-      with:
-        node-version-file: .nvmrc
-        cache: npm
+    - id: renovate-version
+      shell: bash
+      run: echo "version=$(jq -r '.devDependencies.renovate' "$GITHUB_ACTION_PATH/../../../package.json")" >> "$GITHUB_OUTPUT"
 
     - uses: renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213 # v46.3.9
       with:
-        renovate-version: 43.206.0
+        renovate-version: ${{ steps.renovate-version.outputs.version }}
         mount-docker-socket: false
         token: ${{ inputs.token }}
       env:
