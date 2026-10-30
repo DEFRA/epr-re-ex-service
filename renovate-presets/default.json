@@ -61,6 +61,13 @@
       "matchManagers": ["docker-compose"],
       "matchPackageNames": ["mongo"],
       "allowedVersions": "<8"
+    },
+    {
+      "description": "Leave the engines floor alone on minor and patch releases: raising it with every Node release can require a newer Node than the defradigital base image ships yet, and engine-strict then fails npm ci in the Docker build",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["node"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "enabled": false
     }
   ]
 }
