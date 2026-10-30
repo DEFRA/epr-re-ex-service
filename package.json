@@ -2,6 +2,7 @@
   "name": "epr-re-ex-service",
   "version": "0.0.0",
   "description": "pEPR Re/Ex project",
+  "type": "module",
   "engines": {
     "node": "^24.22.1"
   },
