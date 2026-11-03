@@ -18,6 +18,8 @@ registration's and accreditation's timelines are served.
 Revised 2026-10-19 (PAE-2119): a status timeline is an ordered list of changes, and
 `organisationNumber` is a string.
 
+Revised 2026-11-03 (PAE-2192): a user carries their `fullName`.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -83,7 +85,7 @@ tightened separately.
  *   submittedToRegulator: Regulator
  *   submitterContactDetails: Contact // not served
  *   tradingName?: string
- *   users: { contactId?: string, email: string, roles: string[] }[] // not served
+ *   users: { contactId?: string, email: string, fullName: string, roles: string[] }[] // not served
  *   version: number // not served
  * }} Organisation
  *
@@ -271,14 +273,14 @@ it, and logs what it dropped:
 
 The backend reads the fields marked `not served` for its own processing.
 
-| Field                                                                                     | Read by                                                                       |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `version`                                                                                 | Optimistic locking on every write                                             |
-| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                           |
-| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                               |
-| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; report submission contact export |
-| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                     |
-| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                 |
+| Field                                                                                     | Read by                                                                                                  |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `version`                                                                                 | Optimistic locking on every write                                                                        |
+| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                                                      |
+| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                                                          |
+| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; adding or updating a user; report submission contact export |
+| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                                                |
+| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                                            |
 
 An accreditation's material, processing type, site and regulator — used for the PRN snapshot, the
 PRN/PERN flag, the December pool and PRN numbering — are read from its registration, as they are
