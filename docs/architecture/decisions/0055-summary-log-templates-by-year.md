@@ -61,6 +61,12 @@ year is the one whose definitions hold the file's major version.
 
 #### Trade-offs
 
+Under every option the year is held in hidden, locked metadata cells. Operators cannot see or edit
+them, so only template authors can get the year wrong, once for each template, before it is
+published. The rows on leaving the year out or getting it wrong describe authoring mistakes, which
+testing a template before publication catches. Likewise, "Reading the file" matters to template
+authors and the development team, not to operators.
+
 |                                   | Option A: year marker                                                            | Option B: year in the version                                                                                                                                     | Option C: a major version for each year                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | New metadata                      | One new marker                                                                   | None                                                                                                                                                              | None                                                                                                    |
@@ -204,8 +210,9 @@ validated against that year's definitions:
 - If it has the same headers with a different meaning, it is accepted, and its rows are read with
   the other year's meaning.
 
-The safeguard is the template authors' checklist above, and testing each template with the service
-before it is published.
+This is an authoring mistake, not one an operator can make, because the cells are hidden and locked.
+It is made once per template, so the safeguard is the template authors' checklist above, and
+testing each template with the service before it is published.
 
 ### For the service
 
