@@ -26,18 +26,19 @@ Generate a combined Slack-ready release summary covering epr-backend, epr-fronte
 - All flags are optional — include only the repos/config that changed
 
 Examples:
+
 - `/release-notes --backend 0.785.0 0.810.0 --frontend 0.505.0 0.508.0`
 - `/release-notes --backend 0.810 0.815 --admin 0.232 0.236 --config abc1234`
 - `/release-notes --config abc1234 def5678`
 
 ## Repo details
 
-| Arg | Repo name | GitHub URL |
-|-----|-----------|-----------|
-| `--backend` | `epr-backend` | `https://github.com/DEFRA/epr-backend` |
-| `--frontend` | `epr-frontend` | `https://github.com/DEFRA/epr-frontend` |
-| `--admin` | `epr-re-ex-admin-frontend` | `https://github.com/DEFRA/epr-re-ex-admin-frontend` |
-| `--config` | `cdp-app-config` | `https://github.com/DEFRA/cdp-app-config` (via `gh api`) |
+| Arg          | Repo name                  | GitHub URL                                               |
+| ------------ | -------------------------- | -------------------------------------------------------- |
+| `--backend`  | `epr-backend`              | `https://github.com/DEFRA/epr-backend`                   |
+| `--frontend` | `epr-frontend`             | `https://github.com/DEFRA/epr-frontend`                  |
+| `--admin`    | `epr-re-ex-admin-frontend` | `https://github.com/DEFRA/epr-re-ex-admin-frontend`      |
+| `--config`   | `cdp-app-config`           | `https://github.com/DEFRA/cdp-app-config` (via `gh api`) |
 
 ## Steps
 
@@ -59,6 +60,7 @@ gh api "repos/DEFRA/<repo>/compare/<from>...<to>" > compare.json
 #### For --backend, --frontend, --admin (if provided)
 
 **Build sha→tag map** for tags after `<from>` up to `<to>` (one paginated API call):
+
 ```bash
 gh api repos/DEFRA/<repo>/tags --paginate \
   | jq -r '.[] | [.name, .commit.sha] | @tsv' \
@@ -73,6 +75,7 @@ This captures every tag strictly after `<from>` up to and including `<to>`, skip
 Walk the commits from `compare.json` in order. Each time a commit SHA matches a tag boundary in the sha→tag map, advance the current tag. Attribute each PAE commit to the current tag.
 
 For each commit message:
+
 - Extract PAE number: `grep -oE 'PAE-[0-9]+'`
 - Extract PR number from `(#NNN)` suffix
 - Strip the PR ref from the title
@@ -84,6 +87,7 @@ For each commit message:
 Use the GitHub API — no local clone required, always reflects latest state.
 
 **Resolve `to-commit`** (one API call, only if not supplied):
+
 ```bash
 TO=${to_commit:-$(gh api repos/DEFRA/cdp-app-config/git/ref/heads/main | jq -r '.object.sha')}
 FROM_SHORT=$(echo <from-commit> | cut -c1-7)
@@ -91,12 +95,15 @@ TO_SHORT=$(echo $TO | cut -c1-7)
 ```
 
 **Filter files by EPR path** from `compare.json` — only `defaults.env` and `prod/` files:
+
 ```bash
 jq -r '.files[] | select(.filename | test("^services/epr-(backend|frontend|re-ex-admin-frontend)/(defaults\\.env|prod/)")) | [.filename, .status, .patch // ""] | @tsv' compare.json
 ```
+
 This covers only `defaults.env` (all environments) and `prod/<service>.env` files — dev, test, and other environment files are ignored.
 
 **Summarise per service:**
+
 - Group by `services/<service>/` prefix
 - Note which files changed: `defaults.env` affects all environments; `prod/<service>.env` affects prod only
 - For each changed file, list keys added (`+KEY=value`), removed (`-KEY=value`), or modified
@@ -145,6 +152,7 @@ After printing the release notes, ask the user which changes are user-facing so 
 1. **Collect candidate PAE numbers** from all commits processed above (exclude PAE-000 and commits with no PAE number). For each, fetch the issue summary from JIRA so the question is readable.
 
 2. **Ask the user** using `AskUserQuestion`, `multiSelect: true`:
+
    > Which of these PAE issues are user-facing? (these will appear in the User-facing changes section)
 
    One option per PAE issue: label = `PAE-XXXX`, description = issue summary. Plus a **"None"** option. Pre-select issues that came from `--frontend` or `--admin` repos as a hint (user can override).

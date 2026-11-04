@@ -10,13 +10,13 @@ Supersedes the "option 3" portion of [ADR 0016 (Admin UI Authorisation MVP)](001
 
 ## Context
 
-[PAE-1430] requires that the Admin UI distinguish between service maintainers who can *read* operator data (the bulk of the team, doing routine triage) and those who can *write* (a small group given ad-hoc access for regulator-driven changes). Today there is no distinction: every service maintainer has the single `service_maintainer` scope and can call any admin endpoint, mutating included.
+[PAE-1430] requires that the Admin UI distinguish between service maintainers who can _read_ operator data (the bulk of the team, doing routine triage) and those who can _write_ (a small group given ad-hoc access for regulator-driven changes). Today there is no distinction: every service maintainer has the single `service_maintainer` scope and can call any admin endpoint, mutating included.
 
 ### Current state
 
 - A single scope `service_maintainer` is granted to any Entra ID user whose email appears in `SERVICE_MAINTAINER_EMAILS` (see `epr-backend/src/common/helpers/auth/get-entra-user-roles.js`).
 - This scope grants access to ~16 production routes, mixing reads (`GET /v1/admin/queues/dlq/messages`, `GET /v1/organisations/{id}`, reports, summary logs, …) and writes (`PUT /v1/organisations/{id}`, `POST /v1/admin/queues/dlq/purge`, `POST /v1/public-register/generate`, the overseas-sites mutating routes, …).
-- A subset of admin endpoints are currently gated by Entra ID *authentication* only, not by *scope* — anyone with a valid admin-UI Entra token can call them. The ticket flags this as another problem to fix in this work.
+- A subset of admin endpoints are currently gated by Entra ID _authentication_ only, not by _scope_ — anyone with a valid admin-UI Entra token can call them. The ticket flags this as another problem to fix in this work.
 - Per ADR 0016 the admin frontend has zero scope awareness — it relies on backend `403`s to surface authorisation failures. There is no UI hint of who can do what; read-only users would currently see (and click) buttons that always 403.
 
 ### What ADR 0016 deferred
@@ -35,10 +35,10 @@ We will introduce three scopes, three email-list-driven tiers, a backend self-in
 
 ### 1. Scopes (three)
 
-| Scope             | Granted to                                     | Used by                                                            |
-| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
-| `admin.read`      | Anyone in any of the three lists below         | All admin GET routes; admin POST routes that are searches; reports |
-| `admin.write`     | Write tier only                                | All admin mutating routes (PUT/PATCH/DELETE; POSTs that mutate)    |
+| Scope             | Granted to                                          | Used by                                                            |
+| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| `admin.read`      | Anyone in any of the three lists below              | All admin GET routes; admin POST routes that are searches; reports |
+| `admin.write`     | Write tier only                                     | All admin mutating routes (PUT/PATCH/DELETE; POSTs that mutate)    |
 | `admin.dlq.purge` | Write tier and the existing service-maintainer tier | The DLQ purge POST                                                 |
 
 `admin.dlq.purge` is deliberately separate from `admin.write`. It is a routine ops action that current service maintainers retain access to; carving it into its own scope avoids forcing them into the write tier just to clear a DLQ. This is a deliberate refinement of the AC's literal "PUT/POST/PATCH require write" wording, preserving today's operational access for the regular maintainer tier.
@@ -51,9 +51,13 @@ A new `ADMIN_ROLES` map bundles scopes by tier:
 
 ```js
 export const ADMIN_ROLES = {
-  service_maintainer_write: [SCOPES.adminRead, SCOPES.adminWrite, SCOPES.adminDlqPurge],
-  service_maintainer:       [SCOPES.adminRead, SCOPES.adminDlqPurge],
-  support:                  [SCOPES.adminRead]
+  service_maintainer_write: [
+    SCOPES.adminRead,
+    SCOPES.adminWrite,
+    SCOPES.adminDlqPurge
+  ],
+  service_maintainer: [SCOPES.adminRead, SCOPES.adminDlqPurge],
+  support: [SCOPES.adminRead]
 }
 ```
 
@@ -61,18 +65,18 @@ Role names are snake_case strings — they're stable wire identifiers (returned 
 
 Three email lists are read from `cdp-app-config`, each mapping 1:1 to a role:
 
-| Env var                            | Role                       | Notes                                                            |
-| ---------------------------------- | -------------------------- | ---------------------------------------------------------------- |
-| `SERVICE_MAINTAINER_EMAILS`        | `service_maintainer`       | Kept under existing name; current list of service maintainers is unchanged. |
-| `SERVICE_MAINTAINER_WRITE_EMAILS`  | `service_maintainer_write` | New. Empty in production by default; populated ad-hoc when a write user is needed. |
-| `SUPPORT_EMAILS`                   | `support`                  | New. Support team members who need to read but never had access before. |
+| Env var                           | Role                       | Notes                                                                              |
+| --------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `SERVICE_MAINTAINER_EMAILS`       | `service_maintainer`       | Kept under existing name; current list of service maintainers is unchanged.        |
+| `SERVICE_MAINTAINER_WRITE_EMAILS` | `service_maintainer_write` | New. Empty in production by default; populated ad-hoc when a write user is needed. |
+| `SUPPORT_EMAILS`                  | `support`                  | New. Support team members who need to read but never had access before.            |
 
 Resolution in `getEntraUserRole(email)`:
 
 ```js
-if (writeList.includes(email))      return 'service_maintainer_write'
+if (writeList.includes(email)) return 'service_maintainer_write'
 if (maintainerList.includes(email)) return 'service_maintainer'
-if (supportList.includes(email))    return 'support'
+if (supportList.includes(email)) return 'support'
 return null
 ```
 
@@ -94,7 +98,7 @@ Routes that previously combined an operator role with `service_maintainer` (e.g.
 
 The trade-off accepted is that two separately-named scope constants (`ROLES` and `SCOPES`) is a minor naming oddity. It's bounded — operator-side routes only see `ROLES`, admin-side routes only see `SCOPES` — and a future rename of `ROLES` → `OPERATOR_SCOPES` (or similar) is still possible as a standalone tidy-up if it ever earns its keep.
 
-Note that `standard_user`, `inquirer`, and `linker` are *per-request context gates* (issued by `getDefraUserRoles` based on the request itself) rather than *durable permissions* on the user, while the new `admin.*` scopes are durable. The new `ADMIN_ROLES` bundling layer applies only to the durable admin scopes — it makes no sense to bundle per-request gates like `linker`.
+Note that `standard_user`, `inquirer`, and `linker` are _per-request context gates_ (issued by `getDefraUserRoles` based on the request itself) rather than _durable permissions_ on the user, while the new `admin.*` scopes are durable. The new `ADMIN_ROLES` bundling layer applies only to the durable admin scopes — it makes no sense to bundle per-request gates like `linker`.
 
 ### 4. New endpoint: `GET /v1/admin/me`
 

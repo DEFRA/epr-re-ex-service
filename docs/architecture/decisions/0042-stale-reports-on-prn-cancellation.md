@@ -24,7 +24,7 @@ Three facts shape the decision:
 
 **New sibling repository method**, `markActiveReportsStaleForPrnCancellation(organisationId, registrationId, periods, prnNumber, occurredAt)` — not an extended `markActiveReportsStale` signature, mirroring how ADR-0039 added `resubmissionRequired` as a sibling rather than widening an existing method. `periods` reuses the existing `PeriodRef[]` shape (`{ year, cadence, period }`); filter and idempotency mirror `markActiveReportsStale` (active reports only, skip if already flagged for this `prnNumber`). Submitted reports are untouched — resubmission-on-cancellation is out of scope, a follow-on ticket.
 
-**`stale` becomes a container for two independent triggers**, not a single reused field, keyed by named field rather than a `reason` string — presence of the field *is* the reason code, so two triggers can each write with a single targeted `$set` (`'stale.summaryLogChanged'` / `'stale.prnCancelled'`) with no risk of clobbering the other, unlike today's whole-field overwrite:
+**`stale` becomes a container for two independent triggers**, not a single reused field, keyed by named field rather than a `reason` string — presence of the field _is_ the reason code, so two triggers can each write with a single targeted `$set` (`'stale.summaryLogChanged'` / `'stale.prnCancelled'`) with no risk of clobbering the other, unlike today's whole-field overwrite:
 
 ```
 stale: {
@@ -40,7 +40,6 @@ Both can be set at once. `assertNotStale` derives a `staleReasons(stale)` array 
 **Frontend needs two small, explicit changes — not a silent "just works".** `fetch-report-backend.js`'s `payload.code === SUMMARY_LOG_CHANGED` strict-equality check must become array-aware (`.includes(...)`), and `reports/index.js`'s `INVALIDATION_ERROR_ROUTES[reason]` single-key lookup must be replaced with a lookup keyed on the sorted array (or an equivalent combination key) so each of the three combinations resolves to its own route.
 
 **Existing `stale` documents are migrated on read, not backfilled.** Old flat documents (`{ uploadedAt, reason, summaryLogId }`) are normalised to `{ summaryLogChanged: { uploadedAt, summaryLogId } }` by one function at the repository read boundary; new writes only ever produce the new shape. No bulk migration is needed because `stale` only applies to active drafts, which are short-lived by construction (deleted-and-recreated or submitted within the same session) — old-shape documents age out on their own within the rollout window.
-
 
 ## Out of scope
 
