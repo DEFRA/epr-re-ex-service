@@ -137,7 +137,15 @@ The 2027 templates have not been written yet. Each of them, for every processing
   balance or tonnage monitoring read (see Fields other features read) should keep its header and
   meaning. If it has to change, the development team needs to know before the template is final.
 
-Later templates follow the same rules with their own year. The 2026 templates need no change.
+The 2026 templates need no change.
+
+### Every year needs its own templates
+
+A template is legal for one year only, so 2028 needs a new batch of templates, and so does every
+year after it. This holds even when nothing else changes: a 2028 template that only differs from the
+2027 one by its `__EPR_META_TEMPLATE_YEAR` value still has to be published, and operators still have
+to download it. The service needs definitions for 2028 before the first 2028 upload, though they can
+reuse 2027's if the layout is unchanged.
 
 ### For the service
 
