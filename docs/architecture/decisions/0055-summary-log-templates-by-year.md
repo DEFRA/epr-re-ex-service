@@ -37,11 +37,9 @@ template in the file:
 Templates from 2027 onwards carry a new metadata marker, `__EPR_META_TEMPLATE_YEAR`, following the
 convention in ADR 0017. Its value is the reporting year the template is for.
 
-A file without the marker is a 2026 template only if its `__EPR_META_TEMPLATE_VERSION` is one the
-2026 definitions accept for its processing type. This covers every template in use today, so they
-need not be reissued, and they become valid for 2026 uploads only. A file with no marker and any
-other version fails meta syntax validation with `TEMPLATE_YEAR_INVALID`, so a 2027 template that has
-lost its marker is not read as a 2026 one.
+A file without the marker is a 2026 template. This covers every template in use today, so they need
+not be reissued, and they become valid for 2026 uploads only. A later template that is missing its
+marker is a risk (see Risks).
 
 ### The address decides the year, and the template must match it
 
@@ -89,14 +87,12 @@ processing types.
 ### The template version is a revision within a year
 
 `__EPR_META_TEMPLATE_VERSION` keeps its meaning as the revision of a template, and each year has its
-own minimum versions. It no longer has to tell one year's template from another's. For 2026 the
-definitions also hold a maximum version, which bounds the files read as 2026 when they carry no
-marker.
+own minimum versions. It no longer has to tell one year's template from another's.
 
 ### Order of validation
 
 1. Meta syntax, including that the template year is one the service has definitions for, and that
-   the template version is one that year accepts. Both use the template's own year: its marker, or
+   the template version meets that year's minimum. Both use the template's own year: its marker, or
    2026 when it has none. The year in the address is not used until step 2, so a template from
    another year fails as `TEMPLATE_YEAR_MISMATCH` and not as an unrecognised version.
 2. Template year against the year in the address.
@@ -150,15 +146,13 @@ The 2027 templates have not been written yet. Each of them, for every processing
 
 - **A `__EPR_META_TEMPLATE_YEAR` marker** next to the existing `__EPR_META_` markers, hidden in the
   same way, with the year in the cell to its right as a whole number, `2027`, not a date or text.
-  Without it the file is rejected with `TEMPLATE_YEAR_INVALID`, whichever year it is uploaded to.
+  Without it the file is read as a 2026 template (see Risks).
 - **The existing metadata markers kept**: `__EPR_META_PROCESSING_TYPE`,
   `__EPR_META_TEMPLATE_VERSION`, `__EPR_META_MATERIAL`, `__EPR_META_REGISTRATION_NUMBER` and,
   for accredited templates, `__EPR_META_ACCREDITATION_NUMBER`.
 - **A template version agreed with the development team.** The version no longer separates years, so
-  the 2027 numbering does not have to follow on from 2026, but a 2027 version must not be one that
-  the 2026 definitions accept. Otherwise a 2027 template that lost its marker would pass as a 2026
-  one. The service rejects versions below the 2027 minimum, so a template must not be published
-  until its version is supported.
+  the 2027 numbering does not have to follow on from 2026. The service rejects versions below the
+  2027 minimum, so a template must not be published until its version is supported.
 - **Every data section and column shared with the development team before publication.** The 2027
   definitions are written from them, and any `__EPR_DATA_` marker or header that changes after that
   needs a matching change in the service.
@@ -175,6 +169,20 @@ year after it. This holds even when nothing else changes: a 2028 template that o
 2027 one by its `__EPR_META_TEMPLATE_YEAR` value still has to be published, and operators still have
 to download it. The service needs definitions for 2028 before the first 2028 upload, though they can
 reuse 2027's if the layout is unchanged.
+
+### Risks
+
+**A 2027 template published without its marker is read as a 2026 template.** It is rejected on
+2027 uploads, so the mistake is visible there. On a 2026 upload, though, it is validated against the
+2026 definitions:
+
+- If its layout differs, it fails data syntax validation with errors about missing sheets or
+  headers, which do not tell the operator the real problem.
+- If it has the same headers with a different meaning, it is accepted, and its rows are read with
+  2026 meaning.
+
+The safeguard is the template authors' checklist above, and testing each template with the service
+before it is published.
 
 ### For the service
 
