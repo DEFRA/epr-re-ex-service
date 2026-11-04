@@ -150,13 +150,15 @@ The 2027 templates have not been written yet. Each of them, for every processing
 
 - **A `__EPR_META_TEMPLATE_YEAR` marker** next to the existing `__EPR_META_` markers, hidden in the
   same way, with the year in the cell to its right as a whole number, `2027`, not a date or text.
-  Without it the file is read as a 2026 template and every 2027 upload of it is rejected.
+  Without it the file is rejected with `TEMPLATE_YEAR_INVALID`, whichever year it is uploaded to.
 - **The existing metadata markers kept**: `__EPR_META_PROCESSING_TYPE`,
   `__EPR_META_TEMPLATE_VERSION`, `__EPR_META_MATERIAL`, `__EPR_META_REGISTRATION_NUMBER` and,
   for accredited templates, `__EPR_META_ACCREDITATION_NUMBER`.
 - **A template version agreed with the development team.** The version no longer separates years, so
-  the 2027 numbering does not have to follow on from 2026. The service rejects versions below the
-  2027 minimum, so a template must not be published until its version is supported.
+  the 2027 numbering does not have to follow on from 2026, but a 2027 version must not be one that
+  the 2026 definitions accept. Otherwise a 2027 template that lost its marker would pass as a 2026
+  one. The service rejects versions below the 2027 minimum, so a template must not be published
+  until its version is supported.
 - **Every data section and column shared with the development team before publication.** The 2027
   definitions are written from them, and any `__EPR_DATA_` marker or header that changes after that
   needs a matching change in the service.
