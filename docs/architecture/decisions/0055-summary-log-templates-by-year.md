@@ -121,13 +121,40 @@ The year check comes before data syntax because the year chooses the definitions
 
 ### Version bands
 
-Give each year a range of template versions for each processing type, and work out the year from the
-version, so the 2026 templates need no change.
+Work out the template's year from `__EPR_META_TEMPLATE_VERSION` instead of adding a marker. Each
+year's definitions hold the range of versions they accept for each processing type, and the year is
+the one whose range contains the file's version. Validation then compares that year with the year in
+the address, as in the decision.
 
-Rejected because the version would then mean the year as well as the revision, without saying so. A
-fix to a 2026 template could run into the 2027 range, and the registered-only templates already
-number their versions differently from the others, so each processing type would need its own bands.
-A mismatch error would also have to work out the year from the version before it could report it.
+**What it gains.** Every template already has a version, and meta syntax validation rejects a file
+without one. There is no new marker, so there is no marker to go missing, and the risk of a 2027
+template being read as a 2026 one (see Risks) goes away. A missing version is already a fatal error,
+`TEMPLATE_VERSION_REQUIRED`. The 2026 templates need no change either.
+
+**How the ranges could be set.**
+
+- **Ranges for each processing type.** For example, exporter 2026 is 5 up to 6, and exporter 2027 is
+  6 up to 7. This follows today's numbering, but the registered-only templates are numbered
+  differently (their minimum is 2.1, against 5 for the others), so each processing type needs ranges
+  of its own. A 2026 fix that runs out of numbers below the next year's range has nowhere to go.
+- **The year as the whole-number part of the version.** For example, 2027.1 is the first revision of
+  a 2027 template, and any version below 2027 is a 2026 template. The year is then written in the
+  file, as with a marker, but in a field every template must already have. The ranges are the same
+  for every processing type and never run out.
+
+**What it costs.**
+
+- The version carries two things, the year and the revision. Authors have to know the numbering rule,
+  and a version typed wrongly gives the wrong year rather than a missing one.
+- The version is read as a number, so `2027.10` and `2027.1` are the same version. Revisions would
+  need a convention such as `2027.01`, or a whole-number scale such as `202701`.
+- The 2026 templates stay on their current numbers, so "below 2027 means 2026" is a permanent rule,
+  in the same way that "no marker means 2026" is in the decision.
+
+Rejected in favour of an explicit marker, because a year in its own field is easier for template
+authors to get right and for anyone reading the file to see. Using the year as the whole-number part
+of the version is the strongest form of this alternative, and the one to revisit if a missing
+marker turns out to be a real problem.
 
 ### A template identity marker
 
