@@ -117,9 +117,9 @@ The year check comes before data syntax because the year chooses the definitions
   affect 2026.
 - **How other features read stored rows.** Reports, the waste balance, tonnage monitoring, period
   status, the report completeness check and stored tonnage conversion read named template fields,
-  such as `TONNAGE_RECEIVED_FOR_RECYCLING`, from a row's data. Making them independent of a year's
-  layout is decided separately. Until it is, a 2027 column they read must keep its header and
-  meaning.
+  such as `TONNAGE_RECEIVED_FOR_RECYCLING`, from a row's data. A 2027 template may rename or change
+  one of those fields. That is not expected, but it is not ruled out, and how these features would
+  cope with it is decided separately.
 
 ## Alternatives considered
 
@@ -160,9 +160,9 @@ The 2027 templates have not been written yet. Each of them, for every processing
 - **Every data section and column shared with the development team before publication.** The 2027
   definitions are written from them, and any `__EPR_DATA_` marker or header that changes after that
   needs a matching change in the service.
-- **The fields other features read kept stable, or flagged early.** A column that reports, the waste
-  balance or tonnage monitoring read should keep its header and meaning. If it has to change, the
-  development team needs to know before the template is final.
+- **Changes to the fields other features read flagged early.** If a column that reports, the waste
+  balance or tonnage monitoring read changes its header or meaning, the development team needs to
+  know before the template is final.
 
 The 2026 templates need no change.
 
