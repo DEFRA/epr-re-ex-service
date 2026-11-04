@@ -4,11 +4,11 @@ Date: 2026-11-04
 
 ## Status
 
-Proposed. One choice is open: how a template states its year. Two options are set out below.
+Proposed. One choice is open: how a template states its year. Three options are set out below.
 
 | ADR                                                                            | Title                                                                       | Relationship                                                                                                                                                               |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0017](0017-decouple-spreadsheet-data-extraction-from-layout-using-markers.md) | Decouple spreadsheet data extraction from layout using markers              | Builds on: both options state the year through its `__EPR_META_` markers, a new one or the existing version marker.                                                        |
+| [0017](0017-decouple-spreadsheet-data-extraction-from-layout-using-markers.md) | Decouple spreadsheet data extraction from layout using markers              | Builds on: every option states the year through its `__EPR_META_` markers, a new one or the existing version marker.                                                       |
 | [0048](0048-dual-multi-year-summary-logs.md)                                   | Dual and multi-year summary logs for registration and accreditation periods | Depends on Part 1: row states, row history and the ledger are scoped by year, and a summary log is compared only with the previous submission for its own year and stream. |
 | [0053](0053-address-resources-by-natural-key-and-year.md)                      | Address resources by natural key and year                                   | Builds on: the year in the upload's address is the year the template must match.                                                                                           |
 
@@ -34,9 +34,9 @@ template in the file:
 
 ### How the template states its year
 
-Every template has a year: the reporting year it is for. There are two options for how a file states
-it. Both leave the templates in use today unchanged and valid for 2026 only, and the rest of this
-decision applies to either.
+Every template has a year: the reporting year it is for. There are three options for how a file
+states it. All three leave the templates in use today unchanged and valid for 2026 only, and the rest
+of this decision applies to any of them.
 
 #### Option A: a year marker
 
@@ -51,18 +51,26 @@ For example, `2027.01` is the first revision of a 2027 template. A version below
 template, which is how today's templates are numbered. Each year has its own minimum version within
 its range.
 
+#### Option C: a major version for each year
+
+Each year's templates take the next major version of `__EPR_META_TEMPLATE_VERSION`, and only minor
+revisions happen within a year. Today the 2026 templates are version 5 for the exporter and
+reprocessor templates, and version 2 (from 2.1) for the registered-only ones, so the 2027 templates
+would be 6 and 3. Each year's definitions hold the major version for each processing type, and the
+year is the one whose definitions hold the file's major version.
+
 #### Trade-offs
 
-|                                   | Option A: year marker                                                            | Option B: year in the version                                                                                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| New metadata                      | One new marker                                                                   | None                                                                                                                                                              |
-| How a 2026 template is recognised | It has no marker                                                                 | Its version is below 2027                                                                                                                                         |
-| What one field means              | The marker is the year, and the version is the revision                          | The version is both the year and the revision                                                                                                                     |
-| If the author leaves the year out | The marker can be left off. The file is then read as a 2026 template (see Risks) | The version cannot be left off, since a file without one already fails with `TEMPLATE_VERSION_REQUIRED`                                                           |
-| If the author gets the year wrong | A wrong value in the marker gives the wrong year                                 | A version typed wrongly, or numbered the old way, gives the wrong year                                                                                            |
-| Revision numbering                | Unchanged                                                                        | The version is read as a number, so `2027.10` and `2027.1` are the same. Revisions need a fixed form, such as two digits (`2027.01`) or a whole number (`202701`) |
-| Reading the file                  | The year is visible in its own field                                             | The year has to be read out of the version                                                                                                                        |
-| Rule that stays for good          | No marker means 2026                                                             | A version below 2027 means 2026                                                                                                                                   |
+|                                   | Option A: year marker                                                            | Option B: year in the version                                                                                                                                     | Option C: a major version for each year                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| New metadata                      | One new marker                                                                   | None                                                                                                                                                              | None                                                                                                    |
+| How a 2026 template is recognised | It has no marker                                                                 | Its version is below 2027                                                                                                                                         | Its major version is a 2026 one: 5, or 2 for registered-only                                            |
+| What one field means              | The marker is the year, and the version is the revision                          | The version is both the year and the revision                                                                                                                     | The version is both the year and the revision                                                           |
+| If the author leaves the year out | The marker can be left off. The file is then read as a 2026 template (see Risks) | The version cannot be left off, since a file without one already fails with `TEMPLATE_VERSION_REQUIRED`                                                           | The version cannot be left off, since a file without one already fails with `TEMPLATE_VERSION_REQUIRED` |
+| If the author gets the year wrong | A wrong value in the marker gives the wrong year                                 | A version typed wrongly, or numbered the old way, gives the wrong year                                                                                            | A version typed wrongly, or a major bump made within a year, gives the wrong year                       |
+| Revision numbering                | Unchanged                                                                        | The version is read as a number, so `2027.10` and `2027.1` are the same. Revisions need a fixed form, such as two digits (`2027.01`) or a whole number (`202701`) | Unchanged, apart from the rule that a major bump only happens between years                             |
+| Reading the file                  | The year is visible in its own field                                             | The year has to be read out of the version                                                                                                                        | The year is not in the file, and is found from the version through the definitions                      |
+| Rule that stays for good          | No marker means 2026                                                             | A version below 2027 means 2026                                                                                                                                   | Major versions 5 and 2 mean 2026                                                                        |
 
 ### The address decides the year, and the template must match it
 
@@ -137,16 +145,6 @@ The year check comes before data syntax because the year chooses the definitions
 
 ## Alternatives considered
 
-### Version ranges for each processing type
-
-Like option B, but following today's numbering instead of using the year: for example, exporter 2026
-is 5 up to 6, and exporter 2027 is 6 up to 7.
-
-Rejected because the registered-only templates are numbered differently from the others (their
-minimum is 2.1, against 5), so each processing type would need ranges of its own. A 2026 fix that
-runs out of numbers below the next year's range would have nowhere to go, and the year could not be
-read from the version without looking up the ranges.
-
 ### A template identity marker
 
 Add a marker naming the template, such as `__EPR_META_TEMPLATE_ID` with a value of `exporter-2027`.
@@ -168,6 +166,8 @@ The 2027 templates have not been written yet. Each of them, for every processing
     text.
   - Option B: a `__EPR_META_TEMPLATE_VERSION` whose whole-number part is the year, with the revision
     written in the agreed fixed form, such as `2027.01`.
+  - Option C: the next major version of `__EPR_META_TEMPLATE_VERSION` for its processing type, such
+    as 6 for the exporter template, and only minor revisions after that until the next year.
 - **The existing metadata markers kept**: `__EPR_META_PROCESSING_TYPE`,
   `__EPR_META_TEMPLATE_VERSION`, `__EPR_META_MATERIAL`, `__EPR_META_REGISTRATION_NUMBER` and,
   for accredited templates, `__EPR_META_ACCREDITATION_NUMBER`.
@@ -194,7 +194,8 @@ is unchanged.
 
 **A 2027 template that does not state its year correctly is read as another year.** Under option A
 this happens if the marker is left off, and the file is read as 2026. Under option B it happens if
-the version is typed wrongly or numbered the old way. Either way the file is rejected on 2027
+the version is typed wrongly or numbered the old way. Under option C it happens if the version is
+typed wrongly, or if a major bump is made within a year. In every case the file is rejected on 2027
 uploads, so the mistake is visible there. On an upload for the year it is wrongly read as, it is
 validated against that year's definitions:
 
@@ -208,7 +209,8 @@ before it is published.
 
 ### For the service
 
-- The rule that identifies a 2026 template (no marker, or a version below 2027) is permanent.
+- The rule that identifies a 2026 template (no marker, a version below 2027, or a 2026 major
+  version, depending on the option) is permanent.
 - Validation and submission need the summary log's year, which neither reads today.
 - The table definitions move behind a lookup by year and processing type, and every reader of
   stored rows passes the row's year to it.
