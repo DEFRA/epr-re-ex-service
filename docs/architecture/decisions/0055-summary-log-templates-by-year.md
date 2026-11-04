@@ -59,6 +59,20 @@ reprocessor templates, and version 2 (from 2.1) for the registered-only ones, so
 would be 6 and 3. Each year's definitions hold the major version for each processing type, and the
 year is the one whose definitions hold the file's major version.
 
+These numbers were checked on 4 November 2026 against the latest templates published on
+[GOV.UK](https://www.gov.uk/government/publications/summary-log-templates-for-uk-packaging-waste),
+last updated 19 May 2026:
+
+| Template                         | Processing type               | Version in the file |
+| -------------------------------- | ----------------------------- | ------------------- |
+| Accredited reprocessors (input)  | `REPROCESSOR_INPUT`           | 5.1                 |
+| Accredited reprocessors (output) | `REPROCESSOR_OUTPUT`          | 5.1                 |
+| Accredited exporters             | `EXPORTER`                    | 5.1                 |
+| Registered-only reprocessors     | `REPROCESSOR_REGISTERED_ONLY` | 2.1                 |
+| Registered-only exporters        | `EXPORTER_REGISTERED_ONLY`    | 2.1                 |
+
+No published template uses major version 6 or 3.
+
 #### Trade-offs
 
 Under every option the year is held in hidden, locked metadata cells. Operators cannot see or edit
