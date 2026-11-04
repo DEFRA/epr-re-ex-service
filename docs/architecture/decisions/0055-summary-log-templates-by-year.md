@@ -51,8 +51,6 @@ with a code of its own, such as `TEMPLATE_YEAR_INVALID`.
 
 A summary log for a year before 2026 is rejected, since there are no definitions for it.
 
-What the operator is told, and whether they are pointed at the right template, is outside this ADR.
-
 ### Definitions are held by year
 
 The definitions for a template's tables (sheets, headers, validation schemas and row transformers)
@@ -65,9 +63,6 @@ are looked up by year, then by processing type. Every use of them names the year
   of its summary log, and the template's year must equal that, so the row's year is also its
   template's year and no separate template year is stored. This covers the waste balance
   classification, the waste records export and the check that report data is complete.
-
-This ADR does not decide whether the 2027 definitions extend the 2026 ones or are written separately.
-The lookup supports either.
 
 ### Fields other features read
 
@@ -93,6 +88,17 @@ own minimum versions. It no longer has to tell one year's template from another'
 4. Data syntax, using the definitions for that year.
 
 The year check comes before data syntax because the year chooses the definitions data syntax uses.
+
+### Out of scope
+
+- **Whether the 2027 definitions extend the 2026 ones or are written separately.** The lookup by
+  year supports either.
+- **What the operator is told** when the template's year does not match, and whether they are
+  pointed at the right template.
+- **The contents of the 2027 templates.**
+- **Loads that start in 2026 and conclude in 2027.** How they are captured is decided separately. If
+  that decision changes the 2027 template, the change goes in the 2027 definitions and does not
+  affect 2026.
 
 ## Alternatives considered
 
@@ -162,5 +168,3 @@ reuse 2027's if the layout is unchanged.
 - The frontend needs a message for the new error code.
 - A summary log for 2026 that is uploaded or resubmitted during 2027 is posted to the 2026 address,
   so it still uses the 2026 template.
-- If a change to how cross-year loads are recorded alters the 2027 template, it is made in the 2027
-  definitions and does not affect 2026.
