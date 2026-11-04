@@ -15,9 +15,9 @@ Proposed
 ## Context
 
 From 2027 operators upload summary logs on all-new templates, published on GOV.UK. The 2027
-templates are structurally different from the 2026 ones: their sheets, columns and validation rules
-change. The templates in use today must then be accepted only for 2026 uploads, and the new ones only
-for 2027 uploads.
+templates may differ from the 2026 ones in their sheets, columns and validation rules, so the service
+must be able to treat them differently from the outset. The templates in use today must then be
+accepted only for 2026 uploads, and the new ones only for 2027 uploads.
 
 ADR 0048 requires one summary log per year for each stream, and ADR 0053 puts the year in the address
 an upload is posted to. The year is stored on every summary log. Nothing yet connects that year to the
