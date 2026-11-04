@@ -37,8 +37,11 @@ template in the file:
 Templates from 2027 onwards carry a new metadata marker, `__EPR_META_TEMPLATE_YEAR`, following the
 convention in ADR 0017. Its value is the reporting year the template is for.
 
-A file without the marker is a 2026 template. This covers every template in use today, so they need
-not be reissued, and they become valid for 2026 uploads only.
+A file without the marker is a 2026 template only if its `__EPR_META_TEMPLATE_VERSION` is one the
+2026 definitions accept for its processing type. This covers every template in use today, so they
+need not be reissued, and they become valid for 2026 uploads only. A file with no marker and any
+other version fails meta syntax validation with `TEMPLATE_YEAR_INVALID`, so a 2027 template that has
+lost its marker is not read as a 2026 one.
 
 ### The address decides the year, and the template must match it
 
@@ -48,7 +51,10 @@ template's year with it, and a mismatch is a fatal error with its own code, such
 year that the service has no definitions for, such as a future year, fails meta syntax validation
 with a code of its own, such as `TEMPLATE_YEAR_INVALID`.
 
-A summary log for a year before 2026 is rejected, since there are no definitions for it.
+An upload can only be started for a year the service has definitions for. This is checked when the
+upload is created, alongside the existing checks that the year has started and the registration is
+active, so the operator is told before sending a file. It rejects years before 2026, and a new year
+whose definitions have not been deployed.
 
 ### Definitions are held by year
 
@@ -60,28 +66,39 @@ are looked up by year, then by processing type. Every use of them names the year
   read with the same definitions it was validated with.
 - **Stored rows** are read with the row's own year. Under ADR 0048 every row state carries the year
   of its summary log, and the template's year must equal that, so the row's year is also its
-  template's year and no separate template year is stored. This covers the waste balance
-  classification, the waste records export and the check that report data is complete.
+  template's year and no separate template year is stored.
 
-### Fields other features read
+Looking up definitions for a year and processing type that have none is an error, not an empty
+result. Today an unknown processing type quietly turns into no schema: the waste balance treats the
+row as not applicable, and transformation produces no records. That must not carry over to the year.
 
-Reports, the waste balance, tonnage monitoring and the conversion of stored tonnages read named
-fields from a row's data, such as `TONNAGE_RECEIVED_FOR_RECYCLING` and `DATE_OF_EXPORT`. Each of
-those fields either keeps its name and meaning in the 2027 definitions, or the feature that reads it
-looks it up by year. A field must not be renamed without one or the other: tonnage monitoring, for
-one, counts a missing tonnage as zero rather than failing.
+Every lookup takes a year, and the lookups without one are removed. A reader cannot skip the year by
+mistake, so there is no list of readers to keep up to date.
 
-Which processing types feed the waste balance, and which resolve overseas sites, are part of each
-year's definitions if 2027 changes them.
+A stored row without a year is an error, never read as 2026. Row years, and their backfill from ADR
+0048, must ship before the first 2027 submission.
+
+### Processing types come from the definitions
+
+A year's processing types are the keys of its definitions. Meta syntax validation accepts only
+those, with their minimum versions, and there is no list held anywhere else. Whether a table feeds
+the waste balance is already in its definition, as `classifyForWasteBalance`, and whether a
+processing type resolves overseas sites joins it there. Neither is kept as a separate list of
+processing types.
 
 ### The template version is a revision within a year
 
 `__EPR_META_TEMPLATE_VERSION` keeps its meaning as the revision of a template, and each year has its
-own minimum versions. It no longer has to tell one year's template from another's.
+own minimum versions. It no longer has to tell one year's template from another's. For 2026 the
+definitions also hold a maximum version, which bounds the files read as 2026 when they carry no
+marker.
 
 ### Order of validation
 
-1. Meta syntax, including that any template year is one the service knows.
+1. Meta syntax, including that the template year is one the service has definitions for, and that
+   the template version is one that year accepts. Both use the template's own year: its marker, or
+   2026 when it has none. The year in the address is not used until step 2, so a template from
+   another year fails as `TEMPLATE_YEAR_MISMATCH` and not as an unrecognised version.
 2. Template year against the year in the address.
 3. Meta business rules, such as processing type, registration, material and accreditation.
 4. Data syntax, using the definitions for that year.
@@ -98,6 +115,11 @@ The year check comes before data syntax because the year chooses the definitions
 - **Loads that start in 2026 and conclude in 2027.** How they are captured is decided separately. If
   that decision changes the 2027 template, the change goes in the 2027 definitions and does not
   affect 2026.
+- **How other features read stored rows.** Reports, the waste balance, tonnage monitoring, period
+  status, the report completeness check and stored tonnage conversion read named template fields,
+  such as `TONNAGE_RECEIVED_FOR_RECYCLING`, from a row's data. Making them independent of a year's
+  layout is decided separately. Until it is, a 2027 column they read must keep its header and
+  meaning.
 
 ## Alternatives considered
 
@@ -139,8 +161,8 @@ The 2027 templates have not been written yet. Each of them, for every processing
   definitions are written from them, and any `__EPR_DATA_` marker or header that changes after that
   needs a matching change in the service.
 - **The fields other features read kept stable, or flagged early.** A column that reports, the waste
-  balance or tonnage monitoring read (see Fields other features read) should keep its header and
-  meaning. If it has to change, the development team needs to know before the template is final.
+  balance or tonnage monitoring read should keep its header and meaning. If it has to change, the
+  development team needs to know before the template is final.
 
 The 2026 templates need no change.
 
@@ -158,12 +180,15 @@ reuse 2027's if the layout is unchanged.
 - Validation and submission need the summary log's year, which neither reads today.
 - The table definitions move behind a lookup by year and processing type, and every reader of
   stored rows passes the row's year to it.
-- The parser normalises placeholder values with one map built from every template's columns before
-  the template is known. With definitions by year, that map either covers every year or the file's
-  metadata is read before its tables.
+- The parser normalises placeholder values with one map, built from every template's columns before
+  the template is known. It changes to read the metadata first, and then parse the tables with the
+  map for that year and processing type. A map covering every year would let one year's placeholder
+  values blank out real values in another year's cells.
 - The waste records export spans a registration's years, and its columns are the union of every
   template's fields. A 2027 column renamed from a 2026 one shows as two columns, so the export
   needs a year column to tell the two apart.
-- The frontend needs a message for the new error code.
+- The frontend needs messages for `TEMPLATE_YEAR_MISMATCH` and `TEMPLATE_YEAR_INVALID`. They must
+  ship before or with the backend change, because the frontend shows its technical-error message for
+  a code it does not know.
 - A summary log for 2026 that is uploaded or resubmitted during 2027 is posted to the 2026 address,
   so it still uses the 2026 template.
