@@ -6,12 +6,11 @@ Date: 2026-11-04
 
 Proposed
 
-Builds on [ADR 0017](0017-decouple-spreadsheet-data-extraction-from-layout-using-markers.md),
-[ADR 0048](0048-dual-multi-year-summary-logs.md) and
-[ADR 0053](0053-address-resources-by-natural-key-and-year.md).
-
-Depends on the storage in Part 1 of ADR 0048: row states, row history and the ledger are scoped by
-year, and a summary log is compared only with the previous submission for its own year and stream.
+| ADR                                                                            | Title                                                                       | Relationship                                                                                                                                                               |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0017](0017-decouple-spreadsheet-data-extraction-from-layout-using-markers.md) | Decouple spreadsheet data extraction from layout using markers              | Builds on: the new year marker follows its `__EPR_META_` convention.                                                                                                       |
+| [0048](0048-dual-multi-year-summary-logs.md)                                   | Dual and multi-year summary logs for registration and accreditation periods | Depends on Part 1: row states, row history and the ledger are scoped by year, and a summary log is compared only with the previous submission for its own year and stream. |
+| [0053](0053-address-resources-by-natural-key-and-year.md)                      | Address resources by natural key and year                                   | Builds on: the year in the upload's address is the year the template must match.                                                                                           |
 
 ## Context
 
