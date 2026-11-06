@@ -147,7 +147,7 @@ services:
       - cdp-tenant
 
   entra-stub:
-    image: defradigital/epr-re-ex-entra-stub:0.163.0@sha256:9f67cd519b1b159870aeb62f68252569f10a19613ee8bf4786439733e96b2aa4
+    image: defradigital/epr-re-ex-entra-stub:0.168.0@sha256:0c2a4abaef97b1b491e9a097471f645c49142906d79a1669f06571e0caaa6d9f
     ports:
       - '${ENTRA_STUB_PORT:-3010}:3010'
     depends_on:
