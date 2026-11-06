@@ -4,7 +4,7 @@
   "description": "pEPR Re/Ex project",
   "type": "module",
   "engines": {
-    "node": "^24.22.1"
+    "node": "^26.13.0"
   },
   "scripts": {
     "dev": "GOVUK_NOTIFY_API_KEY=test-api-key-12345 docker compose --profile all up --watch",
@@ -30,7 +30,7 @@
     "lint-staged": "17.6.0",
     "mongodb": "7.7.0",
     "prettier": "3.9.10",
-    "renovate": "44.182.2",
+    "renovate": "44.186.4",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
