@@ -6,6 +6,8 @@ Date: 2026-05-12
 
 Accepted
 
+Part 2 superseded by [ADR-0051](./0051-read-2026-accreditations-over-http.md).
+
 ## Context
 
 Operators apply for accreditation via DEFRA forms each year. The re-ex service currently stores accreditations as a
@@ -269,6 +271,7 @@ optional. 2026 sub-docs and registration documents remain untouched: the Phase 1
 2026 accreditations via the existing `registration.accreditationId` link.
 
 **Part 2:** Option C — on-demand fetch from the registration service for 2027; local read for 2026.
+_Superseded by [ADR-0051](./0051-read-2026-accreditations-over-http.md)._
 
 **Rationale.** This is the lowest-risk delivery path. Adding `registrationId` and `year` to the
 existing accreditation sub-docs (back-reference) keeps 2026 data untouched, makes migration
