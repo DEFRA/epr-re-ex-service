@@ -20,6 +20,9 @@ Revised 2026-10-19 (PAE-2119): a status timeline is an ordered list of changes, 
 
 Revised 2026-11-03 (PAE-2192): a user carries their `fullName`.
 
+Revised 2026-11-10 (PAE-2226): a UK address with a first line and postcode is served as its parts
+even when ingest could not find its town, with the address as submitted alongside.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -157,10 +160,11 @@ tightened separately.
  * @typedef {
  *   | {
  *       county?: string
+ *       fullAddress?: string
  *       line1: string
  *       line2?: string
  *       postcode: string
- *       town: string
+ *       town?: string
  *     }
  *   | { fullAddress: string }
  * } UkAddress
@@ -212,11 +216,12 @@ tightened separately.
     with the 2027 accreditation. Every ORS id it lists is one its registration holds.
   - Until then, the accreditation lists every site on its registration, with the approval date
     stored on the site today.
-- **A UK address is either its parts or the address as submitted.** Forms ingest splits the
-  submitted address on commas, and it can only place the town when the address has exactly one
-  or three parts between the first line and the postcode. Otherwise it keeps the whole string as
-  `fullAddress`, which is then the only part that is served. An operator who fills in exactly one of
-  line 2 or county produces such an address.
+- **A UK address is its parts when it has a first line and postcode, otherwise the address as
+  submitted.** Forms ingest splits the submitted address on commas, and it can only place the town
+  when the address has exactly one or three parts between the first line and the postcode.
+  Otherwise it keeps the first line, the postcode and the whole string as `fullAddress`, all of
+  which are served, without a town. An operator who fills in exactly one of line 2 or county
+  produces such an address.
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 - **The Defra ID organisation is grouped on its own** within the link, apart from when and by whom
   the link was made.
