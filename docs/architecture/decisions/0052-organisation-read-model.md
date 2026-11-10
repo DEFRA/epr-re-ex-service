@@ -217,11 +217,13 @@ tightened separately.
   - Until then, the accreditation lists every site on its registration, with the approval date
     stored on the site today.
 - **A UK address is its parts when it has a first line and postcode, otherwise the address as
-  submitted.** Forms ingest splits the submitted address on commas, and it can only place the town
-  when the address has exactly one or three parts between the first line and the postcode.
-  Otherwise it keeps the first line, the postcode and the whole string as `fullAddress`, all of
-  which are served, without a town. An operator who fills in exactly one of line 2 or county
-  produces such an address.
+  submitted.** Forms ingest splits the submitted address on commas. An address with fewer than three
+  parts is kept only as submitted, as `fullAddress`. Otherwise the first part is the first line and
+  the last the postcode, and ingest can only place the town when there are exactly one or three
+  parts between them. When it cannot, it keeps the first line, the postcode and the whole string as
+  `fullAddress`, all of which are served, without a town. An operator who fills in exactly one of
+  line 2 or county produces such an address. `fullAddress` can appear in either shape, so clients
+  tell them apart by `line1`.
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 - **The Defra ID organisation is grouped on its own** within the link, apart from when and by whom
   the link was made.
