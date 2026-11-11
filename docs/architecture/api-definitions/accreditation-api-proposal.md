@@ -127,13 +127,18 @@ A registration holds at most one accreditation a year (ADR-0034), so each year k
               "description": "Every status change, oldest first. Changes at the same time keep the order they were recorded in (ADR-0051)",
               "items": {
                 "type": "object",
-                "required": ["status", "at"],
+                "required": ["status", "at", "updatedAt"],
                 "properties": {
                   "status": { "type": "string" },
                   "at": {
                     "type": "string",
                     "format": "date-time",
                     "description": "When the change took effect, as an ISO 8601 date-time"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the change was recorded, as an ISO 8601 date-time. An approval can be recorded after the date it takes effect"
                   }
                 }
               }
@@ -194,9 +199,21 @@ registrations. The exporter's accreditation was suspended in March.
       "status": {
         "current": "suspended",
         "timeline": [
-          { "status": "created", "at": "2026-11-02T09:14:00.000Z" },
-          { "status": "approved", "at": "2027-01-01T00:00:00.000Z" },
-          { "status": "suspended", "at": "2027-03-18T15:40:00.000Z" }
+          {
+            "status": "created",
+            "at": "2026-11-02T09:14:00.000Z",
+            "updatedAt": "2026-11-02T09:14:00.000Z"
+          },
+          {
+            "status": "approved",
+            "at": "2027-01-01T00:00:00.000Z",
+            "updatedAt": "2026-12-14T10:31:00.000Z"
+          },
+          {
+            "status": "suspended",
+            "at": "2027-03-18T15:40:00.000Z",
+            "updatedAt": "2027-03-18T15:40:00.000Z"
+          }
         ]
       },
       "overseasSites": {
@@ -212,8 +229,16 @@ registrations. The exporter's accreditation was suspended in March.
       "status": {
         "current": "approved",
         "timeline": [
-          { "status": "created", "at": "2026-11-05T11:02:00.000Z" },
-          { "status": "approved", "at": "2027-01-01T00:00:00.000Z" }
+          {
+            "status": "created",
+            "at": "2026-11-05T11:02:00.000Z",
+            "updatedAt": "2026-11-05T11:02:00.000Z"
+          },
+          {
+            "status": "approved",
+            "at": "2027-01-01T00:00:00.000Z",
+            "updatedAt": "2026-12-09T14:20:00.000Z"
+          }
         ]
       }
     }
