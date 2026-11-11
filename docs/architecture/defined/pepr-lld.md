@@ -709,7 +709,7 @@ sequenceDiagram
   Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs
   Note over Backend: generate summaryLogId
   Note over Backend: create SUMMARY-LOG entity<br>{ status: 'preprocessing' }
-  Note over Backend: sign callback path<br>HMAC-SHA256(CDP_UPLOADER_CALLBACK_HMAC_KEY) - ADR 0056
+  Note over Backend: sign callback path<br>HMAC-SHA256(CDP_UPLOADER_CALLBACK_HMAC_KEY) - ADR 0057
   Backend->>CDPUploader: POST /initiate<br>{ redirect, callback, s3Bucket, s3Path, metadata }<br>redirect: `{eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`<br>callback: `{eprBackend}/v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed?signature={hmac}`
   CDPUploader-->>Backend: 200: { uploadId, uploadUrl, statusUrl }
   Note over Backend: update SUMMARY-LOG entity<br>{ uploadId }
