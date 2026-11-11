@@ -6,7 +6,9 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)package\\.json$/"],
-      "matchStrings": ["\"node\":\\s*\"[\\^>=]*(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "matchStrings": [
+        "\"node\":\\s*\"[\\^>=]*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
       "depNameTemplate": "node",
       "datasourceTemplate": "node-version",
       "versioningTemplate": "node"
@@ -59,6 +61,13 @@
       "matchManagers": ["docker-compose"],
       "matchPackageNames": ["mongo"],
       "allowedVersions": "<8"
+    },
+    {
+      "description": "Leave the engines floor alone on patch releases: raising it with every Node patch can require a newer Node than the defradigital base image ships yet, and engine-strict then fails npm ci in the Docker build",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["node"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": false
     }
   ]
 }

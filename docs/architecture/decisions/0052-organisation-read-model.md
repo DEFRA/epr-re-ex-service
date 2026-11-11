@@ -18,6 +18,11 @@ registration's and accreditation's timelines are served.
 Revised 2026-10-19 (PAE-2119): a status timeline is an ordered list of changes, and
 `organisationNumber` is a string.
 
+Revised 2026-11-03 (PAE-2192): a user carries their `fullName`.
+
+Revised 2026-11-10 (PAE-2226): a UK address with a first line and postcode is served as its parts
+even when ingest could not find its town, with the address as submitted alongside.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -83,7 +88,7 @@ tightened separately.
  *   submittedToRegulator: Regulator
  *   submitterContactDetails: Contact // not served
  *   tradingName?: string
- *   users: { contactId?: string, email: string, roles: string[] }[] // not served
+ *   users: { contactId?: string, email: string, fullName: string, roles: string[] }[] // not served
  *   version: number // not served
  * }} Organisation
  *
@@ -155,10 +160,11 @@ tightened separately.
  * @typedef {
  *   | {
  *       county?: string
+ *       fullAddress?: string
  *       line1: string
  *       line2?: string
  *       postcode: string
- *       town: string
+ *       town?: string
  *     }
  *   | { fullAddress: string }
  * } UkAddress
@@ -210,11 +216,14 @@ tightened separately.
     with the 2027 accreditation. Every ORS id it lists is one its registration holds.
   - Until then, the accreditation lists every site on its registration, with the approval date
     stored on the site today.
-- **A UK address is either its parts or the address as submitted.** Forms ingest splits the
-  submitted address on commas, and it can only place the town when the address has exactly one
-  or three parts between the first line and the postcode. Otherwise it keeps the whole string as
-  `fullAddress`, which is then the only part that is served. An operator who fills in exactly one of
-  line 2 or county produces such an address.
+- **A UK address is its parts when it has a first line and postcode, otherwise the address as
+  submitted.** Forms ingest splits the submitted address on commas. An address with fewer than three
+  parts is kept only as submitted, as `fullAddress`. Otherwise the first part is the first line and
+  the last the postcode, and ingest can only place the town when there are exactly one or three
+  parts between them. When it cannot, it keeps the first line, the postcode and the whole string as
+  `fullAddress`, all of which are served, without a town. An operator who fills in exactly one of
+  line 2 or county produces such an address. `fullAddress` can appear in either shape, so clients
+  tell them apart by `line1`.
 - **`companyDetails` is flattened** to `name` and `tradingName`.
 - **The Defra ID organisation is grouped on its own** within the link, apart from when and by whom
   the link was made.
@@ -271,14 +280,14 @@ it, and logs what it dropped:
 
 The backend reads the fields marked `not served` for its own processing.
 
-| Field                                                                                     | Read by                                                                       |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `version`                                                                                 | Optimistic locking on every write                                             |
-| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                           |
-| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                               |
-| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; report submission contact export |
-| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                     |
-| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                 |
+| Field                                                                                     | Read by                                                                                                  |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `version`                                                                                 | Optimistic locking on every write                                                                        |
+| Organisation `status.timeline` (ADR-0051)                                                 | Current status and transition rules                                                                      |
+| `companiesHouseNumber`, `registeredAddress`, registration `site.address.region`/`country` | Public register                                                                                          |
+| `users`, contact details, `approvedPersons`, `prnIssuance.signatories`                    | Collating users for linking and Defra roles; adding or updating a user; report submission contact export |
+| `linkedDefraOrganisation.linkedBy.id`                                                     | Unlinking                                                                                                |
+| `prnIssuance.tonnageBand`                                                                 | Public register, PRN tonnage, market insights                                                            |
 
 An accreditation's material, processing type, site and regulator — used for the PRN snapshot, the
 PRN/PERN flag, the December pool and PRN numbering — are read from its registration, as they are
