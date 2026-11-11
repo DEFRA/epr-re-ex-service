@@ -23,7 +23,7 @@ To use the Entra stub locally, set the following environment variables:
 ```bash
 export ENTRA_CLIENT_ID=clientId
 export ENTRA_CLIENT_SECRET=test
-export ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL=http://localhost:3010/.well-known/openid-configuration
+export ENTRA_OIDC_WELL_KNOWN_URL=http://localhost:3010/.well-known/openid-configuration
 export ENTRA_TENANT_ID=tenantId
 ```
 
@@ -59,7 +59,7 @@ Use the regulator accounts (EA, NRW, NIEA) for admin functionality testing.
 
 ### OIDC Configuration Not Found
 
-Ensure the `ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL` is set to `http://localhost:3010/.well-known/openid-configuration` and the entra-stub container is running:
+Ensure the `ENTRA_OIDC_WELL_KNOWN_URL` is set to `http://localhost:3010/.well-known/openid-configuration` and the entra-stub container is running:
 
 ```bash
 docker compose ps | grep entra-stub
