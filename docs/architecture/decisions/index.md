@@ -54,3 +54,6 @@
 * [52. Organisation read model](0052-organisation-read-model.md)
 * [53. Address resources by natural key and year](0053-address-resources-by-natural-key-and-year.md)
 * [55. Summary log templates by year](0055-summary-log-templates-by-year.md)
+* [56. Moving to read-only view of organisations, registrations and accreditations](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md)
+
+
