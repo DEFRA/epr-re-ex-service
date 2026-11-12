@@ -44,7 +44,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: npm ci --ignore-scripts
+      run: npm ci --ignore-scripts --no-audit
 
     - name: Install action dependencies
       shell: bash
