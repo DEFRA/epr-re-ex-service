@@ -709,7 +709,8 @@ sequenceDiagram
   Frontend->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs
   Note over Backend: generate summaryLogId
   Note over Backend: create SUMMARY-LOG entity<br>{ status: 'preprocessing' }
-  Backend->>CDPUploader: POST /initiate<br>{ redirect, callback, s3Bucket, s3Path, metadata }<br>redirect: `{eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`<br>callback: `{eprBackend}/v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed`
+  Note over Backend: sign callback path<br>HMAC-SHA256(CDP_UPLOADER_CALLBACK_HMAC_KEY) - ADR 0057
+  Backend->>CDPUploader: POST /initiate<br>{ redirect, callback, s3Bucket, s3Path, metadata }<br>redirect: `{eprFrontend}/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}`<br>callback: `{eprBackend}/v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed?signature={hmac}`
   CDPUploader-->>Backend: 200: { uploadId, uploadUrl, statusUrl }
   Note over Backend: update SUMMARY-LOG entity<br>{ uploadId }
   Backend-->>Frontend: 200: { summaryLogId, uploadId, uploadUrl, statusUrl }
@@ -725,7 +726,8 @@ sequenceDiagram
   Note over CDPUploader: END async preprocessing
 
   alt FileStatus: complete
-    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ form: { summaryLogUpload: { fileStatus: 'complete', s3Bucket, s3Key, ... } } }
+    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed?signature={hmac}<br>{ form: { summaryLogUpload: { fileStatus: 'complete', s3Bucket, s3Key, ... } } }
+    Note over Backend: verify signature for the path (401 if missing or wrong)<br>check s3Bucket/s3Key are under the upload path (422 if not)
     Note over Backend: create/update SUMMARY-LOG entity<br>{ status: 'validating', file: { uri: s3Uri } }
     Backend->>SQS: send ValidateSummaryLog command<br>{ summaryLogId, organisationId, registrationId, s3Bucket, s3Key }
     Backend-->>CDPUploader: 200
@@ -763,7 +765,8 @@ sequenceDiagram
       end
     end
   else FileStatus: rejected
-    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed<br>{ form: { summaryLogUpload: { fileStatus: 'rejected', errorMessage: '...' } } }
+    CDPUploader->>Backend: POST /v1/organisations/{id}/registrations/{id}/summary-logs/{summaryLogId}/upload-completed?signature={hmac}<br>{ form: { summaryLogUpload: { fileStatus: 'rejected', errorMessage: '...' } } }
+    Note over Backend: verify signature for the path (401 if missing or wrong)
     Note over Backend: create/update SUMMARY-LOG entity<br>{ status: 'rejected', failureReason }
     Backend-->>CDPUploader: 200
 
