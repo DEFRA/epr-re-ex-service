@@ -169,7 +169,7 @@ To configure these, please complete the following actions:
 
 ### ADR tools
 
-To simplify the creation and management of ADRs, please [install ADR tools](https://github.com/npryce/adr-tools/blob/master/INSTALL.md)
+[ADR tools](https://github.com/npryce/adr-tools) create ADRs and regenerate their index, which the pre-commit hook does whenever an ADR changes. `mise.toml` pins it, so `mise install` sets it up; otherwise see [its install guide](https://github.com/npryce/adr-tools/blob/master/INSTALL.md).
 
 ## Documentation
 
