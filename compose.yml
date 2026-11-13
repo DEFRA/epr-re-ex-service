@@ -261,8 +261,6 @@ services:
       LOG_FORMAT: ${LOG_FORMAT:-ecs}
       NODE_ENV: development
       ENTRA_OIDC_WELL_KNOWN_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
-      # deprecated, remove once every app reads the name above
-      OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
       PORT: 3002
       REDIS_HOST: redis
       SESSION_CACHE_ENGINE: ${SESSION_CACHE_ENGINE:-memory}
@@ -320,14 +318,10 @@ services:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_CLIENT_SECRET: ${DEFRA_ID_CLIENT_SECRET:-test_value}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
-      # deprecated, remove once every app reads the name above
-      DEFRA_ID_OIDC_CONFIGURATION_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       DEFRA_ID_SERVICE_ID: ${DEFRA_ID_SERVICE_ID:-d7d72b79-9c62-ee11-8df0-000d3adf7047}
       ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-clientId}
       ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-test}
       ENTRA_OIDC_WELL_KNOWN_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
-      # deprecated, remove once every app reads the name above
-      ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-tenantId}
       EPR_BACKEND_URL: http://epr-backend:3001
       FEATURE_FLAG_REGULATOR_ACCESS: ${FEATURE_FLAG_REGULATOR_ACCESS:-true}
@@ -401,8 +395,6 @@ services:
       DEFRA_ID_CLIENT_ID: ${DEFRA_ID_CLIENT_ID:-63983fc2-cfff-45bb-8ec2-959e21062b9a}
       DEFRA_ID_OIDC_WELL_KNOWN_URL: ${DEFRA_ID_OIDC_WELL_KNOWN_URL:-http://defra-id-stub:3200/epr-re-ex-defra-id-stub/.well-known/openid-configuration}
       ENTRA_OIDC_WELL_KNOWN_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
-      # deprecated, remove once every app reads the name above
-      ENTRA_OIDC_WELL_KNOWN_CONFIGURATION_URL: ${ENTRA_OIDC_WELL_KNOWN_URL:-http://entra-stub:3010/.well-known/openid-configuration}
       FEATURE_FLAG_DEV_ENDPOINTS: ${FEATURE_FLAG_DEV_ENDPOINTS:-true}
       FORM_FILE_UPLOADS_S3_BUCKET: ${FORM_FILE_UPLOADS_S3_BUCKET:-re-ex-form-uploads}
       FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID: ${FORMS_SUBMISSION_EXTERNAL_API_CLIENT_ID:-test-client-id}
