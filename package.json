@@ -22,7 +22,9 @@
   },
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
-  "overrides": {},
+  "overrides": {
+    "gaxios@7.1.3": "7.1.4"
+  },
   "devDependencies": {
     "@dotenvx/dotenvx": "2.38.2",
     "@types/node": "26.6.6",
