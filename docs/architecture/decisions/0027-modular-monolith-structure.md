@@ -97,29 +97,12 @@ The proposed target structure would be:
 
 ```
 src/
-├── modules/
-│   ├── packaging-recycling-notes/
-│   │   ├── domain/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   └── index.js
-│   ├── summary-logs/
-│   │   ├── domain/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   └── index.js
-│   ├── waste-balances/
-│   │   ├── domain/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   └── index.js
-│   ├── organisations/
-│   │   ├── domain/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   └── index.js
-│   └── public-register/
-│       └── ...
+├── <module>/
+│   ├── domain/
+│   ├── repositories/
+│   ├── routes/
+│   ├── index.js
+│   └── test-support.js
 ├── shared/
 │   ├── auth/
 │   ├── validation/
@@ -129,13 +112,15 @@ src/
 └── index.js
 ```
 
+A module lives at `src/<module>/`, as `src/packaging-recycling-notes/` does. Its `index.js` is the public interface that other modules import. Its `test-support.js` is the entry point for test code that other modules reuse, such as in-memory repositories and fixtures.
+
 ### Proposed module conventions
 
 1. **Self-contained**: Each module would contain all code for its feature (domain, repositories, routes)
 2. **Ports and adapters**: Modules would continue to use the existing ports and adapters pattern for data access
 3. **No cross-module imports initially**: Modules should not directly import from other modules' internals. If a module needs data from another module, it would use the repository port (this maintains the existing pattern)
 4. **Shared code**: Genuinely shared utilities (auth, validation helpers, date formatting) would live in `src/shared/`
-5. **Public interface (future)**: When modules mature, each could export a public interface via `index.js`. At that point, cross-module access would go through this interface
+5. **Public interface and test support**: Each module would export its public interface from `index.js` and its test support for other modules from `test-support.js`. Cross-module access, in production and test code, would go through these two files only
 
 ### Suggested migration strategy
 
