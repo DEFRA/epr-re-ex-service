@@ -6,11 +6,11 @@ Date: 2026-11-17
 
 Proposed
 
-| ADR                                                    | Title                                  | Relationship                                                                                                                                                                            |
-| ------------------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0037](0037-summary-log-row-states-with-membership.md) | Summary-log row states with membership | Amends: keeps the row-state model, the immutability rules and the commit point; moves the row-state write from submission to validation, and commits the context as validation read it. |
-| [0036](0036-event-sourced-waste-balance-stream.md)     | Event-sourced waste balance stream     | Unchanged: the `summary-log-submitted` event append remains the commit point, with the same payload.                                                                                    |
-| [0049](0049-december-waste-prns.md)                    | December-waste PRNs                    | Unchanged: `decemberCreditTotal` is computed by the same calculation, now at validation.                                                                                                |
+| ADR                                                    | Title                                  | Relationship                                                                                                                              |
+| ------------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [0037](0037-summary-log-row-states-with-membership.md) | Summary-log row states with membership | Extends: keeps the row-state model, the immutability rules and the commit point; moves the row-state write from submission to validation. |
+| [0036](0036-event-sourced-waste-balance-stream.md)     | Event-sourced waste balance stream     | Unchanged: the `summary-log-submitted` event append remains the commit point, with the same payload.                                      |
+| [0049](0049-december-waste-prns.md)                    | December-waste PRNs                    | Unchanged: `decemberCreditTotal` is computed by the same calculation, now at validation.                                                  |
 
 ## Context
 
@@ -32,16 +32,19 @@ An outcome from which the log cannot be submitted (today, `INVALID`) writes noth
 
 A retry is not a no-op if the context changed in between. The upsert key includes the classification, so a retry that reads a newly approved overseas site would insert a second state for the same row under the same `summaryLogId`, and the log's rows would no longer reproduce its credit. So if any row state already carries the summary log's id, validation fails permanently and the operator re-uploads. One state per row per membership is an invariant for contract tests.
 
-### Validation's reading is what is committed
+### Context changes supersede the log
 
-The classification stamped on each row state is the one validation computed, against the context as validation read it. A change to accreditation or overseas-site approval between validation and submission does not alter what this submission commits; it takes effect at the operator's next submission, when that upload's validation re-reads the context. A validated log can wait up to a week (its time-to-live) before submission, so that is how stale the committed context can be.
+The classification stamped on each row state is the one validation computed, against the context as validation read it. A validated log can wait up to a week (its time-to-live) before submission, and the context can change in that time: an overseas site revoked after validation would otherwise be committed as included and credit the balance until the operator's next submission.
 
-This amends ADR-0037, under which a commit reads the context current at the commit. It also means the operator commits exactly what the check page showed them, and submission no longer re-checks that the accreditation still exists.
+So validation saves a hash of the classification context, taken from the context object exactly as it is passed to classification (not the accreditation and overseas-site documents, so unrelated edits do not count as a change), with stable serialisation. Submission reads the context again from the organisation read model, hashes it, and supersedes the log if the hashes differ, through the same path as the rollout. Only the context is hashed: the workbook does not change, and the baseline check already catches a newer submission.
+
+A committed reading therefore always matches both the check page and the context current at the commit, as ADR-0037 requires. A withdrawn accreditation changes the hash too, so submission still refuses a log whose accreditation no longer stands.
 
 ### The commit is saved on the summary log
 
 Alongside `loads`, validation saves on the summary log everything submission needs in order to commit without the rows:
 
+- **The context hash**: as above.
 - **The event payload**: the ADR-0036 `summary-log-submitted` payload without `summaryLogId`, computed by the same calculation the submission path uses today. It is saved as one object whose schema is the ledger's payload schema, with every field present (a zero rather than an absent field), so a log saved before a new payload field is added fails the schema rather than reading the missing field as zero.
 - **Metric counts**: `created`, `updated` and `decemberWasteRowCount`, compared against the registration's latest submitted summary log.
 
@@ -53,8 +56,9 @@ Submission no longer reads the workbook and no longer builds rows. It:
 
 1. Loads the summary log and asserts it is `SUBMITTING`.
 2. Asserts no report has been submitted since the log was created (unchanged).
-3. Appends the `summary-log-submitted` event from the saved payload: accredited logs with their credit and audit as today, registered-only logs with a zero-delta event per ADR-0037.
-4. Transitions the log to `SUBMITTED` and records metrics from the saved counts.
+3. Supersedes the log if the classification context's hash no longer matches the saved one.
+4. Appends the `summary-log-submitted` event from the saved payload: accredited logs with their credit and audit as today, registered-only logs with a zero-delta event per ADR-0037.
+5. Transitions the log to `SUBMITTED` and records metrics from the saved counts.
 
 Every submission now appends an event. An accredited first submission with no rows, which today appends nothing, gets a zero-delta event, as ADR-0037 requires of every submission. The event payload and the handling of slot conflicts are otherwise unchanged.
 
@@ -62,12 +66,12 @@ Every submission now appends an event. An accredited first submission with no ro
 
 This replaces ADR-0037's write ordering, split across the two stages:
 
-| Stage      | Step | Write                                                  | On failure                                                                                     |
-| ---------- | ---- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Validation | 1    | Upsert row states and memberships                      | Balance and row-state reads unchanged; memberships are inert; retry fails, operator re-uploads |
-| Validation | 2    | Save the payload and counts; transition to `VALIDATED` | Log not submittable; memberships from step 1 stay inert                                        |
-| Submission | 1    | Append `summary-log-submitted` event (commit)          | Balance and row-state reads unchanged; memberships stay inert; operator re-submits             |
-| Submission | 2    | Transition to `SUBMITTED`                              | Event is committed; the log's status lags, as it can today                                     |
+| Stage      | Step | Write                                                                | On failure                                                                                     |
+| ---------- | ---- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Validation | 1    | Upsert row states and memberships                                    | Balance and row-state reads unchanged; memberships are inert; retry fails, operator re-uploads |
+| Validation | 2    | Save the context hash, payload and counts; transition to `VALIDATED` | Log not submittable; memberships from step 1 stay inert                                        |
+| Submission | 1    | Append `summary-log-submitted` event (commit)                        | Balance and row-state reads unchanged; memberships stay inert; operator re-submits             |
+| Submission | 2    | Transition to `SUBMITTED`                                            | Event is committed; the log's status lags, as it can today                                     |
 
 ### Inert memberships are routine
 
@@ -91,7 +95,7 @@ Submission appends the event naming `sl-2026-05b`. The latest submitted log's ro
 
 ### Rollout
 
-A summary log validated before this change has no saved payload. Both the submit route (before queueing) and the submission worker (for logs already submitting or queued at deployment) supersede a log whose saved payload is missing or fails its schema, and the operator re-uploads with the existing "please re-upload" message. Exposure is bounded by the week a validated log lives. There is no fallback that reads the workbook at submission: keeping one would preserve the second pipeline this decision removes.
+A summary log validated before this change has no saved payload. Both the submit route (before queueing) and the submission worker (for logs already submitting or queued at deployment) supersede a log whose saved payload or context hash is missing or fails its schema, and the operator re-uploads with the existing "please re-upload" message. Exposure is bounded by the week a validated log lives. There is no fallback that reads the workbook at submission: keeping one would preserve the second pipeline this decision removes.
 
 ## Considered alternatives
 
@@ -101,6 +105,8 @@ A summary log validated before this change has no saved payload. Both the submit
 
 **Re-run validation at submission.** Submission would call the validation pipeline rather than its own, which removes the duplicated code. It still reads the workbook twice and still re-reads the context, so the committed reading can still differ from the check page. Rejected because it removes the duplicated code without fixing the second reading.
 
+**Commit validation's reading regardless of later context changes.** Simpler: submission would not read the organisation read model at all. Rejected because a site revoked between validation and submission would be committed as included and credit the balance, and PRNs could be issued against that credit, until the operator's next submission.
+
 **Store the rows on the summary-log document.** A large summary log's rows run to tens of megabytes, which Mongo's 16MB document limit rules out, for the same reason ADR-0037 rejects inlining rows in the event payload.
 
 ## Consequences
@@ -109,14 +115,13 @@ A summary log validated before this change has no saved payload. Both the submit
 
 - **One row pipeline.** Rows are built, coerced and classified once. A change to how validation treats a row reaches the saved rows with no mirroring in submission.
 - **The operator commits what they confirmed.** The check page and the committed row states share one reading of the workbook and one reading of the context.
-- **Submission no longer reads the file.** It loses the extractor and organisation-read dependencies, does no S3 read or xlsx parse, and becomes an event append and a status change.
+- **Submission no longer reads the file.** It loses the extractor, does no S3 read or xlsx parse, and becomes a context check, an event append and a status change.
 
 ### Negative
 
 - **Inert data grows faster.** Every validated-but-unsubmitted upload leaves memberships and, for changed rows, documents. ADR-0037 already notes that a sweep belongs to operational hygiene; this makes that sweep more likely to be needed.
 - **Validation does more work.** The row-state bulk write moves onto the validation path, lengthening validation by roughly what it shortens submission.
-- **Context changes wait one more cycle.** An overseas site approved after validation counts from the operator's next submission, not this one, and the committed context can be up to a week old. An operator who submits immediately after an approval may expect otherwise.
-- **Submission no longer re-checks the accreditation.** A log validated against an accreditation that leaves the read model before submission still commits.
+- **Any context change forces a re-upload.** A change between validation and submission supersedes the log, even one that would not have changed any row's classification.
 - **A retry after the row write fails permanently.** Any failure between writing row states and the transition to `VALIDATED` sends the operator back to re-upload, whether or not the context changed.
 - **In-flight logs are lost at deployment.** Logs validated but not yet submitted when the change ships are superseded, and their operators must re-upload.
 
@@ -126,6 +131,6 @@ A summary log validated before this change has no saved payload. Both the submit
 
 ## Related
 
-- [ADR-0037](./0037-summary-log-row-states-with-membership.md): the row-state model this ADR amends
+- [ADR-0037](./0037-summary-log-row-states-with-membership.md): the row-state model this ADR extends
 - [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the stream whose commit point is unchanged
 - [ADR-0049](./0049-december-waste-prns.md): `decemberCreditTotal`, now computed at validation

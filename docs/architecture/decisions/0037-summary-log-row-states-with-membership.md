@@ -4,7 +4,7 @@ Date: 2026-06-12
 
 ## Status
 
-Accepted. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of summary-log row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once row-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage. Amended by [ADR-0058](./0058-validation-writes-summary-log-row-states.md): row states are written at validation, with the context as validation read it.
+Accepted. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of summary-log row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once row-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage. Extended by [ADR-0058](./0058-validation-writes-summary-log-row-states.md): row states are written at validation.
 
 ## Context
 
@@ -62,7 +62,7 @@ A row whose content is unchanged but whose reading has changed — an overseas s
 
 This makes `creditTotal` decomposable: the included states in a submission's membership, with their stamped amounts, reproduce the total its event recorded — a contract-testable invariant. It also serves the operator-facing possibility directly: "why didn't this row count" becomes a stored fact with a reason code rather than a recomputation.
 
-Context changes commit nothing by themselves. A reading changes only at the next commit, when the comparison re-runs under the now-current context — today that is the operator's next submission, whose cumulative restatement re-reads every row. Until then the stored reading remains the true answer, in agreement with the balance; any "this row would count now" hint a UI wants to give is a read-time preview against current context, not stored state. ([ADR-0058](./0058-validation-writes-summary-log-row-states.md) amends this: a submission commits the context as its validation read it.)
+Context changes commit nothing by themselves. A reading changes only at the next commit, when the comparison re-runs under the now-current context — today that is the operator's next submission, whose cumulative restatement re-reads every row. Until then the stored reading remains the true answer, in agreement with the balance; any "this row would count now" hint a UI wants to give is a read-time preview against current context, not stored state. (Under [ADR-0058](./0058-validation-writes-summary-log-row-states.md), a context change between validation and submission supersedes the log, so a commit still reads the current context.)
 
 ### Commit point and addressing
 
