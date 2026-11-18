@@ -73,7 +73,8 @@ A registration holds at most one accreditation a year (ADR-0034), so each year k
 `Accreditation`. That is the read model's `Accreditation`, from
 `src/organisation-read-model/domain/model.js` in `epr-backend`:
 
-- **Common fields:** every accreditation has a number, its PRN issuance details and its status.
+- **Common fields:** every accreditation has a number, its year, its PRN issuance details and its
+  status.
 - **Exporter accreditations:** these also carry the overseas sites they're approved for, keyed by
   the registration's ORS id.
 - **Taken from the registration:** material, processing type, site and regulator are left out,
@@ -91,11 +92,15 @@ A registration holds at most one accreditation a year (ADR-0034), so each year k
   "$defs": {
     "accreditationCommon": {
       "type": "object",
-      "required": ["accreditationNumber", "prnIssuance", "status"],
+      "required": ["accreditationNumber", "year", "prnIssuance", "status"],
       "properties": {
         "accreditationNumber": {
           "type": "string",
           "description": "The number issued when the accreditation was approved"
+        },
+        "year": {
+          "type": "integer",
+          "description": "The scheme year the accreditation covers, such as `2027`. It is the same as the year key the accreditation is served under"
         },
         "prnIssuance": {
           "type": "object",
@@ -195,6 +200,7 @@ registrations. The exporter's accreditation was suspended in March.
   "R27ER5000000001": {
     "2027": {
       "accreditationNumber": "A27ER5000000001PA",
+      "year": 2027,
       "prnIssuance": { "tonnageBand": "up_to_5000" },
       "status": {
         "current": "suspended",
@@ -213,6 +219,7 @@ registrations. The exporter's accreditation was suspended in March.
   "R27RR5000000002": {
     "2027": {
       "accreditationNumber": "A27RR5000000002PL",
+      "year": 2027,
       "prnIssuance": { "tonnageBand": "up_to_500" },
       "status": {
         "current": "approved",
@@ -244,7 +251,7 @@ The draft column refers to the draft's `Accreditation` schema.
 
 | This API                  | Reg Accred draft                                                                                                                                                     | Gap                                                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `year` as a response key  | `year` (integer, required)                                                                                                                                           | None                                                                   |
+| `year`, also the year key | `year` (integer, required)                                                                                                                                           | None                                                                   |
 | `registrationNumber`      | The registration's number, as issued when it was approved                                                                                                            | None                                                                   |
 | `accreditationNumber`     | `accreditationReference` (string, required)                                                                                                                          | The name only                                                          |
 | `status.current`          | `status` (string, required, values not listed)                                                                                                                       | The values are unknown, and have no `suspended` or `cancelled` (gap 2) |
