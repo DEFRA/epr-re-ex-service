@@ -46,6 +46,8 @@ A resolved row is **filled in** before any other validation runs:
 
 - A blank cell takes the previous-year row's value. An operator cannot clear a previous-year value on the linked row.
 - A supplied cell keeps the supplied value. Whether it may differ from a filled previous-year value is a separate rule: rejected before the correction deadline ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)), allowed after it ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)).
+- A cell left on its template default (a dropdown placeholder) counts as blank, so it inherits. This applies only to fill-in: some columns deliberately store an untouched placeholder verbatim, and unlinked rows keep that handling.
+- A formula column counts as supplied only if every input to it was supplied; otherwise it is blank and inherits. The table schema declares each formula column's inputs. A partial edit (one weight retyped) then fails the net-weight check, whose error asks for all the inputs together.
 - Only the later template's declared columns are filled in, excluding the row ID and the previous-year row ID.
 - A column renamed between years needs an explicit mapping; it is not matched by name.
 
@@ -64,6 +66,13 @@ For example, with three of the columns:
 A previous-year row ID that matches no submitted previous-year row will be rejected by validation ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then, such a row is not filled in, is stored as the operator wrote it, and is classified like any unlinked row.
 
 A linked row's `data` carries previous-year dates by design. A validation rule that rejects earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) therefore applies to the cells the operator supplied, not to inherited values, and allows a supplied earlier-year date that equals the previous-year row's.
+
+Fill-in also needs two changes to the 2027 exporter templates before they go out:
+
+- `ROW_ID` is generated when the previous-year row ID or any data cell on the row is filled. Today it depends on columns a linked row usually inherits, so a linked row that supplies only a date received overseas would have no row ID.
+- `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` defaults to its placeholder, not "No", so a deliberate "No" can be told from an untouched cell.
+
+Both go beyond the non-structural changes of [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so they need agreeing with the template owner.
 
 ### Cross-field checks allow for stored rounding on linked rows
 
@@ -95,7 +104,7 @@ What is new is provenance: some of the load's values were last entered in a diff
     year: 2026,
     rowId: 1500,
     rowStateId: "…",            // the previous-year row state it was filled in from
-    suppliedFields: [ … ]        // the fields the operator supplied on the linked row
+    suppliedFields: [ … ]        // the columns that count as supplied under the fill-in rules
   },
   classification: { … },
   summaryLogIds: [ … ]
