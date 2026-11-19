@@ -33,11 +33,21 @@ That commit is read **once** per validation, and both the fill-in and the contex
 
 A resolved row is **filled in** before any other validation runs: every field the operator left blank takes the previous-year row's value, and every field the operator supplied keeps the supplied value. Syntax validation, including every cross-field check, required-field checks and classification then see the filled-in row, so a linked row is checked as a whole load, values supplied on the linked row are checked against inherited ones, and the check page shows the filled-in reading. A blank cell always means "take the previous-year value"; an operator cannot clear a previous-year value on the linked row. Only the later template's declared columns are filled in, excluding the row ID and the previous-year row ID. A column renamed between years needs an explicit mapping; it is not matched by name.
 
+For example, with three of the columns:
+
+| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
+| ---------------------- | --------------- | -------------------------- | ------------------------- |
+| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
+| `OSR_ID`               | 012             | 047                        | 047, supplied value wins  |
+| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
+
 ### Cross-field checks allow for stored rounding on linked rows
 
 Inherited values are not the values the operator typed: tonnages and weights are stored to two decimal places (ADR-0037 coerces at write), while other inputs, such as the recyclable proportion, are stored as entered. A cross-field check that recomputes one stored value from others can therefore fail on a linked row through rounding alone: a load entered in 2026 as 10.12 t at a proportion of 0.37 had a tonnage of 3.7444 t, stored as 3.74 t, and recomputing 10.12 × 0.37 gives 3.7444 again.
 
 So on a row whose `data` has a previous-year row ID, each cross-field check widens its comparison by the most that two-decimal-place storage of its inputs can account for, and by no more. For the export tonnage check that is half a hundredth of a tonne on the stored tonnage, plus the rounding carried through the calculation from the net weight (re-derived from three rounded weights, so up to 0.015 t out) and the non-target weight (up to 0.005 t): at most about 0.025 t. The net weight check needs no allowance, because the stored net weight is re-derived from the stored gross, tare and pallet weights and so reconciles by construction. Unlinked rows keep today's comparison.
+
+The check still catches a real mismatch. In the example above, the inherited 3.74 t is within the allowance of the recalculated 3.7444 t, so the row passes. If the operator instead supplies a tonnage of 3.80 t on the linked row against the same inherited weights and proportion, it is 0.056 t out, beyond the allowance, so the row is rejected.
 
 A cross-field failure on a linked row can involve a cell the operator left blank, so its error says which values came from the previous year's row, and the operator knows which summary log to correct.
 
@@ -133,6 +143,10 @@ The operator's first 2027 summary log, `sl-2027-01`, has row `1000` with previou
 The export date is before the 2027 accreditation, but the row has a previous-year row ID and was received overseas in 2027, so it is included and the 2027 balance rises by 40 tonnes. The 2026 balance is unchanged.
 
 Before submitting `sl-2027-01`, the operator corrects row `1500`'s tonnage to 38 and resubmits 2026 as `sl-2026-12b`, event number 16 (a PRN event took 15). The previous year's position is now 16, so `sl-2027-01`'s context hash no longer matches and its submission is superseded. The operator re-uploads 2027, and validation fills row `1000` in with 38 tonnes from row state `rs-1500-b`. Had the PRN event been the only change, the position would still be 14 and `sl-2027-01` would have committed.
+
+Had the operator submitted `sl-2027-01` first instead, the 2027 balance would have risen by 40 tonnes. Correcting row `1500` to 38 tonnes in February would then leave the 2027 balance at 40 tonnes until the operator next uploads their 2027 summary log, whose validation fills row `1000` in with 38 tonnes, and the balance falls by 2 tonnes when that upload is submitted.
+
+A second load shows the date rule. 2026 row `1600` records 25 tonnes received for export on 20 December 2026, not yet exported. 2027 row `1001` links to it and supplies an export date of 12 January 2027 and a date received overseas of 3 February 2027. The December 2026 report shows the 25 tonnes received, from the 2026 row. The January 2027 report shows them exported, from the 2027 row, and the 2027 balance rises by 25 tonnes. On the 2027 check page the row's December 2026 date places it in no period, so even if the December 2026 report has been submitted the row is an open-period load, and only a submitted January 2027 report would make it closed.
 
 ## Considered alternatives
 
