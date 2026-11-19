@@ -58,3 +58,4 @@
 * [57. Sign CDP Uploader callback URLs](0057-sign-cdp-uploader-callback-urls.md)
 * [58. Validation writes summary-log row states](0058-validation-writes-summary-log-row-states.md)
 * [59. Waste-records exports carry template-declared columns](0059-waste-records-exports-carry-template-declared-columns.md)
+* [60. Cross-year linked summary-log rows](0060-cross-year-linked-summary-log-rows.md)

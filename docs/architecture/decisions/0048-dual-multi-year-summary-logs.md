@@ -8,7 +8,9 @@ Proposed
 
 Part 2, and the line in Consequences about breaking the report and ledger routes, are superseded by
 [ADR 0053](0053-address-resources-by-natural-key-and-year.md). Part 1's storage keys hold the
-accreditation number in place of `accreditationId`.
+accreditation number in place of `accreditationId`. Part 1 is amended by
+[ADR 0060](0060-cross-year-linked-summary-log-rows.md): a later year's validation may read an earlier
+year's submitted row states.
 
 ## Context
 
