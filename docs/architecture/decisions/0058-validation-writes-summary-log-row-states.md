@@ -4,7 +4,7 @@ Date: 2026-11-17
 
 ## Status
 
-Accepted. Extends [ADR-0037](./0037-summary-log-row-states-with-membership.md). Amended by [ADR-0060](./0060-cross-year-linked-summary-log-rows.md): the context covers everything outside the workbook that the reading depends on, including the previous year's position.
+Accepted. Extends [ADR-0037](./0037-summary-log-row-states-with-membership.md). Amended by [ADR-0060](./0060-cross-year-linked-summary-log-rows.md): the context covers everything outside the workbook that the reading depends on, including the previous year's position and accreditation.
 
 | ADR                                                    | Title                                  | Relationship                                                                                                                              |
 | ------------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
