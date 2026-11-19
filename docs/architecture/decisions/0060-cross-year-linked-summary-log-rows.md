@@ -45,23 +45,25 @@ That commit is read **once** per validation, and both the fill-in and the contex
 A resolved row is **filled in** before any other validation runs:
 
 - A blank cell takes the previous-year row's value. An operator cannot clear a previous-year value on the linked row.
-- A supplied cell keeps the supplied value.
+- A supplied cell keeps the supplied value. Whether it may differ from a filled previous-year value is a separate rule: rejected before the correction deadline ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)), allowed after it ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)).
 - Only the later template's declared columns are filled in, excluding the row ID and the previous-year row ID.
 - A column renamed between years needs an explicit mapping; it is not matched by name.
 
 Syntax validation (including every cross-field check), required-field checks and classification then see the filled-in row. So a linked row is checked as a whole load, values supplied on it are checked against inherited ones, and the check page shows the filled-in reading.
 
+Validation of a linked row also has the previous-year row as stored and the row as entered. The rules that compare the two years (an earlier-year date on a linked row, a supplied value that differs from a filled previous-year value, a field the previous-year row should already hold, and the others in the epic's rules table) read those, not the filled-in row. Each is decided under its own ticket. A supplied value is rounded to the stored precision before it is compared with a previous-year value, so 10.123 against a stored 10.12 is not a change.
+
 For example, with three of the columns:
 
-| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
-| ---------------------- | --------------- | -------------------------- | ------------------------- |
-| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
-| `OSR_ID`               | 012             | 047                        | 047, supplied value wins  |
-| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
+| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in          |
+| ---------------------- | --------------- | -------------------------- | ---------------------------------- |
+| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited              |
+| `OSR_ID`               | 012             | 047                        | 047, supplied (after the deadline) |
+| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied               |
 
 A previous-year row ID that matches no submitted previous-year row will be rejected by validation ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then, such a row is not filled in, is stored as the operator wrote it, and is classified like any unlinked row.
 
-A linked row's `data` carries previous-year dates by design. A validation rule that rejects earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) therefore applies to the cells the operator supplied, not to inherited values.
+A linked row's `data` carries previous-year dates by design. A validation rule that rejects earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) therefore applies to the cells the operator supplied, not to inherited values, and allows a supplied earlier-year date that equals the previous-year row's.
 
 ### Cross-field checks allow for stored rounding on linked rows
 
