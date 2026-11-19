@@ -4,7 +4,7 @@ Date: 2026-06-12
 
 ## Status
 
-Accepted. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of summary-log row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once row-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage.
+Accepted. Amends [ADR-0036](./0036-event-sourced-waste-balance-stream.md): the event-sourced stream and its commit semantics stand; this ADR adds a deduplicated collection of summary-log row states, addressed by the `summaryLogId` each `summary-log-submitted` event already carries, and sets the target of retiring the row-level companion design (sparse version chains and the canonicity walk) once row-state reads have moved to it. The change lands additively — the existing waste-records write path is untouched until the final stage. Extended by [ADR-0058](./0058-validation-writes-summary-log-row-states.md): row states are written at validation.
 
 ## Context
 
@@ -62,7 +62,7 @@ A row whose content is unchanged but whose reading has changed — an overseas s
 
 This makes `creditTotal` decomposable: the included states in a submission's membership, with their stamped amounts, reproduce the total its event recorded — a contract-testable invariant. It also serves the operator-facing possibility directly: "why didn't this row count" becomes a stored fact with a reason code rather than a recomputation.
 
-Context changes commit nothing by themselves. A reading changes only at the next commit, when the comparison re-runs under the now-current context — today that is the operator's next submission, whose cumulative restatement re-reads every row. Until then the stored reading remains the true answer, in agreement with the balance; any "this row would count now" hint a UI wants to give is a read-time preview against current context, not stored state.
+Context changes commit nothing by themselves. A reading changes only at the next commit, when the comparison re-runs under the now-current context — today that is the operator's next submission, whose cumulative restatement re-reads every row. Until then the stored reading remains the true answer, in agreement with the balance; any "this row would count now" hint a UI wants to give is a read-time preview against current context, not stored state. (Under [ADR-0058](./0058-validation-writes-summary-log-row-states.md), a context change between validation and submission supersedes the log, so a commit still reads the current context.)
 
 ### Commit point and addressing
 
@@ -146,7 +146,7 @@ What the shape buys, read off these documents:
 - **"Why didn't it count?" is a stored fact.** `EX-002` did not count in April because of `ORS_NOT_APPROVED`, recorded on its April state — not recomputed at read time, so it cannot disagree with the credit the April event actually recorded.
 - **Row history comes for free.** `EX-002`'s two state documents, ordered by the stream position of their memberships, show the `EXCLUDED → INCLUDED` flip and the approval behind it.
 
-A submission that never commits leaves documents tagged only with its `summaryLogId`; because no event names that id, no row-state read ever queries it, and the leftovers are inert.
+A submission that never commits leaves documents tagged only with its `summaryLogId`; because no event names that id, no row-state read ever queries it, and the leftovers are inert. Under [ADR-0058](./0058-validation-writes-summary-log-row-states.md) every validated upload that is never submitted leaves the same.
 
 ### Every submission appends an event
 
@@ -173,7 +173,7 @@ Stage 1 inserts the row-state writes before the event append; waste-record write
 | 1    | Upsert row states and memberships (idempotent, anchored to the latest submitted summary log) | Balance and row states unchanged; partial application is invisible to row-state reads; retry safe |
 | 2    | Append `summary-log-submitted` event (commit)                                                | Balance and row states unchanged; new memberships stay inert; operator re-submits                 |
 
-This ultimately replaces ADR-0036's summary-log row of its write-ordering table, where row-version writes preceded the event and relied on the canonicity walk to be invisible until committed.
+This ultimately replaces ADR-0036's summary-log row of its write-ordering table, where row-version writes preceded the event and relied on the canonicity walk to be invisible until committed. [ADR-0058](./0058-validation-writes-summary-log-row-states.md) moves step 1 to validation and replaces this table.
 
 ### Reads
 
@@ -216,7 +216,7 @@ Row-level reads need no separate machinery: a row's current value is its state t
 - **The commit path keeps a many-document bulk write** (one operation per row) ahead of the event append — the same cost the submission path pays today.
 - **Membership arrays and the multikey index grow without bound** — one entry per row per submission, small individually, accumulating for as long as a registration keeps submitting. Compaction is available if measured growth ever surprises.
 - **Coercion and classification become load-bearing at write time.** A coercion or classification bug bakes into stored states. Rebuilding affected documents from the retained workbooks is always possible, never automatic — and where the corrected values differ in what the stream has already aggregated, the correction itself belongs on the stream rather than in a silent rewrite of committed history.
-- **Inert garbage accumulates.** Failed submissions leave unreachable documents and memberships; harmless to every row-state read, but a sweep belongs to operational hygiene.
+- **Inert garbage accumulates.** Failed submissions leave unreachable documents and memberships (and, under [ADR-0058](./0058-validation-writes-summary-log-row-states.md), so do validated uploads never submitted); harmless to every row-state read, but a sweep belongs to operational hygiene.
 
 ## Out of scope
 

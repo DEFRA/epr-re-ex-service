@@ -56,4 +56,5 @@
 * [55. Summary log templates by year](0055-summary-log-templates-by-year.md)
 * [56. Moving to read-only view of organisations, registrations and accreditations](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md)
 * [57. Sign CDP Uploader callback URLs](0057-sign-cdp-uploader-callback-urls.md)
+* [58. Validation writes summary-log row states](0058-validation-writes-summary-log-row-states.md)
 * [59. Waste-records exports carry template-declared columns](0059-waste-records-exports-carry-template-declared-columns.md)
