@@ -129,7 +129,7 @@ A summary log validated before this change has no saved payload. Both the submit
 
 ## Out of scope
 
-- **Cross-year links.** A later year's rows that take values from an earlier year's rows, and an earlier-year submission that has to reach a later year's balance, are decided separately under [PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282). This ADR covers single-year submission only: its staleness check is per year, so an earlier-year resubmission does not supersede a later-year log already validated against the earlier values.
+- **Cross-year links.** A later year's rows that take values from an earlier year's rows, and an earlier-year submission that has to reach a later year's balance, are decided separately under [PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282). This ADR covers single-year submission only: its staleness check is per year. [ADR-0060](./0060-cross-year-linked-summary-log-rows.md) adds the earlier year's latest submission to a later-year log's context, so an earlier-year resubmission supersedes the later-year log.
 
 ## Related
 
