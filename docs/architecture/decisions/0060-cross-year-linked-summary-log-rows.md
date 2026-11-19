@@ -209,7 +209,7 @@ A second load shows the date rule. 2026 row `1600` records 25 tonnes received fo
 
 - **The later year can lag the previous year.** A previous-year change after the later year's submission reaches the later year only at its next upload, until automatic recalculation ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)).
 - **Later-year validation and submission read the previous year's stream**, at validation, on the submit route and in the submission worker.
-- **Any previous-year resubmission supersedes in-flight later-year logs**, linked or not, until the previous year closes at the end of February (not yet enforced).
+- **Any previous-year resubmission supersedes in-flight later-year logs**, linked or not, until the previous year closes to uploads: the end of February for accredited operators, 20 March for registered-only ones ([PAE-2106](https://eaflood.atlassian.net/browse/PAE-2106)).
 - **A blank cell cannot clear a value.** To remove a previous-year value on a linked row, the operator corrects the previous-year row.
 - **Cross-field checks are looser on linked rows, and must know a row is linked.** A linked row's export tonnage can differ from its recalculation by up to about 0.025 t and still pass.
 - **A fully completed row with an unmatched previous-year row ID is credited on its overseas receipt date alone**, until validation rejects unmatched IDs ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)).
