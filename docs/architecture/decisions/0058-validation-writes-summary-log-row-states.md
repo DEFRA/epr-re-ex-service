@@ -36,7 +36,7 @@ A retry is not a no-op if the context changed in between. The upsert key include
 
 The classification stamped on each row state is the one validation computed, against the context as validation read it. A validated log can wait up to a week (its time-to-live) before submission, and the context can change in that time: an overseas site revoked after validation would otherwise be committed as included and credit the balance until the operator's next submission.
 
-So validation saves a hash of the classification context, taken from the context object exactly as it is passed to classification (not the accreditation and overseas-site documents, so unrelated edits do not count as a change), with stable serialisation. Submission reads the context again from the organisation read model, hashes it, and supersedes the log if the hashes differ, through the same path as the rollout. Only the context is hashed: the workbook does not change, and the baseline check already catches a newer submission.
+So validation saves a hash of the classification context, taken from the context object exactly as it is passed to classification (not the accreditation and overseas-site documents, so unrelated edits do not count as a change), with stable serialisation. Submission reads the context again from the organisation read model, hashes it, and supersedes the log if the hashes differ, through the same path as the rollout. The submit route runs the same check before it queues the submission, so most such logs are turned away there; the worker's check catches a change between queueing and processing. Only the context is hashed: the workbook does not change, and the baseline check already catches a newer submission.
 
 A committed reading therefore always matches both the check page and the context current at the commit, as ADR-0037 requires. A withdrawn accreditation changes the hash too, so submission still refuses a log whose accreditation no longer stands.
 
@@ -56,7 +56,7 @@ Submission no longer reads the workbook and no longer builds rows. It:
 
 1. Loads the summary log and asserts it is `SUBMITTING`.
 2. Asserts no report has been submitted since the log was created (unchanged).
-3. Supersedes the log if the classification context's hash no longer matches the saved one.
+3. Supersedes the log if a newer log has been submitted since its baseline, its saved commit is missing or fails its schema, or the classification context's hash no longer matches the saved one.
 4. Appends the `summary-log-submitted` event from the saved payload: accredited logs with their credit and audit as today, registered-only logs with a zero-delta event per ADR-0037.
 5. Transitions the log to `SUBMITTED` and records metrics from the saved counts.
 
@@ -95,7 +95,7 @@ Submission appends the event naming `sl-2026-05b`. The latest submitted log's ro
 
 ### Rollout
 
-A summary log validated before this change has no saved payload. Both the submit route (before queueing) and the submission worker (for logs already submitting or queued at deployment) supersede a log whose saved payload or context hash is missing or fails its schema, and the operator re-uploads with the existing "please re-upload" message. Exposure is bounded by the week a validated log lives. There is no fallback that reads the workbook at submission: keeping one would preserve the second pipeline this decision removes.
+A summary log validated before this change has no saved payload. Both the submit route (before queueing) and the submission worker (for logs already submitting or queued at deployment) supersede a log whose saved payload or context hash is missing or fails its schema, and the route answers with its existing conflict response. The frontend shows that as its upload-conflict page, which tells the operator to upload the summary log again; its introduction describes a newer upload, which is not the cause here, and is left unchanged given the week-long exposure. Exposure is bounded by the week a validated log lives. There is no fallback that reads the workbook at submission: keeping one would preserve the second pipeline this decision removes.
 
 ## Considered alternatives
 
