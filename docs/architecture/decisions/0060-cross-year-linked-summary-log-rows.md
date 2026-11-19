@@ -17,7 +17,7 @@ Proposed. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later yea
 
 An accredited exporter can export a load in one year that is received overseas in the next. Under ADR-0048 each year has its own summary log, row states and waste balance, so a load exported in 2026 and received overseas in 2027 counts in neither: it is outside the 2026 accreditation because it was received overseas in 2027, and outside the 2027 accreditation because it was exported in 2026.
 
-The business chose to resolve this by letting the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the accredited exporter's received-loads table and the registered-only exporter's loads-exported table each have a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**. It is not a re-upload of the 2026 row: it holds whatever completion data was missing in 2026, and takes the rest from the 2026 row. The 2027 waste balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)).
+The business chose to resolve this by letting the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the Exported tab of both exporter templates has a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**. It is not a re-upload of the 2026 row: it holds whatever completion data was missing in 2026, and takes the rest from the 2026 row. The 2027 waste balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)).
 
 The column is stored today, but nothing reads it. This ADR decides where a linked row takes its 2026 values, what its row state records, how its credit is decided and how the later year stays consistent with the earlier one. ADR-0058 settles the first in principle: validation is the only place rows are built, so that is where a linked row is filled in.
 
@@ -25,10 +25,10 @@ The column is stored today, but nothing reads it. This ADR decides where a linke
 
 ### Validation fills in linked rows from the earlier year's submitted row states
 
-Linking applies to a table whose schema declares that it links years, not to any table that happens to carry a previous-year row ID column. From 2027 two tables do ([PAE-2283](https://eaflood.atlassian.net/browse/PAE-2283)):
+Linking applies to a table whose schema declares that it links years, not to any table that happens to carry a previous-year row ID column. From 2027 two tables do, both on the Exported tab ([PAE-2283](https://eaflood.atlassian.net/browse/PAE-2283)):
 
-- the accredited exporter's received-loads table
-- the registered-only exporter's loads-exported table
+- accredited exporter: `RECEIVED_LOADS_FOR_EXPORT`
+- registered-only exporter: `LOADS_EXPORTED`
 
 Filling in and the previous-year position in the context apply to both. The credit exemption applies only to the accredited table, the only one with a balance. The date rule (below) applies to every row, linked or not.
 
