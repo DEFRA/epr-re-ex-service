@@ -67,7 +67,7 @@ The 2026 accreditation is a separate record, so the 2027 ledger id with the year
 
 **The read.** One query, served by the existing `summary_log_row_state_identity_by_year` index. A log with no previous-year row IDs skips it.
 
-```
+```js
 {
   organisationNumber, registrationNumber,
   accreditationNumber: <previous-year accreditation>,
@@ -108,18 +108,19 @@ The registered-only Exported tab has no formula besides `ROW_ID`, and its dropdo
 
 A previous-year export date supplied on a later-year row credits the load correctly (against the previous year's accreditation), but the export appears in no month's report: the previous-year row has no export date, and the own-year rule places the later-year row's date nowhere. [PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101) warns about such a date before the deadline.
 
-| Cell on the 2027 row                                            | Filled-in value       | In `suppliedFields` |
-| --------------------------------------------------------------- | --------------------- | ------------------- |
-| Allowed, blank or on its dropdown placeholder                   | Previous-year value   | No                  |
-| Allowed, supplied, previous-year value blank or equal           | Supplied value        | Yes                 |
-| Allowed, supplied, different from a filled previous-year value  | Rejected ([PAE-2102]) | n/a                 |
-| Not allowed, whatever it holds (value, formula result, default) | Previous-year value   | No                  |
-| `ROW_ID`, `PREVIOUS_YEAR_ROW_ID`                                | Never filled          | n/a                 |
+| Cell on the 2027 row                                               | Filled-in value       | In `suppliedFields` |
+| ------------------------------------------------------------------ | --------------------- | ------------------- |
+| Allowed, blank or on its dropdown placeholder                      | Previous-year value   | No                  |
+| Allowed, supplied, previous-year value blank, placeholder or equal | Supplied value        | Yes                 |
+| Allowed, supplied, different from a filled previous-year value     | Rejected ([PAE-2102]) | n/a                 |
+| Not allowed, whatever it holds (value, formula result, default)    | Previous-year value   | No                  |
+| `ROW_ID`, `PREVIOUS_YEAR_ROW_ID`                                   | Never filled          | n/a                 |
 
 [PAE-2102]: https://eaflood.atlassian.net/browse/PAE-2102
 
 - Supplied values are rounded to the stored precision before comparison: 10.123 against a stored 10.12 is equal.
-- Treating a placeholder as blank applies only to fill-in. Unlinked rows still store an untouched placeholder verbatim.
+- A placeholder counts as blank on both rows. On the accredited tab, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED` and `OSR_COUNTRY` have no `unfilledValues` entry, so a 2026 row stores an untouched "Choose option" as text. Without this, a linked row supplying "No" would count as changing a filled value and be rejected.
+- Treating a placeholder as blank applies only to fill-in and the year comparison. Unlinked rows still store an untouched placeholder verbatim.
 - A renamed column needs an explicit mapping. Renames are out of scope.
 - Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
@@ -156,12 +157,12 @@ Formula columns and other defaults need no change: the formulas are receipt colu
 
 Inherited weights and tonnages are stored at two decimal places; the recyclable proportion is stored as entered. On a row whose `data` has a previous-year row ID, each cross-field check widens its comparison by what that rounding can account for. Unlinked rows keep today's comparison.
 
-| Export tonnage check: source of rounding | Allowance     |
-| ---------------------------------------- | ------------- |
-| Stored tonnage                           | 0.005 t       |
-| Net weight, from three rounded weights   | up to 0.015 t |
-| Non-target weight                        | up to 0.005 t |
-| **Total**                                | **≈ 0.025 t** |
+| Tonnage received for export check: source of rounding | Allowance     |
+| ----------------------------------------------------- | ------------- |
+| Stored tonnage                                        | 0.005 t       |
+| Net weight, from three rounded weights                | up to 0.015 t |
+| Non-target weight                                     | up to 0.005 t |
+| **Total**                                             | **≈ 0.025 t** |
 
 The net weight check needs none: the stored net weight is re-derived from the stored weights.
 
@@ -174,7 +175,7 @@ A cross-field error on a linked row names the values that came from the previous
 
 ## Row state
 
-```
+```js
 {
   …row identity…,
   data: { …filled-in, coerced row… },
@@ -203,7 +204,7 @@ Accredited exporter rows, linked or not:
 | Current year, on a live 2027 day  | Previous year  | No 2026 accreditation       | Never                            |
 | Blank, previous year, or not live | Any            | n/a                         | Never                            |
 
-Overseas-site approval is checked against the export date using the current year's sites. Readers that reclassify at read time (waste-records exports, market insights waste balance) resolve the previous-year accreditation the same way.
+Overseas-site approval is checked against the export date using the current year's sites. The waste-records exports and the market insights waste balance re-run classification when they read rows, against the accreditation as it stands, so they resolve the previous-year accreditation the same way.
 
 ## Context
 

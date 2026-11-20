@@ -17,41 +17,65 @@ The [HLD](../discovery/summary-log-cross-year-links-hld.md) gives the overview a
 
 ## Context
 
-An accredited exporter can export a load in one year that is received overseas in the next. Under ADR-0048 each year has its own summary log, row states and waste balance, so a load exported in 2026 and received overseas in 2027 counts in neither: it is outside the 2026 accreditation because it was received overseas in 2027, and outside the 2027 accreditation because it was exported in 2026. A load received for export in 2026 and exported in 2027 would have to be entered again in full in 2027.
+### Who is affected
 
-The business chose to resolve this by letting the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the Exported tab of both exporter templates has a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**. It is not a re-upload of the 2026 row: it holds whatever completion data was missing in 2026, and takes the rest from the 2026 row. The 2027 waste balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)).
+Only exporters. A load can cross the year boundary between the stages an exporter records on one row of its Exported tab:
 
-The column is stored today, but nothing reads it. This ADR decides where a linked row takes its 2026 values, what its row state records, how its credit is decided and how the later year stays consistent with the earlier one. ADR-0058 settles the first in principle: validation is the only place rows are built, so that is where a linked row is filled in.
+- **Exported in one year, completed overseas in the next.** For an accredited exporter, a load exported in 2026 and received overseas in 2027 counts in neither year's waste balance: it is outside the 2026 accreditation because it was received overseas in 2027, and outside the 2027 accreditation because it was exported in 2026. For either kind of exporter, a load refused, stopped or repatriated in 2027 has its outcome recorded a year after the row.
+- **Received for export in one year, exported in the next** (accredited exporters only; registered-only exporters record receipts on a separate tab). The 2027 row would have to repeat every receipt column already in 2026.
+
+Reprocessors are not affected: they have no Exported tab.
+
+Under ADR-0048 each year has its own summary log, row states and waste balance, so neither case can be completed today. The business chose to let the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the Exported tab of both exporter templates has a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**: it holds what was missing in 2026, and takes the rest from the 2026 row. The 2027 balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)). The column is already read from the workbook and stored, but nothing uses it yet.
+
+|                                        | Accredited exporter                                     | Registered-only exporter                   |
+| -------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| Linking table                          | `RECEIVED_LOADS_FOR_EXPORT`                             | `LOADS_EXPORTED`                           |
+| Columns a linked row may supply        | Export and overseas columns                             | Refused, stopped and repatriation columns  |
+| Effect of a linked row                 | Credits the 2027 waste balance; appears in 2027 reports | Appears in 2027 reports (no waste balance) |
+| Previous-year accreditation in context | Yes, for the credit rule                                | No                                         |
+| Previous year closes to corrections    | End of February                                         | 20 March                                   |
+
+### Terms
+
+These come from earlier ADRs:
+
+- **Stream**: the event ledger of one registration's summary logs for one year ([ADR-0036](./0036-event-sourced-waste-balance-stream.md)). An accredited and a registered-only registration have separate streams.
+- **Row state**: one stored version of a summary-log row, holding its values (`data`) and its classification ([ADR-0037](./0037-summary-log-row-states-with-membership.md)).
+- **Membership**: the summary logs a row state belongs to (`summaryLogIds`). A summary log's rows are the row states with it in their membership.
+- **Commit**: the event that makes a summary log's memberships count, today `summary-log-submitted`. Memberships of a log that was never committed are ignored.
+- **Context**: everything outside the workbook that the reading of it depends on, such as the accreditation and overseas-site approvals. Validation hashes it, and submission supersedes the log if the hash has changed ([ADR-0058](./0058-validation-writes-summary-log-row-states.md)).
+
+This ADR decides where a linked row takes its 2026 values, what its row state records, how its credit is decided and how the later year stays consistent with the earlier one. ADR-0058 settles the first in principle: validation is the only place rows are built, so that is where a linked row is filled in.
 
 ## Decision
 
 ### Validation fills in linked rows from the previous year's latest submitted row states
 
-Linking applies only to tables whose schema declares it: from 2027, the Exported tab's table on both exporter templates ([PAE-2283](https://eaflood.atlassian.net/browse/PAE-2283)).
+Linking applies only to tables whose schema declares it: the two linking tables above ([PAE-2283](https://eaflood.atlassian.net/browse/PAE-2283)).
 
-Validation resolves each previous-year row ID against the registration's **latest submitted** previous-year summary log in the **same stream** (accredited or registered-only). Uncommitted previous-year uploads are never read. That commit is read **once** per validation and serves both the fill-in and the context (below): two reads could straddle a previous-year submission, filling rows from one while the context records the next.
+Validation resolves each previous-year row ID against the registration's **latest submitted** previous-year summary log in the same stream. Uncommitted previous-year uploads are never read. That commit is read **once** per validation and serves both the fill-in and the context: two reads could straddle a previous-year submission, filling rows from one while the context records the next.
 
-A resolved row is **filled in** before any other validation runs. The table schema declares an **allow list** of the columns a linked row may supply: the export and overseas columns, from the tonnage exported and date of export through to the date received overseas and the refused, stopped and repatriation columns. The receipt columns always come from the previous-year row. This covers both a load exported in one year and received overseas in the next, and one received for export in one year and exported in the next. None of the allowed columns is a template formula. An allowed column keeps a supplied value and otherwise takes the previous-year value. Every other column takes the previous-year value, whatever the later-year cell holds. Every later check, the check page and the stored row then see the whole load, so values supplied on a linked row are checked against inherited ones.
+A resolved row is **filled in** before any other validation runs. The table schema declares an **allow list** of the columns a linked row may supply (see the table above): for an accredited exporter, every column from the tonnage exported and date of export through to the date received overseas and the refused, stopped and repatriation columns. The receipt columns always come from the previous-year row. None of the allowed columns is a template formula. An allowed column keeps a supplied value and otherwise takes the previous-year value. Every other column takes the previous-year value, whatever the later-year cell holds. A dropdown left on its placeholder counts as blank on both rows, since some 2026 columns store the placeholder as text. Every later check, the check page and the stored row then see the whole load.
 
 The allow list keeps fill-in independent of the template. A formula the operator never touched, such as a net weight computed as 0 from blank weights, or a dropdown left on its default, is outside the list and cannot override the previous-year value. So fill-in needs no knowledge of the template's formulas or defaults, and a partly filled row cannot produce a partly computed load.
 
 Rules that compare the two years read the previous-year row as stored and the row as entered. Before the previous year's correction deadline, a supplied allowed value that differs from one the previous-year row already holds is rejected ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)); a value in any other column is ignored. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the others in the epic's rules table are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
-The 2027 exporter templates need one change: `ROW_ID` generated when the previous-year row ID or any data cell is filled, since a linked row usually inherits the columns it depends on today. It goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and needs agreeing with the template owner.
-
 A previous-year row ID that matches no submitted row will be rejected ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then the row is stored as written and classified like any unlinked row.
 
-### Cross-field checks allow for stored rounding on linked rows
+### Cross-field checks on linked rows tolerate stored rounding
 
-Inherited weights and tonnages are the stored two-decimal-place values (ADR-0037), not what the operator typed, so a cross-field check could fail a linked row through rounding alone. On a row whose `data` has a previous-year row ID, each check widens its comparison by what that storage can account for, and no more (about 0.025 t for export tonnage). Unlinked rows keep today's comparison. A cross-field error on a linked row says which values came from the previous year, so the operator knows which log to correct.
+Some checks recalculate one value from others: the tonnage received for export from the net weight, non-target weight and recyclable proportion, for example. A linked row inherits those values as stored, to two decimal places (ADR-0037), not as the operator typed them, so the recalculation can differ from the stored value by rounding alone. On a linked row, each such check therefore accepts exactly the difference that two-decimal-place storage of its inputs can produce, and no more; the [LLD](../discovery/summary-log-cross-year-links-lld.md#cross-field-rounding-allowance) gives the figures. A real mismatch still fails, and its error says which values came from the previous year, so the operator knows which log to correct. Unlinked rows keep today's comparison.
 
-### `data` is the complete load; `link` records where it came from
+### `data` holds the complete load; `link` records where it came from
 
-Every summary log restates every load in full (ADR-0037), so `data` has always meant "this load's values as of this submission". A linked row's filled-in values mean exactly that, so they go in `data`, and every reader of row states (waste balance, reports, exports, credited tonnage, market insights) reads a linked row like any other.
+- **`data`** is the filled-in row, the same shape as an unlinked row's. Every summary log restates every load in full (ADR-0037), so `data` has always meant "this load's values as of this submission", and a filled-in row means exactly that. The waste balance, reports, exports and market insights use it unchanged.
+- **`link`** records the previous year, row ID and row state the row was filled in from, and `suppliedFields`: the allowed columns the operator supplied. Only row history and a later recalculation use it; recalculation needs `suppliedFields` to fill the row in again without the workbook.
 
-Provenance goes in a `link` beside `data`: the previous year, row ID and row state, and the allowed columns that were supplied. No reader of the balance, reports or exports reads it; row history and a later recalculation do, the latter needing `suppliedFields` to fill the row in again without the workbook. `link` is part of the row state's content, so a change of previous-year row state is visible in history. It sits beside `data` because a key no template declares would be dropped from the exports (ADR-0059).
+`link` is part of the row state's content, so a change of previous-year row state shows in the row's history. It sits beside `data`, not inside it, because the exports drop any key no template declares (ADR-0059).
 
-### A load's credit is checked against the accreditation of each date's year
+### Accredited exporters: credit is checked against the accreditation of each date's year
 
 An accredited exporter row is credited only if its date received overseas falls on a live day of the current year's accreditation, and its date of export falls on a live day of the accreditation of that date's year. So the context carries the previous year's accreditation, or `null`, which excludes a previous-year export date.
 
@@ -68,13 +92,17 @@ A previous-year row cannot record a later-year date ([PAE-2100](https://eaflood.
 The filled-in reading depends on which previous-year submission it was read from, so that is context, like overseas-site approval. For a template with a table that links years, the context gains:
 
 - the **previous year's position**: the event number of its latest commit that restates row states, not its latest event, so PRN events do not count
-- the **previous year's accreditation**, for the credit rule
+- for an accredited exporter, the **previous year's accreditation**, for the credit rule
 
 ADR-0058's check is unchanged but its input widens: the hash covers the whole context except table schemas, so a previous-year resubmission between validation and submission supersedes the log as `CONTEXT_CHANGED`. Validation and submission build the context with one function. Templates without a linking table omit the new keys, so their hashes are unchanged on deployment. The context is per log, so every in-flight later-year log in the stream is affected, linked or not.
 
 ### Previous-year changes reach the later year at its next upload
 
 A submitted later-year log keeps the values its linked rows were filled in with. A later previous-year change reaches the later year when the operator next uploads it. Automatic recalculation is a separate decision ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)); ADR-0037 leaves room for a commit that restates memberships, and `suppliedFields` keeps that open.
+
+## Prerequisites
+
+- **`ROW_ID` generation in the 2027 exporter templates.** Today `ROW_ID` is generated only when columns a linked row usually inherits are filled, so a linked row that supplies only a date received overseas would have no row ID. It must be generated when the previous-year row ID or any data cell is filled. This goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and needs agreeing with the template owner before the 2027 templates go out.
 
 ## Considered alternatives
 
@@ -118,10 +146,10 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 ### Negative
 
 - **The later year can lag the previous year** until its next upload, or until automatic recalculation ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)).
-- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker and in the readers that reclassify at read time.
+- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the waste-records exports and market insights, which re-run classification when they read rows.
 - **Any previous-year resubmission or accreditation change supersedes in-flight later-year logs**, linked or not, until the previous year closes to uploads: the end of February for accredited operators, 20 March for registered-only ones ([PAE-2106](https://eaflood.atlassian.net/browse/PAE-2106)).
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
-- **Cross-field checks are looser on linked rows**, by up to about 0.025 t on export tonnage.
+- **Cross-field checks are looser on linked rows**, by up to about 0.025 t on the tonnage received for export.
 - **Later-year row states carry earlier-year dates.** Any new reader that places rows by date must count only its own year.
 - **A value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error.
 - **Fill-in depends on the `ROW_ID` template change** landing before the 2027 templates go out.
