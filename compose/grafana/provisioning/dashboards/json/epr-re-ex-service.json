@@ -110,190 +110,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "UploadSummaryLogStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "UploadSummaryLogStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "UploadSummaryLogEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "UploadSummaryLogEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "UploadSummaryLog",
@@ -409,190 +369,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SaveDraftPRNStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SaveDraftPRNStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SaveDraftPRNEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SaveDraftPRNEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "SaveDraftPRN",
@@ -708,190 +628,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "IssuePRNStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "IssuePRNStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "IssuePRNEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "IssuePRNEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "IssuePRN",
@@ -1007,190 +887,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DiscardPRNStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DiscardPRNStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DiscardPRNEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DiscardPRNEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "DiscardPRN",
@@ -1306,190 +1146,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DeletePRNStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DeletePRNStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DeletePRNEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DeletePRNEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "DeletePRN",
@@ -1605,190 +1405,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "CancelPRNStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "CancelPRNStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "CancelPRNEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "CancelPRNEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "CancelPRN",
@@ -1904,190 +1664,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SaveDraftReportStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SaveDraftReportStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SaveDraftReportEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SaveDraftReportEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "SaveDraftReport",
@@ -2203,190 +1923,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SubmitReportStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "SubmitReportStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SubmitReportEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "SubmitReportEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "SubmitReport",
@@ -2502,190 +2182,150 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
+          "refId": "StartedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DeleteReportStart",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionStart",
           "dimensions": {
             "journey": "DeleteReportStart"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionStart",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "StartedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedInYear",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DeleteReportEnd",
             "year": "${year:text}"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedInYear",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "FinishedUntagged",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cc080e90-24cc-4caf-ab5b-a71159c46702"
           },
+          "hide": true,
+          "namespace": "epr-frontend",
+          "metricName": "TransactionEnd",
           "dimensions": {
             "journey": "DeleteReportEnd"
           },
-          "expression": "",
-          "hide": true,
-          "id": "",
-          "label": "",
-          "logGroups": [],
           "matchExact": true,
-          "metricEditorMode": 0,
-          "metricName": "TransactionEnd",
-          "metricQueryType": 0,
-          "namespace": "epr-frontend",
-          "period": "",
-          "queryLanguage": "CWLI",
-          "queryMode": "Metrics",
-          "refId": "FinishedUntagged",
-          "region": "default",
-          "sqlExpression": "",
-          "statistic": "Sum"
+          "statistic": "Sum",
+          "region": "default"
         },
         {
+          "refId": "StartedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "StartedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "StartedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "StartedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedInYearTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedInYearTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedInYear",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
+          "refId": "FinishedUntaggedTotal",
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "FinishedUntaggedTotal",
+          "hide": true,
           "type": "reduce",
           "expression": "FinishedUntagged",
           "reducer": "sum",
           "settings": {
             "mode": "replaceNN",
             "replaceWithValue": 0
-          },
-          "hide": true
+          }
         },
         {
-          "datasource": {
-            "type": "__expr__",
-            "uid": "__expr__"
-          },
           "refId": "Started",
-          "type": "math",
-          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}",
-          "hide": false
-        },
-        {
           "datasource": {
             "type": "__expr__",
             "uid": "__expr__"
           },
-          "refId": "Completed",
+          "hide": false,
           "type": "math",
-          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}",
-          "hide": false
+          "expression": "$StartedInYearTotal + $StartedUntaggedTotal * ${year}"
+        },
+        {
+          "refId": "Completed",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "hide": false,
+          "type": "math",
+          "expression": "$FinishedInYearTotal + $FinishedUntaggedTotal * ${year}"
         }
       ],
       "title": "DeleteReport",
@@ -5744,7 +5384,7 @@
         "type": "custom",
         "name": "year",
         "label": "KPI year",
-        "description": "Accreditation year for the User journey KPI gauges. 2026 also counts journeys recorded before metrics carried a year.",
+        "description": "Registration or accreditation year for the User journey KPI gauges. 2026 also counts journeys recorded before metrics carried a year.",
         "query": "2026 : 1,2027 : 0",
         "options": [
           {
