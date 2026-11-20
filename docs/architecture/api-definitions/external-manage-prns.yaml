@@ -34,7 +34,7 @@ paths:
         - name: dateFrom
           in: query
           required: false
-          description: Filter notes with status changes on or after this date-time (ISO 8601 format)
+          description: Filter PRNs and PERNs with status changes on or after this date-time (ISO 8601 format)
           schema:
             type: string
             format: date-time
@@ -42,7 +42,7 @@ paths:
         - name: dateTo
           in: query
           required: false
-          description: Filter notes with status changes on or before this date-time (ISO 8601 format)
+          description: Filter PRNs and PERNs with status changes on or before this date-time (ISO 8601 format)
           schema:
             type: string
             format: date-time
@@ -130,6 +130,8 @@ paths:
                   type: integer
                   description: For December waste only, the obligation year to apply. It must be the accreditation year or the following year. If omitted, the PRN keeps its existing obligation year.
                   example: 2027
+                acceptedBy:
+                  $ref: '#/components/schemas/AuditUser'
       responses:
         '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) accepted successfully
@@ -187,6 +189,8 @@ paths:
                   format: date-time
                   description: Timestamp of rejection (if different from current time)
                   example: 2024-12-01T10:30:00Z
+                rejectedBy:
+                  $ref: '#/components/schemas/AuditUser'
       responses:
         '204':
           description: Packaging Recycling Note (PRN) or Packaging Export Recycling Note (PERN) rejected successfully
@@ -204,6 +208,160 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict - Note has already been accepted or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/packaging-recycling-notes/search:
+    get:
+      tags:
+        - Packaging Recycling Notes
+      summary: Search packaging recycling notes
+      description: Searches Packaging Recycling Notes (PRN) and Packaging Export Recycling Notes (PERN), with optional filtering by status, PRN or PERN number, issuing organisation name, receiving organisation, material and December waste, and sorting with sortBy and sortOrder (by default, most recently authorised first). Results are paginated by page number, using the pageNumber and pageSize query parameters, and the response includes the totalItems matching the search and the totalPages available.
+      operationId: searchPackagingRecyclingNotes
+      parameters:
+        - name: issuedToOrganisation.id
+          in: query
+          required: false
+          description: Filter PRNs and PERNs issued to the Producer or Compliance Scheme Organisation with this identifier (exact match). Mandatory when the client is the Obligations service.
+          schema:
+            type: string
+          example: 987fcdeb-51a2-43f7-b123-456789abcdef
+        - name: issuedByOrganisation.name
+          in: query
+          required: false
+          description: Filter PRNs and PERNs issued by a Reprocessor or Exporter Organisation whose name contains this value (case-insensitive)
+          schema:
+            type: string
+          example: Green Recycling
+        - name: prnNumber
+          in: query
+          required: false
+          description: Filter PRNs and PERNs by their PRN or PERN number (exact match)
+          schema:
+            type: string
+            maxLength: 20
+          example: ER992415095748M
+        - name: statuses
+          in: query
+          required: false
+          description: Filter by one or more statuses (comma-separated). If not provided, PRNs and PERNs in any of these statuses are returned.
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - awaiting_acceptance
+                - accepted
+                - awaiting_cancellation
+                - cancelled
+          style: form
+          explode: false
+          example: awaiting_acceptance,cancelled
+        - name: material
+          in: query
+          required: false
+          description: Filter PRNs and PERNs by the accreditation material
+          schema:
+            type: string
+            enum:
+              - aluminium
+              - fibre
+              - glass
+              - paper
+              - plastic
+              - steel
+              - wood
+          example: plastic
+        - name: isDecemberWaste
+          in: query
+          required: false
+          description: Filter PRNs and PERNs by whether they relate to waste received during December
+          schema:
+            type: boolean
+          example: true
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort the results by. If not provided, results are sorted by status.authorisedAt. Results with equal values are always further sorted by id in ascending order, so the order is stable across pages.
+          schema:
+            type: string
+            enum:
+              - status.authorisedAt
+              - accreditation.material
+              - tonnageValue
+            default: status.authorisedAt
+          example: tonnageValue
+        - name: sortOrder
+          in: query
+          required: false
+          description: Direction to sort the results in, ascending (asc) or descending (desc). If not provided, results are sorted in descending order.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+          example: desc
+        - name: pageSize
+          in: query
+          required: false
+          description: Maximum number of records to return per page. If not provided, the default value defined in the Re/Ex configuration will be used. If the provided page size exceeds the Re/Ex maximum, your result set may be truncated.
+          schema:
+            type: integer
+          example: 50
+        - name: pageNumber
+          in: query
+          required: false
+          description: Page number to return (1-based). If not provided, the first page is returned.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - pageNumber
+                  - pageSize
+                  - totalItems
+                  - totalPages
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PackagingRecyclingNote'
+                  pageNumber:
+                    type: integer
+                    description: The page number of the results returned (1-based)
+                    example: 1
+                  pageSize:
+                    type: integer
+                    description: The maximum number of records per page applied to this request
+                    example: 50
+                  totalItems:
+                    type: integer
+                    description: Total number of records matching the query across all pages
+                    example: 126
+                  totalPages:
+                    type: integer
+                    description: Total number of pages available for the query at the applied pageSize. This is 0 when no records match the query.
+                    example: 3
+        '400':
+          description: Bad request - Invalid query parameters
           content:
             application/json:
               schema:
@@ -374,6 +532,22 @@ components:
           type: string
           description: Job title of the user
           example: Operations Director
+
+    AuditUser:
+      type: object
+      description: The user at the calling organisation who performed this action. Supplied by the caller and recorded for audit purposes only.
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Identifier of the user in the calling system
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        name:
+          type: string
+          description: Full name of the user
+          example: John Smith
 
     Status:
       type: object
