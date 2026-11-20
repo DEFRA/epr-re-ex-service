@@ -82,23 +82,17 @@ The 2026 accreditation is a separate record, so the 2027 ledger id with the year
 
 Fill-in runs before every other validation step. Each linking table's schema declares the columns a linked row may supply.
 
-**Allow list** (to be confirmed with the business). The registered-only list is the same under both options: its `LOADS_EXPORTED` row exists only once the load is exported, so the previous-year row always holds the export columns.
+**Allow list:** the export and overseas columns. A linked row covers a load exported in one year and received overseas, refused, stopped or repatriated in the next, and a load received for export in one year and exported in the next. In the second case the previous-year row holds only the receipt columns, so the whole export group must be allowed, not only the date of export: the row would otherwise lack export columns that credit requires.
 
-| Template                 | Option A: completion columns                                                                                           | Option B: export and overseas columns                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Accredited exporter      | `DATE_RECEIVED_BY_OSR`, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED` | Option A, plus every column from `TONNAGE_OF_UK_PACKAGING_WASTE_EXPORTED` onwards that records export: see below |
-| Registered-only exporter | `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED`                         | As option A                                                                                                      |
+| Accredited exporter     | Allowed columns                                                                                                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Required for credit     | `TONNAGE_OF_UK_PACKAGING_WASTE_EXPORTED`, `DATE_OF_EXPORT`, `BASEL_EXPORT_CODE`, `CUSTOMS_CODES`, `CONTAINER_NUMBER`, `DATE_RECEIVED_BY_OSR`, `OSR_ID`, `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE`                       |
+| Other validated columns | `INTERIM_SITE_ID`, `TONNAGE_PASSED_INTERIM_SITE_RECEIVED_BY_OSR`, `EXPORT_CONTROLS`, and the 2027 columns `EXIT_PORT`, `DWT_EXPORT_ID`                                                                                 |
+| Supplementary           | `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED`, `OSR_NAME`, `OSR_COUNTRY`, `TONNAGE_RECEIVED_BY_OSR`, `BILL_OF_LANDING_REFERENCE_NUMBER`, `CUSTOMS_DECLARATION_NUMBER` |
 
-- **Option A** covers a load exported in one year and received overseas, refused, stopped or repatriated in the next.
-- **Option B** also covers a load received for export in one year and exported in the next. The previous-year row then holds only the receipt columns, so allowing `DATE_OF_EXPORT` alone is not enough: the row would lack the other export columns that credit requires, and never be credited. Option B allows the whole export and overseas group:
+**Registered-only exporter:** `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED`. Its `LOADS_EXPORTED` row exists only once the load is exported, so the previous-year row always holds the export columns.
 
-| Group                   | Accredited exporter columns                                                                                                                                                                                                |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Required for credit     | `TONNAGE_OF_UK_PACKAGING_WASTE_EXPORTED`, `DATE_OF_EXPORT`, `BASEL_EXPORT_CODE`, `CUSTOMS_CODES`, `CONTAINER_NUMBER`, `OSR_ID`, `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE` (and `DATE_RECEIVED_BY_OSR`, already in option A) |
-| Other validated columns | `INTERIM_SITE_ID`, `TONNAGE_PASSED_INTERIM_SITE_RECEIVED_BY_OSR`, `EXPORT_CONTROLS`, and the 2027 columns `EXIT_PORT`, `DWT_EXPORT_ID`                                                                                     |
-| Supplementary           | `OSR_NAME`, `OSR_COUNTRY`, `TONNAGE_RECEIVED_BY_OSR`, `BILL_OF_LANDING_REFERENCE_NUMBER`, `CUSTOMS_DECLARATION_NUMBER`                                                                                                     |
-
-The receipt columns (date received for export, waste codes, PRN, weights, recyclable proportion, tonnage received for export, supplier) always come from the previous-year row under both options.
+The receipt columns (date received for export, waste codes, PRN, weights, recyclable proportion, tonnage received for export, supplier) always come from the previous-year row.
 
 **Template formulas and defaults** (2027.01 templates, Exported tab):
 
@@ -110,9 +104,9 @@ The receipt columns (date received for export, waste codes, PRN, weights, recycl
 | `BASEL_EXPORT_CODE`, `DID_WASTE_PASS_THROUGH_AN_INTERIM_SITE`, `EXPORT_CONTROLS`, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `OSR_COUNTRY` | Default to the "Choose option" placeholder | Export  |
 | Every other export and overseas column, including both export-side tonnages                                                                       | Typed                                      | Export  |
 
-The registered-only Exported tab has no formula besides `ROW_ID`, and its dropdowns default to the placeholder. So under either option no allowed column is a formula, and every allowed default is a placeholder, which fill-in treats as blank.
+The registered-only Exported tab has no formula besides `ROW_ID`, and its dropdowns default to the placeholder. So no allowed column is a formula, and every allowed default is a placeholder, which fill-in treats as blank.
 
-Under option B, a previous-year export date supplied on a later-year row credits the load correctly (against the previous year's accreditation), but the export appears in no month's report: the previous-year row has no export date, and the own-year rule places the later-year row's date nowhere. [PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101) warns about such a date before the deadline.
+A previous-year export date supplied on a later-year row credits the load correctly (against the previous year's accreditation), but the export appears in no month's report: the previous-year row has no export date, and the own-year rule places the later-year row's date nowhere. [PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101) warns about such a date before the deadline.
 
 | Cell on the 2027 row                                            | Filled-in value       | In `suppliedFields` |
 | --------------------------------------------------------------- | --------------------- | ------------------- |
@@ -144,8 +138,8 @@ The earlier-year date rule checks supplied allowed cells only, and allows a supp
 | Column                 | Allowed | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
 | ---------------------- | ------- | --------------- | -------------------------- | ------------------------- |
 | `NET_WEIGHT`           | No      | 40.00           | 0 (formula over blanks)    | 40.00, inherited          |
-| `DATE_OF_EXPORT`       | B only  | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
-| `OSR_COUNTRY`          | B only  | Vietnam-VN      | Choose option (default)    | Vietnam-VN, inherited     |
+| `DATE_OF_EXPORT`       | Yes     | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
+| `OSR_COUNTRY`          | Yes     | Vietnam-VN      | Choose option (default)    | Vietnam-VN, inherited     |
 | `DATE_RECEIVED_BY_OSR` | Yes     | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
 
 ## Template changes
@@ -156,7 +150,7 @@ One change to both 2027 exporter templates before they go out. It goes beyond [P
 | -------- | -------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
 | `ROW_ID` | Generated from columns a linked row inherits | Generated when `PREVIOUS_YEAR_ROW_ID` or any data cell is filled | A row supplying only a receipt date would have no row ID |
 
-Formula columns and other defaults need no change under either option: the formulas are receipt columns, outside the allow list, and the allowed defaults are placeholders.
+Formula columns and other defaults need no change: the formulas are receipt columns, outside the allow list, and the allowed defaults are placeholders.
 
 ## Cross-field rounding allowance
 
@@ -264,7 +258,7 @@ sequenceDiagram
 
 Had the PRN event been the only change, `sl-2027-01` would have committed with 40 t. Had 2027 been submitted before the correction, the balance would stay at 40 t until the next 2027 upload refills row `1000` with 38 t.
 
-A load received in December 2026 and exported in January 2027 (2026 row `1600`, linked 2027 row `1001`), under option B:
+A load received in December 2026 and exported in January 2027 (2026 row `1600`, linked 2027 row `1001`):
 
 | Report        | Shows                    | From     |
 | ------------- | ------------------------ | -------- |
