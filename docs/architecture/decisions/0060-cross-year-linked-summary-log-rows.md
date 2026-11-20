@@ -45,9 +45,9 @@ That commit is read **once** per validation, and both the fill-in and the contex
 A resolved row is **filled in** before any other validation runs:
 
 - A blank cell takes the previous-year row's value. An operator cannot clear a previous-year value on the linked row.
-- A supplied cell keeps the supplied value. Whether it may differ from a filled previous-year value is a separate rule: rejected before the correction deadline ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)), allowed after it ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)).
+- A supplied cell keeps the supplied value. A supplied value that differs from a filled previous-year value is rejected before the previous year's correction deadline ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)).
 - A cell left on its template default (a dropdown placeholder) counts as blank, so it inherits. This applies only to fill-in: some columns deliberately store an untouched placeholder verbatim, and unlinked rows keep that handling.
-- A formula column counts as supplied only if every input to it was supplied; otherwise it is blank and inherits. The table schema declares each formula column's inputs. A partial edit (one weight retyped) then fails the net-weight check, whose error asks for all the inputs together.
+- A formula cell is treated like any other cell. Fill-in does not know the template's formulas.
 - Only the later template's declared columns are filled in, excluding the row ID and the previous-year row ID.
 - A column renamed between years needs an explicit mapping; it is not matched by name.
 
@@ -57,22 +57,25 @@ Validation of a linked row also has the previous-year row as stored and the row 
 
 For example, with three of the columns:
 
-| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in          |
-| ---------------------- | --------------- | -------------------------- | ---------------------------------- |
-| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited              |
-| `OSR_ID`               | 012             | 047                        | 047, supplied (after the deadline) |
-| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied               |
+| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
+| ---------------------- | --------------- | -------------------------- | ------------------------- |
+| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
+| `OSR_ID`               | 012             | 012                        | 012, supplied (unchanged) |
+| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
 
 A previous-year row ID that matches no submitted previous-year row will be rejected by validation ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then, such a row is not filled in, is stored as the operator wrote it, and is classified like any unlinked row.
 
 A linked row's `data` carries previous-year dates by design. A validation rule that rejects earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) therefore applies to the cells the operator supplied, not to inherited values, and allows a supplied earlier-year date that equals the previous-year row's.
 
-Fill-in also needs two changes to the 2027 exporter templates before they go out:
+Fill-in also needs three changes to the 2027 exporter templates before they go out:
 
+- A formula column gives blank unless every input to it on the row is filled, so `NET_WEIGHT` is computed only when the gross, tare and pallet weights all are. Today it gives 0 when they are blank, and that 0 would override the previous-year net weight.
 - `ROW_ID` is generated when the previous-year row ID or any data cell on the row is filled. Today it depends on columns a linked row usually inherits, so a linked row that supplies only a date received overseas would have no row ID.
 - `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` defaults to its placeholder, not "No", so a deliberate "No" can be told from an untouched cell.
 
-Both go beyond the non-structural changes of [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so they need agreeing with the template owner.
+These go beyond the non-structural changes of [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so they need agreeing with the template owner.
+
+With these changes, and no overrides before the deadline, a formula cell on a linked row is either blank, so it inherits, or computed from inputs that equal the previous-year values, so it equals the previous-year result. Fill-in can therefore treat formula cells like any other cell. This relies on rejecting overrides: once a linked row may override a previous-year value, a formula computed from a mix of supplied and inherited inputs would be wrong, which is why linked rows after the deadline are out of scope.
 
 ### Cross-field checks allow for stored rounding on linked rows
 
@@ -86,7 +89,7 @@ So on a row whose `data` has a previous-year row ID, each cross-field check wide
 
 That totals about 0.025 t. The net weight check needs no allowance: the stored net weight is re-derived from the stored gross, tare and pallet weights, so it reconciles by construction. Unlinked rows keep today's comparison.
 
-The check still catches a real mismatch. In the example above, the inherited 3.74 t is within the allowance of the recalculated 3.7444 t, so the row passes. If the operator instead supplies a tonnage of 3.80 t on the linked row against the same inherited weights and proportion, it is 0.056 t out, beyond the allowance, so the row is rejected.
+The check still catches a real mismatch. In the example above, the inherited 3.74 t is within the allowance of the recalculated 3.7444 t, so the row passes. A tonnage of 3.80 t against the same weights and proportion would be 0.056 t out, beyond the allowance, and rejected.
 
 A cross-field failure on a linked row can involve a cell the operator left blank, so its error says which values came from the previous year's row, and the operator knows which summary log to correct.
 
@@ -236,6 +239,7 @@ A second load shows the date rule. 2026 row `1600` records 25 tonnes received fo
 ## Out of scope
 
 - **Recalculating the later year when a previous-year row changes after the later year's submission** ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)).
+- **Overrides on linked rows after the previous year's correction deadline** ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)): fill-in assumes no supplied value differs from the previous-year row, which is what keeps formula cells consistent.
 - **Edge cases of the link itself**: the validation error for an ID that matches no row ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)), two later-year rows linking the same row, a link to the wrong load, and a link to a row already credited in the previous year ([PAE-2098](https://eaflood.atlassian.net/browse/PAE-2098)).
 - **Per-year overseas-site approvals for linked rows**: checking a linked row's site against the approval of the year it was exported, once approvals are per year.
 - **Columns renamed between years**: the explicit mapping a linked row needs to fill in a renamed column.
