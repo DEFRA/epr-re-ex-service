@@ -66,7 +66,7 @@ A previous-year row ID that matches no submitted row will be rejected ([PAE-2097
 
 ### Cross-field checks on linked rows tolerate stored rounding
 
-Some checks recalculate one value from others: the tonnage received for export from the net weight, non-target weight and recyclable proportion, for example. A linked row inherits those values as stored, to two decimal places (ADR-0037), not as the operator typed them, so the recalculation can differ from the stored value by rounding alone. On a linked row, each such check therefore accepts exactly the difference that two-decimal-place storage of its inputs can produce, and no more; the [LLD](../discovery/summary-log-cross-year-links-lld.md#cross-field-rounding-allowance) gives the figures. A real mismatch still fails, and its error says which values came from the previous year, so the operator knows which log to correct. Unlinked rows keep today's comparison.
+Some checks recalculate one value from others: the tonnage received for export from the net weight, non-target weight and recyclable proportion, for example. A linked row inherits those values as stored, to two decimal places (ADR-0037), not as the operator typed them, so the recalculation can differ from the stored value by rounding alone. On a linked row, each such check therefore accepts up to the worst-case rounding of its inputs, about 0.025 t on the tonnage received for export; the [LLD](../discovery/summary-log-cross-year-links-lld.md#cross-field-rounding-allowance) gives the breakdown. A real mismatch still fails, and its error says which values came from the previous year, so the operator knows which log to correct. Unlinked rows keep today's comparison.
 
 ### `data` holds the complete load; `link` records where it came from
 
