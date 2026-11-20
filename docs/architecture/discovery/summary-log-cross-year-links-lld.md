@@ -126,11 +126,11 @@ A previous-year export date supplied on a later-year row credits the load correc
 
 Validation holds three versions of a linked row:
 
-| Version                     | Read by                                                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Previous-year row as stored | Rules that compare the years: earlier-year dates ([PAE-2101]), overrides ([PAE-2102]), and the others in the epic's rules table |
-| Row as entered              | The same rules                                                                                                                  |
-| Filled-in row               | Syntax, required-field and cross-field checks, classification, the check page, the stored `data`                                |
+| Version                     | Read by                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Previous-year row as stored | Rules that compare the years: earlier-year dates ([PAE-2101]), overrides ([PAE-2102]), and the other cross-year rules, each under its own ticket |
+| Row as entered              | The same rules                                                                                                                                   |
+| Filled-in row               | Syntax, required-field and cross-field checks, classification, the check page, the stored `data`                                                 |
 
 [PAE-2101]: https://eaflood.atlassian.net/browse/PAE-2101
 
