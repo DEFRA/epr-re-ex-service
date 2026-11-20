@@ -121,8 +121,6 @@ A previous-year export date supplied on a later-year row credits the load correc
 - Supplied values are rounded to the stored precision before comparison: 10.123 against a stored 10.12 is equal.
 - A placeholder counts as blank on both rows. On the accredited tab, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED` and `OSR_COUNTRY` have no `unfilledValues` entry, so a 2026 row stores an untouched "Choose option" as text. Without this, a linked row supplying "No" would count as changing a filled value and be rejected.
 - Treating a placeholder as blank applies only to fill-in and the year comparison. Unlinked rows still store an untouched placeholder verbatim.
-- A renamed column needs an explicit mapping. Renames are out of scope.
-- Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
 Validation holds three versions of a linked row:
 
