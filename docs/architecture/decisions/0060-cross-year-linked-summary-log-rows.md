@@ -26,7 +26,7 @@ Only exporters. A load can cross the year boundary between the stages an exporte
 
 Reprocessors are not affected: they have no Exported tab.
 
-Under ADR-0048 each year has its own summary log, row states and waste balance, so neither case can be completed today. The business chose to let the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the Exported tab of both exporter templates has a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**: it holds what was missing in 2026, and takes the rest from the 2026 row. The 2027 balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)). The column is already read from the workbook and stored, but nothing uses it yet.
+Under ADR-0048 each year has its own summary log, row states and waste balance, so neither case can be completed today. The business chose to let the operator link the two years explicitly ([PAE-2012](https://eaflood.atlassian.net/browse/PAE-2012)). From 2027 the Exported tab of both exporter templates has a previous-year row ID column (`PREVIOUS_YEAR_ROW_ID`). A 2027 row that names a 2026 row there is a **linked row**: it holds what was missing in 2026, and takes the rest from the 2026 row. The 2027 balance and 2027 reports are informed only by 2027 rows, including the values a linked row takes from its 2026 row ([PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282)).
 
 |                                        | Accredited exporter                                     | Registered-only exporter                   |
 | -------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
@@ -46,7 +46,7 @@ These come from earlier ADRs:
 - **Commit**: the event that makes a summary log's memberships count, today `summary-log-submitted`. Memberships of a log that was never committed are ignored.
 - **Context**: everything outside the workbook that the reading of it depends on, such as the accreditation and overseas-site approvals. Validation hashes it, and submission supersedes the log if the hash has changed ([ADR-0058](./0058-validation-writes-summary-log-row-states.md)).
 
-This ADR decides where a linked row takes its 2026 values, what its row state records, how its credit is decided and how the later year stays consistent with the earlier one. ADR-0058 settles the first in principle: validation is the only place rows are built, so that is where a linked row is filled in.
+The column is already read from the workbook and stored, so nothing new is needed to capture the link. This ADR decides where a linked row takes its 2026 values, what its row state records, how its credit is decided and how the later year stays consistent with the earlier one. ADR-0058 settles the first in principle: validation is the only place rows are built, so that is where a linked row is filled in.
 
 ## Decision
 
