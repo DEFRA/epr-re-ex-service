@@ -42,21 +42,22 @@ gantt
         Registered-only           :active, 2027-01-01, 2027-03-20
 ```
 
-| Window                              | Linked rows                                                                                               |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Before the previous year's deadline | May not override a previous-year value. Corrections go on the 2026 row and supersede in-flight 2027 logs. |
-| After the deadline                  | Overrides on the linked row ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)): out of scope     |
+| Window                              | Linked rows                                                                                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before the previous year's deadline | Supply only the allowed completion columns, and may not change a value the 2026 row already holds. Corrections go on the 2026 row and supersede in-flight 2027 logs. |
+| After the deadline                  | Overrides on the linked row ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)): out of scope                                                                |
 
 ## What changes
 
-| Component                                         | Change                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 2027 exporter templates                           | Formulas blank until their inputs are filled, `ROW_ID` generation, PRN column default |
-| Validation                                        | Resolves links, fills in, checks the years against each other                         |
-| Context builder (validation and submission)       | Adds the previous year's position and accreditation                                   |
-| Classification                                    | Checks the export date against the accreditation of that date's year                  |
-| Check-page period status, tonnage monitoring      | Count rows only in their own summary log's year                                       |
-| Waste balance, reports, exports, credited tonnage | None                                                                                  |
+| Component                                         | Change                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------- |
+| 2027 exporter templates                           | `ROW_ID` generated on linked rows                                         |
+| Table schemas                                     | Declare that a table links years, and the columns a linked row may supply |
+| Validation                                        | Resolves links, fills in, checks the years against each other             |
+| Context builder (validation and submission)       | Adds the previous year's position and accreditation                       |
+| Classification                                    | Checks the export date against the accreditation of that date's year      |
+| Check-page period status, tonnage monitoring      | Count rows only in their own summary log's year                           |
+| Waste balance, reports, exports, credited tonnage | None                                                                      |
 
 ## Out of scope
 

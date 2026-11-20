@@ -31,12 +31,13 @@ Linking applies only to tables whose schema declares it: from 2027, the Exported
 
 Validation resolves each previous-year row ID against the registration's **latest submitted** previous-year summary log in the **same stream** (accredited or registered-only). Uncommitted previous-year uploads are never read. That commit is read **once** per validation and serves both the fill-in and the context (below): two reads could straddle a previous-year submission, filling rows from one while the context records the next.
 
-A resolved row is **filled in** before any other validation runs. A blank cell takes the previous-year value; a supplied cell keeps its value, and one that differs from the previous-year value is rejected before the previous year's correction deadline ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)). Every later check, the check page and the stored row then see the whole load, so values supplied on a linked row are checked against inherited ones. Rules that compare the two years ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101), PAE-2102 and the others in the epic's rules table) read the previous-year row as stored and the row as entered instead.
+A resolved row is **filled in** before any other validation runs. The table schema declares an **allow list**: the completion columns a linked row may supply, such as the date received overseas and the refused, stopped and repatriation columns (the exact list is to be confirmed with the business). An allowed column keeps a supplied value and otherwise takes the previous-year value. Every other column takes the previous-year value, whatever the later-year cell holds. Every later check, the check page and the stored row then see the whole load, so values supplied on a linked row are checked against inherited ones.
 
-Fill-in treats formula cells like any other cell and does not know the template's formulas. This rests on two things:
+The allow list keeps fill-in independent of the template. A formula the operator never touched, such as a net weight computed as 0 from blank weights, or a dropdown left on its default, is outside the list and cannot override the previous-year value. So fill-in needs no knowledge of the template's formulas or defaults, and a partly filled row cannot produce a partly computed load.
 
-- **No overrides before the deadline.** A formula cell is then either blank, and inherits, or computed from inputs equal to the previous-year values. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope, because a formula over a mix of supplied and inherited inputs would be wrong.
-- **Three changes to the 2027 exporter templates**: formulas blank until all their inputs are filled, `ROW_ID` generated on linked rows, and the PRN column defaulting to its placeholder. They go beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and need agreeing with the template owner.
+Rules that compare the two years read the previous-year row as stored and the row as entered. Before the previous year's correction deadline, a supplied allowed value that differs from one the previous-year row already holds is rejected ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)); a value in any other column is ignored. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the others in the epic's rules table are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
+
+The 2027 exporter templates need one change: `ROW_ID` generated when the previous-year row ID or any data cell is filled, since a linked row usually inherits the columns it depends on today. It goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and needs agreeing with the template owner.
 
 A previous-year row ID that matches no submitted row will be rejected ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then the row is stored as written and classified like any unlinked row.
 
@@ -48,7 +49,7 @@ Inherited weights and tonnages are the stored two-decimal-place values (ADR-0037
 
 Every summary log restates every load in full (ADR-0037), so `data` has always meant "this load's values as of this submission". A linked row's filled-in values mean exactly that, so they go in `data`, and every reader of row states (waste balance, reports, exports, credited tonnage, market insights) reads a linked row like any other.
 
-Provenance goes in a `link` beside `data`: the previous year, row ID and row state, and the columns that were supplied. No reader of the balance, reports or exports reads it; row history and a later recalculation do, the latter needing `suppliedFields` to fill the row in again without the workbook. `link` is part of the row state's content, so a change of previous-year row state is visible in history. It sits beside `data` because a key no template declares would be dropped from the exports (ADR-0059).
+Provenance goes in a `link` beside `data`: the previous year, row ID and row state, and the allowed columns that were supplied. No reader of the balance, reports or exports reads it; row history and a later recalculation do, the latter needing `suppliedFields` to fill the row in again without the workbook. `link` is part of the row state's content, so a change of previous-year row state is visible in history. It sits beside `data` because a key no template declares would be dropped from the exports (ADR-0059).
 
 ### A load's credit is checked against the accreditation of each date's year
 
@@ -89,6 +90,8 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 
 **Store only what the operator entered in `data`, with the previous-year values beside it.** Rejected because every reader that needs the load would have to combine the two, and one that forgot would read a partial load.
 
+**Accept any column, with template formulas blank until their inputs are filled.** Any supplied cell would count, relying on the template to blank untouched formulas and default dropdowns to a placeholder. Rejected because fill-in would then depend on every formula and default in the template being right, and a partly filled row would still produce a formula computed from a mix of supplied and blank inputs.
+
 **Track formula inputs in the table schema.** A formula column would count as supplied only if all its inputs were. Rejected because the domain code would have to mirror the template's formulas, and drift between the two would fail rows silently.
 
 **Exempt the export date on linked rows.** Credit a linked row on its overseas receipt alone. Rejected because it credits a load exported while the previous year's accreditation was suspended or not yet started, and a wrong previous-year row ID would get the exemption until unmatched IDs are rejected.
@@ -108,7 +111,7 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 - **One exception to year isolation, and only a read.** Ledgers, row states and reports stay per year.
 - **`data` keeps its meaning, and readers never combine sources.** Only readers that place rows by date gain a rule.
 - **The operator confirms what is committed.** The check page shows the filled-in reading, and a previous-year resubmission after validation supersedes the log through ADR-0058's existing check.
-- **Fill-in is independent of the template's formulas.**
+- **Fill-in is independent of the template's formulas and defaults**, and what a linked row may supply is explicit in its schema.
 
 ### Negative
 
@@ -118,7 +121,8 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
 - **Cross-field checks are looser on linked rows**, by up to about 0.025 t on export tonnage.
 - **Later-year row states carry earlier-year dates.** Any new reader that places rows by date must count only its own year.
-- **Fill-in depends on the 2027 template changes** landing before the templates go out.
+- **A value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error.
+- **Fill-in depends on the `ROW_ID` template change** landing before the 2027 templates go out.
 
 ## Out of scope
 
@@ -127,7 +131,7 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 - **Edge cases of the link itself**: an ID that matches no row ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)), two later-year rows linking the same row, a link to the wrong load, and a link to a row already credited ([PAE-2098](https://eaflood.atlassian.net/browse/PAE-2098)).
 - **Per-year overseas-site approvals.**
 - **Columns renamed between years**, which need an explicit mapping.
-- **Refused, stopped and repatriated loads** across the year boundary.
+- **Rules specific to refused, stopped and repatriated loads** across the year boundary ([PAE-2105](https://eaflood.atlassian.net/browse/PAE-2105)). Their columns are on the allow list; the rules that check them are separate.
 - **Links across streams**, for example a 2027 accredited row linking a 2026 registered-only row.
 
 ## Related

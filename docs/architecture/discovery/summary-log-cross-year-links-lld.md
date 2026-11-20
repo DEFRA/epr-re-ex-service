@@ -2,23 +2,6 @@
 
 Proposed with [ADR-0060](../decisions/0060-cross-year-linked-summary-log-rows.md), which records the decisions and their reasons. This document shows the mechanics. For the overview, see the [HLD](./summary-log-cross-year-links-hld.md).
 
-<!-- prettier-ignore-start -->
-<!-- TOC -->
-
-- [Summary Log Cross-Year Links: Low Level Design](#summary-log-cross-year-links-low-level-design)
-  - [Validation and submission](#validation-and-submission)
-  - [Resolving a link](#resolving-a-link)
-  - [Filling in a linked row](#filling-in-a-linked-row)
-  - [Template changes](#template-changes)
-  - [Cross-field rounding allowance](#cross-field-rounding-allowance)
-  - [Row state](#row-state)
-  - [Credit](#credit)
-  - [Context](#context)
-  - [Readers that place rows by date](#readers-that-place-rows-by-date)
-  - [Worked example](#worked-example)
-    <!-- TOC -->
-    <!-- prettier-ignore-end -->
-
 ## Validation and submission
 
 The previous year's commit is read once per validation. Fill-in and the context both use it, so rows are never filled from one submission while the context records another.
@@ -97,24 +80,31 @@ The 2026 accreditation is a separate record, so the 2027 ledger id with the year
 
 ## Filling in a linked row
 
-Fill-in runs before every other validation step.
+Fill-in runs before every other validation step. Each linking table's schema declares the columns a linked row may supply.
 
-| Cell on the 2027 row                             | Filled-in value       | In `suppliedFields` |
-| ------------------------------------------------ | --------------------- | ------------------- |
-| Blank                                            | Previous-year value   | No                  |
-| On its template default (dropdown placeholder)   | Previous-year value   | No                  |
-| Supplied, equal to the previous-year value       | Supplied value        | Yes                 |
-| Supplied, different from the previous-year value | Rejected ([PAE-2102]) | n/a                 |
-| Formula cell                                     | As any other cell     | As any other cell   |
-| `ROW_ID`, `PREVIOUS_YEAR_ROW_ID`                 | Never filled          | n/a                 |
-| Not declared by the 2027 template                | Never filled          | n/a                 |
+**Allow list** (assumed: to be confirmed with the business):
+
+| Template                 | Allowed columns                                                                                                        | To confirm       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Accredited exporter      | `DATE_RECEIVED_BY_OSR`, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED` | `DATE_OF_EXPORT` |
+| Registered-only exporter | `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED`, `DATE_THE_REFUSED_STOPPED_WASTE_REPATRIATED`                         | `DATE_OF_EXPORT` |
+
+`DATE_OF_EXPORT` is needed for a load received for export in one year and exported in the next. Allowing it may pull in other columns completed at export.
+
+| Cell on the 2027 row                                            | Filled-in value       | In `suppliedFields` |
+| --------------------------------------------------------------- | --------------------- | ------------------- |
+| Allowed, blank or on its dropdown placeholder                   | Previous-year value   | No                  |
+| Allowed, supplied, previous-year value blank or equal           | Supplied value        | Yes                 |
+| Allowed, supplied, different from a filled previous-year value  | Rejected ([PAE-2102]) | n/a                 |
+| Not allowed, whatever it holds (value, formula result, default) | Previous-year value   | No                  |
+| `ROW_ID`, `PREVIOUS_YEAR_ROW_ID`                                | Never filled          | n/a                 |
 
 [PAE-2102]: https://eaflood.atlassian.net/browse/PAE-2102
 
 - Supplied values are rounded to the stored precision before comparison: 10.123 against a stored 10.12 is equal.
-- The placeholder rule applies only to fill-in. Unlinked rows still store an untouched placeholder verbatim in the columns that do so today.
+- Treating a placeholder as blank applies only to fill-in. Unlinked rows still store an untouched placeholder verbatim.
 - A renamed column needs an explicit mapping. Renames are out of scope.
-- Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope. Without them, a formula cell is blank (and inherits) or computed from inputs equal to the previous-year values, so fill-in needs no knowledge of the formulas.
+- Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
 Validation holds three versions of a linked row:
 
@@ -126,23 +116,24 @@ Validation holds three versions of a linked row:
 
 [PAE-2101]: https://eaflood.atlassian.net/browse/PAE-2101
 
-The earlier-year date rule checks supplied cells only, and allows a supplied earlier-year date equal to the previous-year row's.
+The earlier-year date rule checks supplied allowed cells only, and allows a supplied earlier-year date equal to the previous-year row's.
 
-| Column                 | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
-| ---------------------- | --------------- | -------------------------- | ------------------------- |
-| `DATE_OF_EXPORT`       | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
-| `OSR_ID`               | 012             | 012                        | 012, supplied (unchanged) |
-| `DATE_RECEIVED_BY_OSR` | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
+| Column                                  | Allowed | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
+| --------------------------------------- | ------- | --------------- | -------------------------- | ------------------------- |
+| `DATE_OF_EXPORT`                        | TBC     | 2026-12-28      | (blank)                    | 2026-12-28, inherited     |
+| `NET_WEIGHT`                            | No      | 40.00           | 0 (formula over blanks)    | 40.00, inherited          |
+| `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` | No      | Yes             | No (template default)      | Yes, inherited            |
+| `DATE_RECEIVED_BY_OSR`                  | Yes     | (blank)         | 2027-01-06                 | 2027-01-06, supplied      |
 
 ## Template changes
 
-Needed on both 2027 exporter templates before they go out. They go beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so they need agreeing with the template owner.
+One change to both 2027 exporter templates before they go out. It goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so it needs agreeing with the template owner.
 
-| Column                                  | Today                                                  | Needed                                                           | Why                                                      |
-| --------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------- |
-| Formula columns, e.g. `NET_WEIGHT`      | `IFERROR(K-L-M,"")` gives 0 when the weights are blank | Blank unless every input on the row is filled                    | A 0 would override the previous-year value               |
-| `ROW_ID`                                | Generated from columns a linked row inherits           | Generated when `PREVIOUS_YEAR_ROW_ID` or any data cell is filled | A row supplying only a receipt date would have no row ID |
-| `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` | Defaults to "No"                                       | Defaults to the placeholder                                      | An untouched "No" would override a previous-year "Yes"   |
+| Column   | Today                                        | Needed                                                           | Why                                                      |
+| -------- | -------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| `ROW_ID` | Generated from columns a linked row inherits | Generated when `PREVIOUS_YEAR_ROW_ID` or any data cell is filled | A row supplying only a receipt date would have no row ID |
+
+Formula columns and other defaults need no change: they are outside the allow list.
 
 ## Cross-field rounding allowance
 
@@ -174,7 +165,7 @@ A cross-field error on a linked row names the values that came from the previous
     year: 2026,
     rowId: 1500,
     rowStateId: "…",         // the previous-year row state it was filled in from
-    suppliedFields: [ … ]     // per the fill-in table
+    suppliedFields: [ … ]     // allowed columns supplied on the 2027 row
   },
   classification: { … },
   summaryLogIds: [ … ]
@@ -250,7 +241,7 @@ sequenceDiagram
 
 Had the PRN event been the only change, `sl-2027-01` would have committed with 40 t. Had 2027 been submitted before the correction, the balance would stay at 40 t until the next 2027 upload refills row `1000` with 38 t.
 
-A load received in December 2026 and exported in January 2027 (2026 row `1600`, linked 2027 row `1001`):
+A load received in December 2026 and exported in January 2027 (2026 row `1600`, linked 2027 row `1001`), assuming `DATE_OF_EXPORT` is allowed:
 
 | Report        | Shows                    | From     |
 | ------------- | ------------------------ | -------- |
