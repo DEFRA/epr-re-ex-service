@@ -4,7 +4,7 @@ Date: 2026-11-17
 
 ## Status
 
-Accepted. Extends [ADR-0037](./0037-summary-log-row-states-with-membership.md).
+Accepted. Extends [ADR-0037](./0037-summary-log-row-states-with-membership.md). Amended by [ADR-0060](./0060-cross-year-linked-summary-log-rows.md): the context covers everything outside the workbook that the reading depends on, including the previous year's position and accreditation.
 
 | ADR                                                    | Title                                  | Relationship                                                                                                                              |
 | ------------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ A retry is not a no-op if the context changed in between. The upsert key include
 
 The classification stamped on each row state is the one validation computed, against the context as validation read it. A validated log can wait up to a week (its time-to-live) before submission, and the context can change in that time: an overseas site revoked after validation would otherwise be committed as included and credit the balance until the operator's next submission.
 
-So validation saves a hash of the classification context, taken from the context object exactly as it is passed to classification (not the accreditation and overseas-site documents, so unrelated edits do not count as a change), with stable serialisation. Submission reads the context again from the organisation read model, hashes it, and supersedes the log if the hashes differ, through the same path as the rollout. The submit route runs the same check before it queues the submission, so most such logs are turned away there; the worker's check catches a change between queueing and processing. Only the context is hashed: the workbook does not change, and the baseline check already catches a newer submission.
+So validation saves a hash of the classification context, taken from the context object exactly as it is passed to classification (not the accreditation and overseas-site documents, so unrelated edits do not count as a change), with stable serialisation. ([ADR-0060](./0060-cross-year-linked-summary-log-rows.md) widens the context to everything outside the workbook that the reading depends on, and the hash to the whole context except table schemas.) Submission reads the context again from the organisation read model, hashes it, and supersedes the log if the hashes differ, through the same path as the rollout. The submit route runs the same check before it queues the submission, so most such logs are turned away there; the worker's check catches a change between queueing and processing. Only the context is hashed: the workbook does not change, and the baseline check already catches a newer submission.
 
 A committed reading therefore always matches both the check page and the context current at the commit, as ADR-0037 requires. A withdrawn accreditation changes the hash too, so submission still refuses a log whose accreditation no longer stands.
 
@@ -129,7 +129,7 @@ A summary log validated before this change has no saved payload. Both the submit
 
 ## Out of scope
 
-- **Cross-year links.** A later year's rows that take values from an earlier year's rows, and an earlier-year submission that has to reach a later year's balance, are decided separately under [PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282). This ADR covers single-year submission only: its staleness check is per year, so an earlier-year resubmission does not supersede a later-year log already validated against the earlier values.
+- **Cross-year links.** A later year's rows that take values from an earlier year's rows, and an earlier-year submission that has to reach a later year's balance, are decided separately under [PAE-2282](https://eaflood.atlassian.net/browse/PAE-2282). This ADR covers single-year submission only: its staleness check is per year. [ADR-0060](./0060-cross-year-linked-summary-log-rows.md) adds the earlier year's latest submission to a later-year log's context, so an earlier-year resubmission supersedes the later-year log.
 
 ## Related
 
