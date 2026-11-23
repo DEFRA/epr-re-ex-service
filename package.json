@@ -31,10 +31,10 @@
     "@dotenvx/dotenvx": "2.38.2",
     "@types/node": "26.6.6",
     "husky": "9.1.7",
-    "lint-staged": "17.6.0",
+    "lint-staged": "17.6.1",
     "mongodb": "7.9.0",
     "prettier": "3.10.1",
-    "renovate": "44.238.2",
+    "renovate": "44.239.1",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
   }
