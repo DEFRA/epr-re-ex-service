@@ -243,7 +243,7 @@ components:
           $ref: '#/components/schemas/Status'
         issuedByOrganisation:
           description: The Reprocessor or Exporter Organisation that has Issued this PRN or PERN
-          $ref: '#/components/schemas/Organisation'
+          $ref: '#/components/schemas/IssuingOrganisation'
         issuedToOrganisation:
           description: The Producer or Compliance Scheme Organisation that is receiving this PRN or PERN
           $ref: '#/components/schemas/Organisation'
@@ -291,16 +291,11 @@ components:
     Accreditation:
       type: object
       required:
-        - id
         - accreditationNumber
         - accreditationYear
         - material
         - submittedToRegulator
       properties:
-        id:
-          type: string
-          description: Unique identifier for the accreditation of the Reprocessor or Exporter (24-character hexadecimal ObjectId)
-          example: 507f1f77bcf86cd799439011
         accreditationNumber:
           type: string
           description: Accreditation Number of the Reprocessor or Exporter
@@ -352,6 +347,25 @@ components:
           type: string
           description: Unique identifier for the organisation (either a UUID or a 24-character hexadecimal ObjectId)
           example: 987fcdeb-51a2-43f7-b123-456789abcdef
+        name:
+          type: string
+          description: Organisation name
+          example: Green Recycling Solutions Ltd
+        tradingName:
+          type: string
+          description: Trading name of the organisation
+          example: Green Recycling
+
+    IssuingOrganisation:
+      type: object
+      required:
+        - organisationNumber
+        - name
+      properties:
+        organisationNumber:
+          type: string
+          description: Organisation Number of the Reprocessor or Exporter
+          example: '500123'
         name:
           type: string
           description: Organisation name
