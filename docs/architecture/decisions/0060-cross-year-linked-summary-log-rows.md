@@ -8,7 +8,7 @@ Date: 2026-11-19
 - **Operator's view:** from 2027 the operator puts the 2026 row's ID in a new previous-year row ID column on a 2027 row, and enters only what happened in 2027.
 - **What we do:** validation reads the latest submitted 2026 row once and fills in the rest. The 2027 row state then holds the complete load, so the waste balance, reports and exports need no change.
 - **Guard rails:** a linked row may only supply a fixed list of export and overseas columns, so template formulas and defaults can't overwrite real 2026 values. The export date is checked against the accreditation for that date's year.
-- **Costs:** a 2026 resubmission supersedes in-flight 2027 logs until 2026 closes (end of February or 20 March). A 2026 correction made after 2027 is submitted only reaches 2027 at the next upload. The 2027 templates need a `ROW_ID` change before they go out.
+- **Costs:** a 2026 resubmission supersedes in-flight 2027 logs until 2026 closes (end of February or 20 March). Until 2026 closes, a 2026 resubmission or accreditation change made after 2027 is submitted leaves the 2027 waste balance stale until the next 2027 upload. This is a known gap that needs follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)) before January 2027. The 2027 templates need a `ROW_ID` change before they go out.
 
 ## Status
 
@@ -104,9 +104,16 @@ The filled-in reading depends on which previous-year submission it was read from
 
 ADR-0058's check is unchanged but its input widens: the hash covers the whole context except table schemas, so a previous-year resubmission between validation and submission supersedes the log as `CONTEXT_CHANGED`. Validation and submission build the context with one function. Templates without a linking table omit the new keys, so their hashes are unchanged on deployment. The context is per log, so every in-flight later-year log in the stream is affected, linked or not.
 
-### Previous-year changes reach the later year at its next upload
+### Known gap: previous-year changes after later-year submission
 
-A submitted later-year log keeps the values its linked rows were filled in with. A later previous-year change reaches the later year when the operator next uploads it. Automatic recalculation is a separate decision ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)); ADR-0037 leaves room for a commit that restates memberships, and `suppliedFields` keeps that open.
+A submitted later-year log keeps the values and credit its linked rows were filled in with. Until the previous year closes (end of February for accredited, 20 March for registered-only), two things can make them stale:
+
+- a previous-year resubmission that changes an inherited value, such as a tonnage
+- a change to the previous year's accreditation that affects whether a previous-year export date is live
+
+The later-year waste balance then over- or under-credits until the operator next uploads. The waste-records exports and market insights re-run classification and may disagree with it in the meantime. Supersession does not help, because it only protects logs that are not yet submitted.
+
+This decision accepts the gap only as a starting point. Closing it is follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)), needed before the first window opens in January 2027. ADR-0037 leaves room for a commit that restates memberships, and `suppliedFields` lets one refill a linked row without the workbook.
 
 ## Prerequisites
 
@@ -153,7 +160,7 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 
 ### Negative
 
-- **The later year can lag the previous year** until its next upload, or until automatic recalculation ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)).
+- **Known gap until [PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302):** a previous-year change after later-year submission leaves the later-year balance wrong until the next upload, for up to two months each year.
 - **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the waste-records exports and market insights, which re-run classification when they read rows.
 - **Any previous-year resubmission or accreditation change supersedes in-flight later-year logs**, linked or not, until the previous year closes to uploads: the end of February for accredited operators, 20 March for registered-only ones ([PAE-2106](https://eaflood.atlassian.net/browse/PAE-2106)).
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
@@ -164,7 +171,6 @@ A submitted later-year log keeps the values its linked rows were filled in with.
 
 ## Out of scope
 
-- **Recalculating the later year when a previous-year row changes after the later year's submission** ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)).
 - **Overrides on linked rows after the previous year's correction deadline** ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)).
 - **Edge cases of the link itself**: an ID that matches no row ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)), two later-year rows linking the same row, a link to the wrong load, and a link to a row already credited ([PAE-2098](https://eaflood.atlassian.net/browse/PAE-2098)).
 - **Per-year overseas-site approvals.**

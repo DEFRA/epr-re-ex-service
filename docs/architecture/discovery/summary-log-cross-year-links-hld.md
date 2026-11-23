@@ -59,7 +59,10 @@ gantt
 | Check-page period status, tonnage monitoring      | Count rows only in their own summary log's year                           |
 | Waste balance, reports, exports, credited tonnage | None                                                                      |
 
+## Known gap
+
+Until 2026 closes, a 2026 resubmission or accreditation change made after 2027 is submitted leaves the 2027 waste balance stale until the next 2027 upload. Closing it is follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)), needed before January 2027.
+
 ## Out of scope
 
-- Recalculating 2027 when a 2026 row changes after the 2027 submission ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)): the change arrives at the next 2027 upload.
 - Overrides after the deadline, link edge cases ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097), [PAE-2098](https://eaflood.atlassian.net/browse/PAE-2098)), renamed columns, per-year site approvals, refused, stopped and repatriated loads, and links across streams.
