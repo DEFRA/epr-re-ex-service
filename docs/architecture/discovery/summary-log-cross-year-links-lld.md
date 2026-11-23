@@ -119,8 +119,8 @@ A previous-year export date supplied on a later-year row credits the load correc
 [PAE-2102]: https://eaflood.atlassian.net/browse/PAE-2102
 
 - Supplied values are rounded to the stored precision before comparison: 10.123 against a stored 10.12 is equal.
-- A placeholder counts as blank on both rows. On the accredited tab, `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED` and `OSR_COUNTRY` have no `unfilledValues` entry, so a 2026 row stores an untouched "Choose option" as text. Without this, a linked row supplying "No" would count as changing a filled value and be rejected.
-- Treating a placeholder as blank applies only to fill-in and the year comparison. Unlinked rows still store an untouched placeholder verbatim.
+- A placeholder counts as blank on both rows. The parser already reads "Choose option" as blank in any column that one of the year's templates lists in `unfilledValues`, so today no allowed column is stored as "Choose option". For example, the accredited tab's `WAS_THE_WASTE_REFUSED`, `WAS_THE_WASTE_STOPPED` and `OSR_COUNTRY` are covered by the registered-only template's entries. The rule keeps a linked row supplying "No" from counting as a change to a filled value if a column ever loses that entry.
+- Treating a placeholder as blank applies only to fill-in and the year comparison.
 
 Validation holds three versions of a linked row:
 
