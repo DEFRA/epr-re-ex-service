@@ -17,13 +17,15 @@ Accepted
 
 The callback routes were unauthenticated. Nothing tied a callback to an upload the backend had started, so the backend trusted whatever location a callback named, read it with its own permissions, and stored the result against the organisation and registration in the path.
 
-[CDP's file upload guidance](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/file-upload.md) says callbacks should be authenticated and their contents validated. CDP Uploader itself offers no mechanism: it calls the callback URL exactly as given, sends no credentials or signature, and the result carries no upload id.
+[CDP's file upload guidance](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/file-upload.md) says callbacks should be authenticated and their contents validated. CDP Uploader itself offers no mechanism: it calls the callback URL exactly as given, sends no credentials or custom headers, and the result carries no upload id. It does send back, in the callback body, the `metadata` it was given when the upload started.
 
 ## Decision
 
-### Sign the callback URL
+### Sign the callback path
 
-When it starts an upload, the backend signs the callback URL it hands to CDP Uploader with a keyed hash (HMAC) of the callback path, using a secret only the backend holds. When a callback arrives, the backend checks the signature against the path it was called on, and refuses the callback before acting on it if the signature is missing or does not match.
+When it starts an upload, the backend computes a keyed hash (HMAC) of the callback path, using a secret only the backend holds, and gives it to CDP Uploader in the upload's `metadata`. The callback URL itself carries no signature. When a callback arrives, the backend checks the signature in the body's `metadata` against the path it was called on, and refuses the callback before acting on it if the signature is missing or does not match.
+
+The signature travels in `metadata`, not the URL, because both CDP Uploader and the platform ingress log the callback URL, query string included, so a signature in the URL ends up in the logs. The callback body is not logged.
 
 The signature covers the whole path, so it fixes every identifier the path carries (organisation, registration, year, accreditation and summary log, or the import). A signed URL is good for the one upload it was made for.
 
@@ -41,6 +43,7 @@ A correctly signed callback is still checked for where its file is: it must be i
 
 - **Rely on the protected zone.** Any service on the platform can reach the backend, so network position alone does not show that a callback came from CDP Uploader for an upload we started.
 - **Basic Auth or a shared header.** CDP Uploader sends no credentials or custom headers on callbacks.
+- **The signature in the callback URL's query string.** The first form of this decision. Rejected because CDP Uploader and the platform ingress both log the full URL, so every signature was written to the logs.
 - **Match the callback to a pending upload record, or ask CDP Uploader's status endpoint.** The callback carries no upload id to match or look up. The signed path already binds the callback to the upload's identifiers without storing anything new.
 
 ## Consequences
@@ -48,5 +51,5 @@ A correctly signed callback is still checked for where its file is: it must be i
 - Only a party holding the key can make a callback the backend accepts, and only for the upload it was signed for.
 - The backend reads and stores files only from the location its own upload put them in.
 - A new secret has to exist in every environment before the release that needs it; without it the backend does not start.
-- Rotating the key, or the first release, invalidates callback URLs signed with the previous key. Uploads in progress during that deployment are refused and have to be uploaded again. This is accepted; accepting a previous key during rotation can be added if it is ever needed.
+- Rotating the key, or the first release, invalidates the signatures given to CDP Uploader before it. The release that moved the signature from the URL into `metadata` did the same: uploads started before it carry their signature in the URL, which is no longer read. Uploads in progress during that deployment are refused and have to be uploaded again. This is accepted; accepting a previous key during rotation can be added if it is ever needed.
 - The release order is: development keys in the compose files, secrets in each environment, then the backend change.
