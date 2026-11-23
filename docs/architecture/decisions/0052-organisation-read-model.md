@@ -23,6 +23,9 @@ Revised 2026-11-03 (PAE-2192): a user carries their `fullName`.
 Revised 2026-11-10 (PAE-2226): a UK address with a first line and postcode is served as its parts
 even when ingest could not find its town, with the address as submitted alongside.
 
+Revised 2026-11-16 (PAE-2225): a registration's and accreditation's status carries
+`lastUpdatedAt`, and a timeline holds at least one change.
+
 ## Context
 
 `GET /v1/organisations/{id}` returns the stored organisation document, unprojected: every form
@@ -105,6 +108,7 @@ tightened separately.
  *     | 'steel' | 'wood'
  *   status: {
  *     current: 'approved' | 'cancelled' // computed from timeline
+ *     lastUpdatedAt: string // when the timeline's last change was recorded
  *     timeline: StatusTimeline
  *   }
  *   submittedToRegulator: Regulator
@@ -141,6 +145,7 @@ tightened separately.
  *   prnIssuance: { signatories: Contact[], tonnageBand: string } // not served
  *   status: {
  *     current: 'approved' | 'suspended' | 'cancelled' // computed from timeline
+ *     lastUpdatedAt: string // when the timeline's last change was recorded
  *     timeline: StatusTimeline
  *   }
  *   submitterContactDetails: Contact // not served
@@ -183,10 +188,11 @@ tightened separately.
 ```
 
 - **A status timeline lists every status change, oldest first**, each with `at`, the time it took
-  effect. Nothing in the domain requires two changes to happen at different times, so changes
-  that share a time keep the order they were recorded in. ADR-0051's map, with one status per day,
-  is the view that classification reads. The domain derives it from this list by each change's UTC
-  date, and the last change on a day gives that day's status.
+  effect. It holds at least one change, since a served record has a status. Nothing in the domain
+  requires two changes to happen at different times, so changes that share a time keep the order
+  they were recorded in. ADR-0051's map, with one status per day, is the view that classification
+  reads. The domain derives it from this list by each change's UTC date, and the last change on a
+  day gives that day's status.
 - **`status.current` is today's value on `status.timeline`.** The domain computes it from the
   timeline, at today or at a given date, rather than holding it separately, so the two cannot
   disagree. A registration's timeline is served because the frontend lists its
