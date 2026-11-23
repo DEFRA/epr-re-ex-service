@@ -2,6 +2,14 @@
 
 Date: 2026-11-19
 
+## Summary
+
+- **Problem:** an exporter's load can straddle the year boundary (exported in December 2026 and received overseas in January 2027, or received in 2026 and exported in 2027). Under ADR-0048 each year is sealed, so the load can't be completed and an accredited exporter is never credited for it.
+- **Operator's view:** from 2027 the operator puts the 2026 row's ID in a new previous-year row ID column on a 2027 row, and enters only what happened in 2027.
+- **What we do:** validation reads the latest submitted 2026 row once and fills in the rest. The 2027 row state then holds the complete load, so the waste balance, reports and exports need no change.
+- **Guard rails:** a linked row may only supply a fixed list of export and overseas columns, so template formulas and defaults can't overwrite real 2026 values. The export date is checked against the accreditation for that date's year.
+- **Costs:** a 2026 resubmission supersedes in-flight 2027 logs until 2026 closes (end of February or 20 March). A 2026 correction made after 2027 is submitted only reaches 2027 at the next upload. The 2027 templates need a `ROW_ID` change before they go out.
+
 ## Status
 
 Proposed. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later year's validation may read an earlier year's submitted row states. Nothing is written across a year boundary.
