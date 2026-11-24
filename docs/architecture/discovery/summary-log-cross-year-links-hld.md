@@ -49,15 +49,16 @@ gantt
 
 ## What changes
 
-| Component                                         | Change                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------- |
-| 2027 exporter templates                           | `ROW_ID` generated on linked rows                                         |
-| Table schemas                                     | Declare that a table links years, and the columns a linked row may supply |
-| Validation                                        | Resolves links, fills in, checks the years against each other             |
-| Context builder (validation and submission)       | Adds the previous year's position and accreditation                       |
-| Classification                                    | Checks the export date against the accreditation of that date's year      |
-| Check-page period status, tonnage monitoring      | Count rows only in their own summary log's year                           |
-| Waste balance, reports, exports, credited tonnage | None                                                                      |
+| Component                                                              | Change                                                                    |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 2027 exporter templates                                                | `ROW_ID` generated on linked rows                                         |
+| Table schemas                                                          | Declare that a table links years, and the columns a linked row may supply |
+| Validation                                                             | Resolves links, fills in, checks the years against each other             |
+| Context builder (validation and submission)                            | Adds the previous year's position and accreditation                       |
+| Classification                                                         | Checks the export date against the accreditation of that date's year      |
+| Check-page period status, tonnage monitoring                           | Count rows only in their own summary log's year                           |
+| Waste-records exports, market insights waste balance, credited tonnage | Re-run classification with the previous year's accreditation in context   |
+| Waste balance, reports                                                 | None                                                                      |
 
 ## Known gap
 

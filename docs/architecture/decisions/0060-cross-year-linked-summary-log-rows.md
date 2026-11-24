@@ -89,6 +89,8 @@ An accredited exporter row is credited only if its date received overseas falls 
 
 The rule applies to every row, linked or not, so classification reads `data` and the context alone. Overseas-site approval is still checked using the current year's sites; per-year approvals are out of scope. The previous-year row's classification is unchanged.
 
+Three readers re-run classification against the accreditation as it stands, instead of reading the classification stored at submission: the waste-records exports, the market insights waste balance and the credited tonnage report. Each builds its own classification context, so each must add the previous year's accreditation the same way validation does. Without it, a load exported in the previous year fails the export-date check, and a load the later-year waste balance credited drops out of that reader's eligible tonnage.
+
 ### Readers that place rows in periods by date count only the summary log's own year
 
 A linked 2027 row carries the same 2026 dates as the row it was filled in from, so a reader that places rows by date across years would see the load twice, or a 2027 log reaching into a 2026 period. So such a reader counts a row only in periods of its own summary log's year. The rule covers every row and every date, so it needs no knowledge of links. Reports already behave this way under ADR-0048; check-page period status and tonnage monitoring change.
@@ -111,7 +113,7 @@ A submitted later-year log keeps the values and credit its linked rows were fill
 - a previous-year resubmission that changes an inherited value, such as a tonnage
 - a change to the previous year's accreditation that affects whether a previous-year export date is live
 
-The later-year waste balance then over- or under-credits until the operator next uploads. The waste-records exports and market insights re-run classification and may disagree with it in the meantime. Supersession does not help, because it only protects logs that are not yet submitted.
+The later-year waste balance then over- or under-credits until the operator next uploads. The waste-records exports, market insights and the credited tonnage report re-run classification and may disagree with it in the meantime. Supersession does not help, because it only protects logs that are not yet submitted.
 
 This decision accepts the gap only as a starting point. Closing it is follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)), needed before the first window opens in January 2027. ADR-0037 leaves room for a commit that restates memberships, and `suppliedFields` lets one refill a linked row without the workbook.
 
@@ -161,11 +163,12 @@ This decision accepts the gap only as a starting point. Closing it is follow-up 
 ### Negative
 
 - **Known gap until [PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302):** a previous-year change after later-year submission leaves the later-year balance wrong until the next upload, for up to two months each year.
-- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the waste-records exports and market insights, which re-run classification when they read rows.
+- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the waste-records exports, market insights and the credited tonnage report, which re-run classification when they read rows.
 - **Any previous-year resubmission or accreditation change supersedes in-flight later-year logs**, linked or not, until the previous year closes to uploads: the end of February for accredited operators, 20 March for registered-only ones ([PAE-2106](https://eaflood.atlassian.net/browse/PAE-2106)).
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
 - **Cross-field checks are looser on linked rows**, by up to about 0.025 t on the tonnage received for export.
 - **Later-year row states carry earlier-year dates.** Any new reader that places rows by date must count only its own year.
+- **A linked load appears in both years' waste-records exports.** The previous-year row and the filled-in later-year row each hold it, so summing the two years' exports counts it twice. The previous-year row ID column is the only sign in an export that a row is linked, because `link` is not exported.
 - **A value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error.
 - **Fill-in depends on the `ROW_ID` template change** landing before the 2027 templates go out.
 

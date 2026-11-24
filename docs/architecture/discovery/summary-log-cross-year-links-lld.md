@@ -211,7 +211,17 @@ Accredited exporter rows, linked or not:
 | Current year, on a live 2027 day  | Previous year  | No 2026 accreditation       | Never                            |
 | Blank, previous year, or not live | Any            | n/a                         | Never                            |
 
-Overseas-site approval is checked against the export date using the current year's sites. The waste-records exports and the market insights waste balance re-run classification when they read rows, against the accreditation as it stands, so they resolve the previous-year accreditation the same way.
+Overseas-site approval is checked against the export date using the current year's sites.
+
+Three readers re-run classification when they read rows, against the accreditation as it stands. Today each passes only the partition's own accreditation, so each must also resolve the previous-year accreditation the same way validation does:
+
+| Reader                        | Re-classifies at                                        | Without the previous-year accreditation                                   |
+| ----------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Waste-records exports         | `waste-records-export/application/stream-csv-export.js` | Linked loads shown as not credited                                        |
+| Market insights waste balance | `market-insights/application/waste-balance-table.js`    | Linked loads absent from the published UK waste balance                   |
+| Credited tonnage report       | `waste-balances/application/credited-tonnage-report.js` | Linked loads counted in `totalCredited` but not `eligibleForWasteBalance` |
+
+A linked load is in both years' waste-records exports, on the previous-year row and the filled-in later-year row, so the two years' exports must not be summed.
 
 ## Context
 
@@ -240,8 +250,8 @@ Each counts a row only in periods of its own summary log's year.
 | Reader                                              | Places exporter rows by                                            | Change                                                                    |
 | --------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
 | Monthly reports                                     | Received for export, exported and repatriated dates                | None                                                                      |
-| Credited tonnage                                    | Date received overseas, credited rows only                         | None                                                                      |
-| Market insights waste balance                       | Date received overseas, latest submission of every ledger and year | None                                                                      |
+| Credited tonnage                                    | Date received overseas, credited rows only                         | None to placement; re-classification changes (see [Credit](#credit))      |
+| Market insights waste balance                       | Date received overseas, latest submission of every ledger and year | None to placement; re-classification changes (see [Credit](#credit))      |
 | Check-page period status and resubmission detection | Received for export, exported and repatriated dates                | Own year's submitted periods only, so December 2026 isn't shown as closed |
 | Tonnage monitoring                                  | Date of export, latest submission of every ledger and year         | Own year's months only, so a December 2026 export isn't counted twice     |
 
