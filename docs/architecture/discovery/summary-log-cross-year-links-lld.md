@@ -21,6 +21,7 @@ sequenceDiagram
     Worker->>RowStates: One query for every linked row in commit n
     Worker->>Worker: Fill in linked rows
     Worker->>Worker: Syntax, required-field and cross-field checks, classification
+    Worker->>Worker: Cross-year rules on linked rows
     Worker->>RowStates: Write 2027 row states (data and link)
     Worker->>Worker: Hash the context, including n and the previous-year accreditation
     Worker-->>Operator: Check page shows the filled-in reading
@@ -131,6 +132,14 @@ Validation holds three versions of a linked row:
 | Filled-in row               | Syntax, required-field and cross-field checks, classification, the check page, the stored `data`                                                 |
 
 [PAE-2101]: https://eaflood.atlassian.net/browse/PAE-2101
+
+The rules that compare the years run in one **cross-year rules step** after fill-in, beside the syntax checks. It reads the three versions of each linked row, and its errors are fatal like theirs. The field schemas know nothing about linking: on a filled-in row they are told only that it was filled in, and skip their own earlier-year rule.
+
+| Rule                                                                    | In the step             |
+| ----------------------------------------------------------------------- | ----------------------- |
+| Earlier-year dates on a linked row ([PAE-2101])                         | Now                     |
+| A supplied value that differs from the previous-year row's ([PAE-2102]) | When [PAE-2102] lands   |
+| Two later-year rows linking the same previous-year row                  | Once the rule is agreed |
 
 The earlier-year date rule checks supplied allowed cells only, and allows a supplied earlier-year date equal to the previous-year row's.
 
