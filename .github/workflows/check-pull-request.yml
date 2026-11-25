@@ -53,7 +53,7 @@ jobs:
 
           if [ -d "$DOCS_DIR" ]; then
             cd $DOCS_DIR
-            duplicates=$(ls -1 *.md | grep -E '^[0-9]{4}-' | sed 's/^\([0-9]\{4\}\)-.*/\1/' | sort | uniq -d)
+            duplicates=$(ls -1 -- *.md | grep -E '^[0-9]{4}-' | sed 's/^\([0-9]\{4\}\)-.*/\1/' | sort | uniq -d)
             if [ -n "$duplicates" ]; then
               echo "Error: Duplicate ADR numbers found:" >&2
               echo "$duplicates" >&2
