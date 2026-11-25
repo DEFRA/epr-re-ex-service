@@ -117,7 +117,7 @@ This decision accepts the gap only as a starting point. Closing it is follow-up 
 
 ## Prerequisites
 
-- **`ROW_ID` generation in the 2027 exporter templates.** Today `ROW_ID` is generated only when columns a linked row usually inherits are filled, so a linked row that supplies only a date received overseas would have no row ID. It must be generated when the previous-year row ID or any data cell is filled. This goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and needs agreeing with the template owner before the 2027 templates go out.
+- **`ROW_ID` generation in the 2027 exporter templates.** Today `ROW_ID` is generated only when columns a linked row usually inherits are filled, so a linked row that supplies only a date received overseas would have no row ID, and would be dropped from the upload without an error. It must also be generated when the previous-year row ID is filled, with today's condition unchanged so rows without a link behave as before ([PAE-2320](https://eaflood.atlassian.net/browse/PAE-2320)). This goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293) and needs agreeing with the template owner before the 2027 templates go out.
 
 ## Considered alternatives
 

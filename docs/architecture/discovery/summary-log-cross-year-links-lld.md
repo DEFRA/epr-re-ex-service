@@ -152,11 +152,11 @@ The earlier-year date rule checks supplied allowed cells only, and allows a supp
 
 ## Template changes
 
-One change to both 2027 exporter templates before they go out. It goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so it needs agreeing with the template owner.
+One change to both 2027 exporter templates before they go out ([PAE-2320](https://eaflood.atlassian.net/browse/PAE-2320)). It goes beyond [PAE-2293](https://eaflood.atlassian.net/browse/PAE-2293), so it needs agreeing with the template owner.
 
-| Column   | Today                                        | Needed                                                           | Why                                                      |
-| -------- | -------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
-| `ROW_ID` | Generated from columns a linked row inherits | Generated when `PREVIOUS_YEAR_ROW_ID` or any data cell is filled | A row supplying only a receipt date would have no row ID |
+| Column   | Today                                        | Needed                                                                                 | Why                                                                                                                       |
+| -------- | -------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `ROW_ID` | Generated from columns a linked row inherits | Also generated when `PREVIOUS_YEAR_ROW_ID` is filled, with today's condition unchanged | A row supplying only a date received overseas would have no row ID, and would be dropped from the upload without an error |
 
 Formula columns and other defaults need no change: the formulas are receipt columns, outside the allow list, and the allowed defaults are placeholders.
 
