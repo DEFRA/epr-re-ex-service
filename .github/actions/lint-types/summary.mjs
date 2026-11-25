@@ -63,7 +63,7 @@ export const filterTestFiles = (paths, { include, exclude = [] }) =>
  * @returns {{ include?: string[]; exclude?: string[] }}
  */
 const parseTsconfig = (jsonText) =>
-  JSON.parse(jsonText.replace(/\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'))
+  JSON.parse(jsonText.replace(/\/\/.*$/gm, '').replace(/,(?=\s*[}\]])/g, ''))
 
 /**
  * Reads include/exclude globs from a tsconfig/jsconfig file's text. Tolerant of
@@ -120,7 +120,7 @@ const topCodes = (errors) =>
  */
 const buildPrSection = (changedFiles, byFile) => {
   const entries = [...changedFiles]
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((file) => ({ file, errors: byFile.get(file) ?? [] }))
     .filter(({ errors }) => errors.length > 0)
 
@@ -335,7 +335,7 @@ export const resolveFailOnAll = (value) => {
 // each error line is used instead (see topCodesTable's `|| message` fallback),
 // which is more specific than the templated canonical text anyway. Restore a
 // real lookup here if the 7.1 programmatic API exposes the diagnostics table.
-const tsCodeLookup = () => ''
+const noTsCodeLookup = () => ''
 
 /**
  * @param {FilterGlobs} filterGlobs
@@ -361,7 +361,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const summary = buildSummary({
     tscOutput,
     changedFiles,
-    tsCodeLookup,
+    tsCodeLookup: noTsCodeLookup,
     failOnAll,
     label
   })

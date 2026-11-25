@@ -125,7 +125,8 @@ const mapPool = async (fn, items, limit) => {
   let next = 0
   const worker = async () => {
     while (next < items.length) {
-      const index = next++
+      const index = next
+      next += 1
       results[index] = await fn(items[index], index)
     }
   }

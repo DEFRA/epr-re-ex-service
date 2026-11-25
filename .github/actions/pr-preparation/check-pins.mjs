@@ -7,26 +7,21 @@ const SCANNED_SECTIONS = [
   'resolutions'
 ]
 
-const walk = (entries, section, path, offenders) => {
-  for (const [name, value] of entries) {
+const walk = (entries, section, path) =>
+  entries.flatMap(([name, value]) => {
     const qualifiedName = path ? `${path} > ${name}` : name
-    if (typeof value === 'string') {
-      if (/^[\^~]/.test(value)) {
-        offenders.push({ section, name: qualifiedName, range: value })
-      }
-    } else if (value && typeof value === 'object') {
-      walk(Object.entries(value), section, qualifiedName, offenders)
+    if (value && typeof value === 'object') {
+      return walk(Object.entries(value), section, qualifiedName)
     }
-  }
-}
+    return typeof value === 'string' && /^[\^~]/.test(value)
+      ? [{ section, name: qualifiedName, range: value }]
+      : []
+  })
 
-export const findUnpinned = (pkg) => {
-  const offenders = []
-  for (const section of SCANNED_SECTIONS) {
-    walk(Object.entries(pkg[section] ?? {}), section, '', offenders)
-  }
-  return offenders
-}
+export const findUnpinned = (pkg) =>
+  SCANNED_SECTIONS.flatMap((section) =>
+    walk(Object.entries(pkg[section] ?? {}), section, '')
+  )
 
 export const scanFiles = async (paths, readFile) => {
   const offenders = []
