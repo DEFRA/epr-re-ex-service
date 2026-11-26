@@ -12,7 +12,7 @@ Date: 2026-11-19
 
 ## Status
 
-Proposed. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later year's validation may read an earlier year's submitted row states. Nothing is written across a year boundary.
+Accepted. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later year's validation may read an earlier year's submitted row states. Nothing is written across a year boundary.
 
 | ADR                                                                   | Title                                                 | Relationship                                                                                                                 |
 | --------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |

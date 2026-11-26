@@ -1,6 +1,6 @@
 # Summary Log Cross-Year Links: Low Level Design
 
-Proposed with [ADR-0060](../decisions/0060-cross-year-linked-summary-log-rows.md), which records the decisions and their reasons. This document shows the mechanics. For the overview, see the [HLD](./summary-log-cross-year-links-hld.md).
+Accepted with [ADR-0060](../decisions/0060-cross-year-linked-summary-log-rows.md), which records the decisions and their reasons. This document shows the mechanics. For the overview, see the [HLD](./summary-log-cross-year-links-hld.md).
 
 ## Validation and submission
 
