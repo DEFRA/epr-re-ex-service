@@ -25,7 +25,9 @@ Documentation relating to architecture that is defined and agreed with project s
 16. [Summary Log Rules Reference](summary-log-rules.md) (generated from code by the epr-backend tool)
 17. [Summary Log Submission LLD](summary-log-submission-lld.md)
 18. [Summary Log Processing Failure Handling](summary-log-processing-failure-handling.md)
+19. [Summary Log Cross-Year Links HLD](summary-log-cross-year-links-hld.md)
+20. [Summary Log Cross-Year Links LLD](summary-log-cross-year-links-lld.md)
 
 ### Packaging Recycling Notes
 
-19. [PRN State Transitions](prn-state-transitions.md)
+21. [PRN State Transitions](prn-state-transitions.md)
