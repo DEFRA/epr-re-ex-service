@@ -111,7 +111,7 @@ A submitted later-year log keeps the values and credit its linked rows were fill
 - a previous-year resubmission that changes an inherited value, such as a tonnage
 - a change to the previous year's accreditation that affects whether a previous-year export date is live
 
-The later-year waste balance then over- or under-credits until the operator next uploads. The waste-records exports and market insights re-run classification and may disagree with it in the meantime. Supersession does not help, because it only protects logs that are not yet submitted.
+The later-year waste balance then over- or under-credits until the operator next uploads. The credited tonnage report, the waste-records exports and the market insights waste balance re-run classification against the accreditations as they stand. So they reflect a previous-year accreditation change straight away, but a previous-year resubmission only after the next later-year upload. Until then they may disagree with the balance, and with the waste balance availability and events reports that read it. Supersession does not help, because it only protects logs that are not yet submitted.
 
 This decision accepts the gap only as a starting point. Closing it is follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)), needed before the first window opens in January 2027. ADR-0037 leaves room for a commit that restates memberships, and `suppliedFields` lets one refill a linked row without the workbook.
 
@@ -161,13 +161,15 @@ This decision accepts the gap only as a starting point. Closing it is follow-up 
 ### Negative
 
 - **Known gap until [PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302):** a previous-year change after later-year submission leaves the later-year balance wrong until the next upload, for up to two months each year.
-- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the waste-records exports and market insights, which re-run classification when they read rows.
+- **The later year depends on the previous year's stream and accreditation**, at validation, on the submit route, in the submission worker, and in the credited tonnage report, the waste-records exports and the market insights waste balance, which re-run classification when they read rows.
 - **Any previous-year resubmission or accreditation change supersedes in-flight later-year logs**, linked or not, until the previous year closes to uploads: the end of February for accredited operators, 20 March for registered-only ones ([PAE-2106](https://eaflood.atlassian.net/browse/PAE-2106)).
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
 - **Cross-field checks are looser on linked rows**, by up to about 0.025 t on the tonnage received for export.
 - **Later-year row states carry earlier-year dates.** Any new reader that places rows by date must count only its own year.
 - **A value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error.
 - **Fill-in depends on the `ROW_ID` template change** landing before the 2027 templates go out.
+- **A previous-year row that is missing a report-mandatory receipt value blocks every later-year report.** The report-mandatory check reads the whole log, and a linked row inherits the supplier details from the previous year. If the previous-year row lacks them, no later-year report can be created for that registration. The issue also names a column the linked row cannot supply. Only a previous-year resubmission fixes it, and only until the previous year closes. Until then the regulator sees those reports as outstanding. This needs follow-up work: the issue should name the previous-year row, and the behaviour after the deadline needs deciding.
+- **The waste-records exports repeat a linked load in both years**, with its receipt and export tonnages on both rows. Adding two years' exports together double-counts the load, and the `PREVIOUS_YEAR_ROW_ID` column is the only thing that marks it. This needs follow-up work: say so wherever the export's columns are explained to the people who use it.
 
 ## Out of scope
 

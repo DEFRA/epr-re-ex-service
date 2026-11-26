@@ -211,7 +211,7 @@ Accredited exporter rows, linked or not:
 | Current year, on a live 2027 day  | Previous year  | No 2026 accreditation       | Never                            |
 | Blank, previous year, or not live | Any            | n/a                         | Never                            |
 
-Overseas-site approval is checked against the export date using the current year's sites. The waste-records exports and the market insights waste balance re-run classification when they read rows, against the accreditation as it stands, so they resolve the previous-year accreditation the same way.
+Overseas-site approval is checked against the export date using the current year's sites. The credited tonnage report, the waste-records exports and the market insights waste balance re-run classification when they read rows. They use the accreditation as it stands, and get the previous-year accreditation from the same registration in the read model, only under a template that links years.
 
 ## Context
 
@@ -244,6 +244,27 @@ Each counts a row only in periods of its own summary log's year.
 | Market insights waste balance                       | Date received overseas, latest submission of every ledger and year | None                                                                      |
 | Check-page period status and resubmission detection | Received for export, exported and repatriated dates                | Own year's submitted periods only, so December 2026 isn't shown as closed |
 | Tonnage monitoring                                  | Date of export, latest submission of every ledger and year         | Own year's months only, so a December 2026 export isn't counted twice     |
+
+## Admin and regulator reports
+
+| Report                                                                 | Audience  | Reads                                         | Effect of a linked row                                                                 | Action                                                    |
+| ---------------------------------------------------------------------- | --------- | --------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Monthly reports and report submissions                                 | Admin     | Latest submitted log of the report's own year | Each stage is reported in the month it happened, from that year's row                  | None                                                      |
+| Report-mandatory check, on report creation                             | Operator  | Every row of the latest submitted log         | A linked row inherits any missing supplier details from the 2026 row                   | Follow-up, see below                                      |
+| Market insights: reprocessor and exporter figures, outstanding returns | Regulator | Submitted monthly reports                     | None, except that reports blocked by the report-mandatory check show as outstanding    | Follows from the report-mandatory check                   |
+| Market insights waste balance, workbook and ZIP export                 | Regulator | Row states, re-classified                     | Credited in the month received overseas, against the accreditation of each date's year | None                                                      |
+| Credited tonnage                                                       | Admin     | Row states, re-classified                     | As the market insights waste balance                                                   | None                                                      |
+| Waste-records export                                                   | Admin     | Row states, re-classified, one year at a time | The 2027 export carries the whole load, so the load is in both years' exports          | Follow-up, see below                                      |
+| Tonnage monitoring                                                     | Admin     | Row states, by date of export                 | A load exported in December 2026 counts twice until the own-year rule lands            | The own-year rule above                                   |
+| Waste balance availability, waste balance events                       | Admin     | 2027 ledger                                   | Correct when 2027 is submitted, stale after a later 2026 change                        | [PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302) |
+| PRN tonnage                                                            | Admin     | PRNs                                          | Only through PRNs issued against a stale 2027 balance                                  | [PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302) |
+
+**Report-mandatory check.** It runs over every row of the log, whatever the row's period. On an accredited exporter's linked row the supplier columns are receipt columns, so they are not on the allow list and always come from the 2026 row. If the 2026 row lacks a supplier value its tonnage requires, every 2027 report for that registration fails to create. The issue names the 2027 row and column, but a value supplied there is ignored. The fix is a 2026 resubmission, which is possible only until the end of February. Needed:
+
+- On a linked row, an issue for an inherited column names the previous-year row as the place to correct it, as the cross-field errors do.
+- A decision on what happens after the 2026 deadline: overrides ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)), or rejecting the link at 2027 validation while 2026 can still be corrected.
+
+**Waste-records export.** A load received in December 2026 and exported in January 2027 has its receipt tonnage on the 2026 row and on the 2027 row. A load exported in December 2026 and received overseas in January 2027 has its export tonnage on both rows as well. The classification columns credit it only on the 2027 row. Credit adds up correctly across years; received and exported tonnage do not. The `PREVIOUS_YEAR_ROW_ID` column marks the repeat, and `link` is not exported (ADR-0059). The export's guidance for its readers needs to say so.
 
 ## Worked example
 
