@@ -49,19 +49,28 @@ gantt
 
 ## What changes
 
-| Component                                         | Change                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------- |
-| 2027 exporter templates                           | `ROW_ID` generated on linked rows                                         |
-| Table schemas                                     | Declare that a table links years, and the columns a linked row may supply |
-| Validation                                        | Resolves links, fills in, checks the years against each other             |
-| Context builder (validation and submission)       | Adds the previous year's position and accreditation                       |
-| Classification                                    | Checks the export date against the accreditation of that date's year      |
-| Check-page period status, tonnage monitoring      | Count rows only in their own summary log's year                           |
-| Waste balance, reports, exports, credited tonnage | None                                                                      |
+| Component                                    | Change                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| 2027 exporter templates                      | `ROW_ID` generated on linked rows                                         |
+| Table schemas                                | Declare that a table links years, and the columns a linked row may supply |
+| Validation                                   | Resolves links, fills in, checks the years against each other             |
+| Context builder (validation and submission)  | Adds the previous year's position and accreditation                       |
+| Classification                               | Checks the export date against the accreditation of that date's year      |
+| Check-page period status, tonnage monitoring | Count rows only in their own summary log's year                           |
+| Credited tonnage, exports, market insights   | Re-run classification with the previous year's accreditation as well      |
+| Report-mandatory check                       | Name the previous-year row when an inherited value is missing (follow-up) |
+| Waste balance, monthly reports               | None                                                                      |
 
 ## Known gap
 
 Until 2026 closes, a 2026 resubmission or accreditation change made after 2027 is submitted leaves the 2027 waste balance stale until the next 2027 upload. Closing it is follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)), needed before January 2027.
+
+## Reports
+
+Each 2027 report reads only 2027 rows, so each stage of a linked load is reported once, in the year that stage happened. Two follow-ups remain. The [LLD](./summary-log-cross-year-links-lld.md#admin-and-regulator-reports) gives the detail for each report.
+
+- If a 2026 row is missing supplier details, no 2027 report can be created for that registration. Only a 2026 resubmission before 2026 closes fixes it.
+- The waste-records exports carry a linked load in both years, so adding two years' exports together double-counts it.
 
 ## Out of scope
 
