@@ -1,6 +1,6 @@
 # Summary Log Cross-Year Links: High Level Design
 
-Proposed with [ADR-0060](../decisions/0060-cross-year-linked-summary-log-rows.md). The mechanics are in the [LLD](./summary-log-cross-year-links-lld.md).
+Accepted with [ADR-0060](../decisions/0060-cross-year-linked-summary-log-rows.md). The mechanics are in the [LLD](./summary-log-cross-year-links-lld.md).
 
 An exporter can export a load in one year that is received overseas in the next, or receive a load for export in one year and export it in the next. From 2027 the operator records the completion on a 2027 row that names the 2026 row in its previous-year row ID column. Validation fills in the rest of the load from the 2026 row, and the load counts towards the 2027 balance.
 

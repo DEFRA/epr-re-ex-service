@@ -12,7 +12,7 @@ Date: 2026-11-19
 
 ## Status
 
-Proposed. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later year's validation may read an earlier year's submitted row states. Nothing is written across a year boundary.
+Accepted. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later year's validation may read an earlier year's submitted row states. Nothing is written across a year boundary.
 
 | ADR                                                                   | Title                                                 | Relationship                                                                                                                 |
 | --------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -21,7 +21,7 @@ Proposed. Amends [ADR-0048](./0048-dual-multi-year-summary-logs.md): a later yea
 | [0037](0037-summary-log-row-states-with-membership.md)                | Summary-log row states with membership                | Extends: `data` keeps its meaning; a linked row state also records where its values came from.                               |
 | [0059](0059-waste-records-exports-carry-template-declared-columns.md) | Waste-records exports carry template-declared columns | Constrains: the link sits beside `data`, not in it, so it never reaches the exports as an undeclared column.                 |
 
-The [HLD](../discovery/summary-log-cross-year-links-hld.md) gives the overview and the [LLD](../discovery/summary-log-cross-year-links-lld.md) the mechanics, including a worked example.
+The [HLD](../defined/summary-log-cross-year-links-hld.md) gives the overview and the [LLD](../defined/summary-log-cross-year-links-lld.md) the mechanics, including a worked example.
 
 ## Context
 
@@ -74,7 +74,7 @@ A previous-year row ID that matches no submitted row will be rejected ([PAE-2097
 
 ### Cross-field checks on linked rows tolerate stored rounding
 
-Some checks recalculate one value from others: the tonnage received for export from the net weight, non-target weight and recyclable proportion, for example. A linked row inherits those values as stored, to two decimal places (ADR-0037), not as the operator typed them, so the recalculation can differ from the stored value by rounding alone. On a linked row, each such check therefore accepts up to the worst-case rounding of its inputs, about 0.025 t on the tonnage received for export; the [LLD](../discovery/summary-log-cross-year-links-lld.md#cross-field-rounding-allowance) gives the breakdown. A real mismatch still fails, and its error says which values came from the previous year, so the operator knows which log to correct. Unlinked rows keep today's comparison.
+Some checks recalculate one value from others: the tonnage received for export from the net weight, non-target weight and recyclable proportion, for example. A linked row inherits those values as stored, to two decimal places (ADR-0037), not as the operator typed them, so the recalculation can differ from the stored value by rounding alone. On a linked row, each such check therefore accepts up to the worst-case rounding of its inputs, about 0.025 t on the tonnage received for export; the [LLD](../defined/summary-log-cross-year-links-lld.md#cross-field-rounding-allowance) gives the breakdown. A real mismatch still fails, and its error says which values came from the previous year, so the operator knows which log to correct. Unlinked rows keep today's comparison.
 
 ### `data` holds the complete load; `link` records where it came from
 
@@ -182,7 +182,7 @@ This decision accepts the gap only as a starting point. Closing it is follow-up 
 
 ## Related
 
-- [Summary Log Cross-Year Links HLD](../discovery/summary-log-cross-year-links-hld.md) and [LLD](../discovery/summary-log-cross-year-links-lld.md)
+- [Summary Log Cross-Year Links HLD](../defined/summary-log-cross-year-links-hld.md) and [LLD](../defined/summary-log-cross-year-links-lld.md)
 - [ADR-0048](./0048-dual-multi-year-summary-logs.md): the year isolation this ADR amends
 - [ADR-0058](./0058-validation-writes-summary-log-row-states.md): validation writes row states and hashes the context that submission checks
 - [ADR-0037](./0037-summary-log-row-states-with-membership.md): row states, membership and the room for non-submission commits
