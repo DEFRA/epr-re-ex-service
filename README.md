@@ -35,6 +35,12 @@ Or if you've already cloned and forgot the submodules, pull those down now
 git submodule update --init --recursive
 ```
 
+Keep submodules up to date with `main` (rather than the commit they are pinned to) via
+
+```sh
+git submodule foreach 'git checkout main && git pull origin main'
+```
+
 ## Running
 
 To run this service locally, follow [these instructions](./CONTRIBUTING.md#getting-started).
