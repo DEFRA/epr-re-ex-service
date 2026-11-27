@@ -27,9 +27,11 @@ A module is a directory directly under `src/`. It owns:
 - **its domain types** and the pure rules over them,
 - **the port for its data** and every adapter of that port, such as MongoDB and in-memory,
 - **its routes,**
-- **any application service and queue command handler** that acts on its data.
+- **the application services and queue command handlers that serve its responsibility.**
 
-Domain vocabulary, such as a model's types or the format of a registration number, goes out through the owning module's public interface. Technical code with no domain owner, such as authentication, logging and the server setup, stays outside the modules. So a directory such as `src/common/`, `src/plugins/` or `src/server/`, which holds no domain data or routes of its own, is not a module.
+An application service or queue command handler that needs another module's data reads it through that module's port, and declares the port as a dependency, as the organisation read model's adapter does with overseas sites. One that serves no single module's responsibility, because it draws on several modules equally, is a module of its own.
+
+Domain vocabulary, such as a model's types or the format of a registration number, goes out through the owning module's public interface. Technical code with no domain owner, such as authentication, logging and the server setup, stays outside the modules. So a directory such as `src/common/`, `src/plugins/` or `src/server/`, which serves no domain responsibility of its own, is not a module.
 
 ### Module boundaries follow who owns the data
 
@@ -69,7 +71,7 @@ A port is a capability other code uses, such as a repository or an application s
 - **The port is how a caller asks the module to do something,** whether that is fetching, saving, sending or any other application service. Callers reach it from the request or from `server.app`.
 - **`index.js` describes what those requests take and return.** It holds the module's types, its constants, and the rules that answer questions about a value of those types. Callers import it.
 
-A repository that several modules reach into is a sign that a capability is missing. Its owning module presents it as a port, with an application service in front where callers need more than storage. An adapter may depend on other modules' ports, as the organisation read model's adapter depends on overseas sites. A service that only combines several modules' ports for one caller is built where it is used, and is not a port of its own.
+A repository that several modules reach into is a sign that a capability is missing. Its owning module presents it as a port, with an application service in front where callers need more than storage. A service that combines several modules' ports for one caller serves that caller's responsibility, so it is built in the caller's module and is not a port of its own.
 
 ### Modules wire together through Hapi plugins that declare what they need
 
