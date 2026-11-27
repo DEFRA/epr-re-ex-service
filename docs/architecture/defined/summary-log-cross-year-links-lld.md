@@ -117,6 +117,8 @@ A previous-year export date supplied on a later-year row credits the load correc
 | Not allowed, whatever it holds (value, formula result, default)    | Previous-year value   | No                  |
 | `ROW_ID`, `PREVIOUS_YEAR_ROW_ID`                                   | Never filled          | n/a                 |
 
+The rejections in this table apply until the previous year's correction deadline. A value in a column that is not allowed and that differs from a filled previous-year value is rejected in the same way; the exceptions follow the cross-year rules step below.
+
 [PAE-2102]: https://eaflood.atlassian.net/browse/PAE-2102
 
 - Supplied values are rounded to the stored precision before comparison: 10.123 against a stored 10.12 is equal.
@@ -135,13 +137,28 @@ Validation holds three versions of a linked row:
 
 The rules that compare the years run in one **cross-year rules step** after fill-in, beside the syntax checks. It reads the three versions of each linked row, and its errors are fatal like theirs. The field schemas know nothing about linking: on a filled-in row they are told only that it was filled in, and skip their own earlier-year rule.
 
-| Rule                                                                    | In the step             |
-| ----------------------------------------------------------------------- | ----------------------- |
-| Earlier-year dates on a linked row ([PAE-2101])                         | Now                     |
-| A supplied value that differs from the previous-year row's ([PAE-2102]) | When [PAE-2102] lands   |
-| Two later-year rows linking the same previous-year row                  | Once the rule is agreed |
+| Rule                                                           | In the step             |
+| -------------------------------------------------------------- | ----------------------- |
+| Earlier-year dates on a linked row ([PAE-2101])                | Now                     |
+| A value that differs from the previous-year row's ([PAE-2102]) | Now                     |
+| Two later-year rows linking the same previous-year row         | Once the rule is agreed |
 
-The earlier-year date rule checks supplied allowed cells only, and allows a supplied earlier-year date equal to the previous-year row's.
+The earlier-year date rule checks supplied allowed cells only, and allows a supplied earlier-year date equal to the previous-year row's. A date that differs from a filled previous-year date is left to the different-value rule, so the operator gets one error for it.
+
+The different-value rule compares each column except `ROW_ID` and `PREVIOUS_YEAR_ROW_ID`, as entered against the previous-year row as stored, before the previous year's correction deadline:
+
+| Comparison                                                                    | Result   |
+| ----------------------------------------------------------------------------- | -------- |
+| Entered blank or on its placeholder                                           | Accepted |
+| Previous-year value blank                                                     | Accepted |
+| Equal, as the column schema reads them, without surrounding spaces            | Accepted |
+| Tonnage equal to two decimal places, as stored                                | Accepted |
+| `NET_WEIGHT` or `TONNAGE_RECEIVED_FOR_EXPORT` different                       | Accepted |
+| `WAS_THE_WASTE_REFUSED` or `WAS_THE_WASTE_STOPPED`: previous year "No"        | Accepted |
+| `WERE_PRN_OR_PERN_ISSUED_ON_THIS_WASTE` entered "No" (the template's default) | Accepted |
+| Any other difference, including case                                          | Rejected |
+
+The table schema declares the formula columns (`mayDifferBeforeCorrectionDeadline`), the refused and stopped answers (`answeredLaterOnLinkedRow`) and the template's default (`prefilledOnLinkedRow`). The error sits on the cell, with the previous year and its correction deadline.
 
 | Column                 | Allowed | 2026 row `1500` | 2027 row `1000` as entered | 2027 row `1000` filled in |
 | ---------------------- | ------- | --------------- | -------------------------- | ------------------------- |
