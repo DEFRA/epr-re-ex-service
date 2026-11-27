@@ -14,7 +14,7 @@ Supersedes [ADR 0027](0027-modular-monolith-structure.md)
 
 - **Modules sit directly under `src/`,** such as `src/organisation-read-model/`, not under `src/modules/`.
 - **The public interface is in use now,** not a future step. Lint already refuses any import into a fenced module except through its entry points.
-- **The reason for a boundary has changed.** Modules were drawn by team. What matters now is a clear boundary between responsibilities, and which service owns each kind of data, because some of that data is leaving re-ex.
+- **The reason for a boundary has changed.** Modules were drawn by team. What matters now is a clear boundary between responsibilities, and which service owns each kind of data, because some of that data is leaving re-ex, the reprocessor and exporter service that epr-backend belongs to.
 
 Much of epr-backend is still in the older layout, with domain types under `src/domain/`, repositories under `src/repositories/` and routes under `src/routes/`. The team has asked whether, for example, the organisations repository and domain types move into the organisations module. They do. This ADR states the shape every module ends up in, so that anyone can compare a module with it and close the difference.
 
@@ -33,7 +33,7 @@ Domain vocabulary, such as a model's types or the format of a registration numbe
 
 ### Module boundaries follow who owns the data
 
-Re-ex is handing some of its data to other services over time. As of November 2026 the plan is:
+Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. As of November 2026 the plan is:
 
 | Data                 | Now   | Near term  | Long term                                        |
 | -------------------- | ----- | ---------- | ------------------------------------------------ |
@@ -46,7 +46,7 @@ A module's boundary is drawn so that code leaves with the data it serves. That g
 
 - **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
 - **Code that edits an organisation as a whole,** such as a trading name change or the `PUT` of `/v1/organisations/{id}`, sits with organisations, which stay in re-ex the longest.
-- **2027+ accreditations are read from Reg Accred** behind the [organisation read model](0052-organisation-read-model.md)'s port.
+- **Once Reg Accred holds 2027+ accreditations, re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
 
 When the ownership plan changes, the module boundaries follow it.
 
@@ -89,7 +89,7 @@ Today a module that offers routes and a port has a route plugin and one plugin f
 
 A module could instead expose a single plugin that takes the adapter as an option, which would make the server setup one line per module. That plugin would then carry the adapter choice as well as the routes. It would also have to serve a module that offers only a port, and a server that wants a port without its routes.
 
-This ADR leaves the question open. One module trials a single plugin, and a later ADR records what the trial shows.
+This ADR leaves the question open. One module trials a single plugin, and a later ADR records what the trial shows. Until then, every other module keeps a route plugin and a plugin for each adapter.
 
 ## Consequences
 
