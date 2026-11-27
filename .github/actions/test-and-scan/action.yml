@@ -159,7 +159,7 @@ runs:
       # 504s during JRE provisioning). Revert once SonarCloud recovers — while this
       # is in place the quality gate cannot block a merge.
       continue-on-error: true
-      uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
+      uses: SonarSource/sonarqube-scan-action@70bad232163b09d998ea0707ee80c0ec80798c16 # v8.5.1
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         SONAR_TOKEN: ${{ inputs.sonar-token }}
