@@ -35,20 +35,20 @@ Domain vocabulary, such as a model's types or the format of a registration numbe
 
 ### Module boundaries follow who owns the data
 
-Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan on Slack on 24 November 2026:
+Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan on Slack on 24 November 2026. The row for 2027+ accreditations follows [ADR 0056](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md):
 
-| Data                 | Now   | Near term  | Long term                                        |
-| -------------------- | ----- | ---------- | ------------------------------------------------ |
-| Organisations        | re-ex | re-ex      | Manage Account, or another service outside re-ex |
-| Registrations        | re-ex | re-ex      | Reg Accred                                       |
-| 2026 accreditations  | re-ex | re-ex      | Reg Accred                                       |
-| 2027+ accreditations | re-ex | Reg Accred | Reg Accred                                       |
+| Data                 | Now        | Near term  | Long term                                        |
+| -------------------- | ---------- | ---------- | ------------------------------------------------ |
+| Organisations        | re-ex      | re-ex      | Manage Account, or another service outside re-ex |
+| Registrations        | re-ex      | re-ex      | Reg Accred                                       |
+| 2026 accreditations  | re-ex      | re-ex      | Reg Accred                                       |
+| 2027+ accreditations | Reg Accred | Reg Accred | Reg Accred                                       |
 
 A module's boundary is drawn so that code leaves with the data it serves. That gives three rules:
 
 - **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
 - **Code that edits an organisation as a whole,** such as a trading name change, sits with organisations, which stay in re-ex the longest.
-- **Once Reg Accred holds 2027+ accreditations, re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
+- **2027+ accreditations already sit in Reg Accred, and re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
 
 The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
 
@@ -59,7 +59,7 @@ Everything else in epr-backend, such as waste records, waste balances, PRNs and 
 A module has up to three entry points, and each lists its exports by name:
 
 - **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
-- **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers, or the factories that a migration runner builds adapters from. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
+- **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
 - **`test-support.js`** holds what only tests need: the module's in-memory adapters and their plugins, its test builders, and the MongoDB adapter its contract tests run against. Only tests import it.
 
 Lint fences each module, so an import that reaches past a module's entry points fails. A module gets its fence in the pull request that moves it to this shape, because lint fences only the modules its config names. Lint cannot see a JSDoc type import or a `vi.mock` path, so review has to catch one aimed at a module's internals.
@@ -80,6 +80,7 @@ A repository that several modules reach into is a sign that a capability is miss
 - **Each plugin declares the ports it needs.** Hapi checks them when the server initialises, so a server with a missing provider refuses to start rather than failing on a request.
 - **The server setup makes the decisions.** It picks each adapter, reads config and feature flags, and passes each plugin plain values. A plugin never reads config or a feature flag.
 - **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it.
+- **Code that runs beside the server, such as a migration runner, takes its ports from the started server's `server.app`.** It builds no adapter of its own.
 
 The how-to for all of this, with the helpers that implement it, is [`src/modules.md`](https://github.com/DEFRA/epr-backend/blob/main/src/modules.md) in epr-backend. Each module's README says what the module serves and how it is laid out inside.
 
@@ -108,6 +109,7 @@ This ADR leaves the question open. One module trials a single plugin, and a late
 
 - **Each module has more files,** with a plugin for each adapter and up to three entry points.
 - **The boundary is enforced by lint, not at runtime.** Hapi gives no plugin privacy, so any plugin can depend on any port by name.
+- **Domain code that moves into a module loses the layering rule.** Lint stops code in `src/domain/` importing routes, adapters or the server, but no rule does the same inside a module. `src/modules.md` is where a rule for each module is added.
 - **Lint misses some imports.** A JSDoc type import or a `vi.mock` path can reach a module's internals without failing lint.
 
 ### Risks and mitigations
