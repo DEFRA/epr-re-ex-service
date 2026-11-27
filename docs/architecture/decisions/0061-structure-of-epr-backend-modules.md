@@ -49,7 +49,7 @@ A module's boundary is drawn so that code leaves with the data it serves. That g
 - **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
 - **Code that edits an organisation as a whole,** such as a trading name change, sits with organisations, which stay in re-ex the longest.
 - **A port that serves data on both sides of the line splits along it.** The organisations repository's writes to registrations and 2026 accreditations leave its port for a port in a module of their own.
-- **Overseas sites go to Reg Accred,** which becomes the source of truth for every site. Their module leaves with them.
+- **Overseas sites are to move to Reg Accred,** which becomes the source of truth for every site, as both teams have agreed to explore. Code that edits a site then leaves, and re-ex reads the sites from Reg Accred, as it does 2027+ accreditations.
 - **2027+ accreditations already sit in Reg Accred, and re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
 
 The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
