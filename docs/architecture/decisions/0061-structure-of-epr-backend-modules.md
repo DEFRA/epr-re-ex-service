@@ -16,7 +16,7 @@ Supersedes [ADR 0027](0027-modular-monolith-structure.md)
 - **The public interface is in use now,** not a future step. Lint already fences the first modules, refusing any import into one except through its entry points.
 - **The reason for a boundary has changed.** Modules were drawn by team. What matters now is a clear boundary between responsibilities, and which service owns each kind of data, because some of that data is leaving re-ex, the reprocessor and exporter service that epr-backend belongs to.
 
-Much of epr-backend is still in the older layout, with domain types under `src/domain/`, repositories under `src/repositories/` and routes under `src/routes/`. The team has asked whether, for example, the organisations repository and domain types move into the organisations module. They do. This ADR states the shape every module ends up in, so that anyone can compare a module with it and close the difference.
+Much of epr-backend is still in the older layout, with domain types under `src/domain/`, repositories under `src/repositories/` and routes under `src/routes/`. The team has asked whether, for example, the organisations repository and domain types move into the organisations module. The organisation types, and the part of the repository that reads and writes organisations, do. The repository's writes to registrations and 2026 accreditations go to a module of their own, as the ownership rules below require. This ADR states the shape every module ends up in, so that anyone can compare a module with it and close the difference.
 
 ## Decision
 
@@ -44,10 +44,12 @@ Re-ex is handing some of its data to other services over time, among them Reg Ac
 | 2026 accreditations  | re-ex      | re-ex      | Reg Accred                                       |
 | 2027+ accreditations | Reg Accred | Reg Accred | Reg Accred                                       |
 
-A module's boundary is drawn so that code leaves with the data it serves. That gives three rules:
+A module's boundary is drawn so that code leaves with the data it serves. That gives these rules:
 
 - **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
 - **Code that edits an organisation as a whole,** such as a trading name change, sits with organisations, which stay in re-ex the longest.
+- **A port that serves data on both sides of the line splits along it.** The organisations repository's writes to registrations and 2026 accreditations leave its port for a port in a module of their own.
+- **Overseas sites go to Reg Accred,** which becomes the source of truth for every site. Their module leaves with them.
 - **2027+ accreditations already sit in Reg Accred, and re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
 
 The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
