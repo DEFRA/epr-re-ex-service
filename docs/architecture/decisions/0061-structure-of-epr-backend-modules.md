@@ -35,7 +35,7 @@ Domain vocabulary, such as a model's types or the format of a registration numbe
 
 ### Module boundaries follow who owns the data
 
-Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan in November 2026:
+Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan on Slack on 24 November 2026:
 
 | Data                 | Now   | Near term  | Long term                                        |
 | -------------------- | ----- | ---------- | ------------------------------------------------ |
@@ -52,7 +52,7 @@ A module's boundary is drawn so that code leaves with the data it serves. That g
 
 The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
 
-When the ownership plan changes, the module boundaries follow it.
+Everything else in epr-backend, such as waste records, waste balances, PRNs and reports, stays with re-ex, as [ADR 0056](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md) says. When the ownership plan changes, the module boundaries follow it.
 
 ### Other code reaches a module only through its entry points
 
@@ -60,9 +60,9 @@ A module has up to three entry points, and each lists its exports by name:
 
 - **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
 - **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers, or the factories that a migration runner builds adapters from. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
-- **`test-support.js`** holds the module's in-memory adapters, their plugins and its test builders. Only tests import it.
+- **`test-support.js`** holds what only tests need: the module's in-memory adapters and their plugins, its test builders, and the MongoDB adapter its contract tests run against. Only tests import it.
 
-Lint fences every module, so an import that reaches past a module's entry points fails. Lint cannot see a JSDoc type import or a test mock, so CI also refuses either one when it is aimed at a module's internals.
+Lint fences each module, so an import that reaches past a module's entry points fails. A module gets its fence in the pull request that moves it to this shape, because lint fences only the modules its config names. Lint cannot see a JSDoc type import or a `vi.mock` path, so review has to catch one aimed at a module's internals.
 
 ### What a module offers other code is a port
 
@@ -108,11 +108,12 @@ This ADR leaves the question open. One module trials a single plugin, and a late
 
 - **Each module has more files,** with a plugin for each adapter and up to three entry points.
 - **The boundary is enforced by lint, not at runtime.** Hapi gives no plugin privacy, so any plugin can depend on any port by name.
+- **Lint misses some imports.** A JSDoc type import or a `vi.mock` path can reach a module's internals without failing lint.
 
 ### Risks and mitigations
 
-| Risk                                                     | Mitigation                                                                                              |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A move to the module shape changes behaviour by accident | Each move changes structure only, keeps every test and holds coverage at 100%                           |
-| Modules drift from the shape as new code lands           | Lint fences every module, and every module README points at `src/modules.md` for how to build the shape |
-| The single-plugin trial pulls modules in two directions  | Only the trial module changes until a later ADR records the result                                      |
+| Risk                                                     | Mitigation                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A move to the module shape changes behaviour by accident | Each move changes structure only, keeps every test and holds coverage at 100%                                      |
+| Modules drift from the shape as new code lands           | Each moved module is fenced in lint, and every module README points at `src/modules.md` for how to build the shape |
+| The single-plugin trial pulls modules in two directions  | Only the trial module changes until a later ADR records the result                                                 |
