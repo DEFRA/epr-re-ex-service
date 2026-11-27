@@ -13,7 +13,7 @@ Supersedes [ADR 0027](0027-modular-monolith-structure.md)
 [ADR 0027](0027-modular-monolith-structure.md) proposed splitting epr-backend into modules within one deployable service, so that two teams could work in it without treading on each other. The team took that approach, and the code has moved past what 0027 describes:
 
 - **Modules sit directly under `src/`,** such as `src/organisation-read-model/`, not under `src/modules/`.
-- **The public interface is in use now,** not a future step. Lint already refuses any import into a fenced module except through its entry points.
+- **The public interface is in use now,** not a future step. Lint already fences the first modules, refusing any import into one except through its entry points.
 - **The reason for a boundary has changed.** Modules were drawn by team. What matters now is a clear boundary between responsibilities, and which service owns each kind of data, because some of that data is leaving re-ex, the reprocessor and exporter service that epr-backend belongs to.
 
 Much of epr-backend is still in the older layout, with domain types under `src/domain/`, repositories under `src/repositories/` and routes under `src/routes/`. The team has asked whether, for example, the organisations repository and domain types move into the organisations module. They do. This ADR states the shape every module ends up in, so that anyone can compare a module with it and close the difference.
@@ -29,11 +29,11 @@ A module is a directory directly under `src/`. It owns:
 - **its routes,**
 - **any application service and queue command handler** that acts on its data.
 
-Domain vocabulary, such as a model's types or the format of a registration number, goes out through the owning module's public interface. Technical code with no domain owner, such as authentication, logging and the server setup, stays outside the modules.
+Domain vocabulary, such as a model's types or the format of a registration number, goes out through the owning module's public interface. Technical code with no domain owner, such as authentication, logging and the server setup, stays outside the modules. So a directory such as `src/common/`, `src/plugins/` or `src/server/`, which holds no domain data or routes of its own, is not a module.
 
 ### Module boundaries follow who owns the data
 
-Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. As of November 2026 the plan is:
+Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan in November 2026:
 
 | Data                 | Now   | Near term  | Long term                                        |
 | -------------------- | ----- | ---------- | ------------------------------------------------ |
@@ -45,8 +45,10 @@ Re-ex is handing some of its data to other services over time, among them Reg Ac
 A module's boundary is drawn so that code leaves with the data it serves. That gives three rules:
 
 - **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
-- **Code that edits an organisation as a whole,** such as a trading name change or the `PUT` of `/v1/organisations/{id}`, sits with organisations, which stay in re-ex the longest.
+- **Code that edits an organisation as a whole,** such as a trading name change, sits with organisations, which stay in re-ex the longest.
 - **Once Reg Accred holds 2027+ accreditations, re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
+
+The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
 
 When the ownership plan changes, the module boundaries follow it.
 
@@ -55,19 +57,19 @@ When the ownership plan changes, the module boundaries follow it.
 A module has up to three entry points, and each lists its exports by name:
 
 - **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
-- **`plugin.js`** holds the module's Hapi plugins. Only the server setup and the test servers import it.
+- **`plugin.js`** holds the module's Hapi plugins. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
 - **`test-support.js`** holds the module's in-memory adapters, their plugins and its test builders. Only tests import it.
 
-Lint fences every module. An import that reaches past a module's entry points fails lint, and so does a JSDoc type import or a test mock aimed at a module's internals.
+Lint fences every module, so an import that reaches past a module's entry points fails. Lint cannot see a JSDoc type import or a test mock, so CI also refuses either one when it is aimed at a module's internals.
 
 ### What a module offers other code is a port
 
-A port is a capability other code uses, such as a repository or an application service. A module's index and its port are one interface: the index says what the module offers, and the port is that offer running.
+A port is a capability other code uses, such as a repository or an application service. A module's index and its port are one interface, split by role:
 
-- **A pure rule over the module's own types** goes in `index.js`, and callers import it.
-- **Anything that reads data or depends on config** is a method on the port. Callers reach it from the request or from `server.app`.
+- **The port is how a caller asks the module to do something,** whether that is fetching, saving, sending or any other application service. Callers reach it from the request or from `server.app`.
+- **`index.js` describes what those requests take and return.** It holds the module's types, its constants, and the rules that answer questions about a value of those types. Callers import it.
 
-A repository that several modules reach into is a sign that a capability is missing. Its owning module presents it as a port, with an application service in front where callers need more than storage. A service that combines several modules' ports is built where it is used, and is not a port of its own.
+A repository that several modules reach into is a sign that a capability is missing. Its owning module presents it as a port, with an application service in front where callers need more than storage. An adapter may depend on other modules' ports, as the organisation read model's adapter depends on overseas sites. A service that only combines several modules' ports for one caller is built where it is used, and is not a port of its own.
 
 ### Modules wire together through Hapi plugins that declare what they need
 
@@ -107,8 +109,8 @@ This ADR leaves the question open. One module trials a single plugin, and a late
 
 ### Risks and mitigations
 
-| Risk                                                     | Mitigation                                                                                               |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| A move to the module shape changes behaviour by accident | Each move changes structure only, keeps every test and holds coverage at 100%                            |
-| Modules drift from the shape as new code lands           | Lint fences every module, and `src/modules.md` is the one description of the shape that READMEs point at |
-| The single-plugin trial pulls modules in two directions  | Only the trial module changes until a later ADR records the result                                       |
+| Risk                                                     | Mitigation                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| A move to the module shape changes behaviour by accident | Each move changes structure only, keeps every test and holds coverage at 100%                           |
+| Modules drift from the shape as new code lands           | Lint fences every module, and every module README points at `src/modules.md` for how to build the shape |
+| The single-plugin trial pulls modules in two directions  | Only the trial module changes until a later ADR records the result                                      |
