@@ -60,7 +60,7 @@ A module has up to three entry points, and each lists its exports by name:
 
 - **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
 - **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
-- **`test-support.js`** holds what only tests need: the module's in-memory adapters and their plugins, its test builders, and the MongoDB adapter its contract tests run against. Only tests import it.
+- **`test-support.js`** holds the module's in-memory adapters, their plugins and its test builders, for other code's tests. Only tests import it. Some modules' `test-support.js` on main still exports a real MongoDB adapter, and those exports are to go.
 
 Lint fences each module, so an import that reaches past a module's entry points fails. A module gets its fence in the pull request that moves it to this shape, because lint fences only the modules its config names. Lint cannot see a JSDoc type import or a `vi.mock` path, so review has to catch one aimed at a module's internals.
 
@@ -79,7 +79,7 @@ A repository that several modules reach into is a sign that a capability is miss
 - **Each adapter of a port is a plugin of its own, named after the port.** It provides that port and nothing else, so Hapi refuses a server that registers two adapters of one port.
 - **Each plugin declares the ports it needs.** Hapi checks them when the server initialises, so a server with a missing provider refuses to start rather than failing on a request.
 - **The server setup makes the decisions.** It picks each adapter, reads config and feature flags, and passes each plugin plain values. A plugin never reads config or a feature flag.
-- **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it. A test that runs a port's real MongoDB adapter against a real database, as a contract test does, replaces nothing.
+- **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it. A module's contract tests run its real adapter from inside the module, and that replaces nothing. A test outside the module that needs the real adapter registers the module's plugins on a test server.
 - **Code that runs beside the server, such as a migration runner, takes its ports from the started server's `server.app`.** It builds no adapter of its own.
 
 The how-to for all of this, with the helpers that implement it, is [`src/modules.md`](https://github.com/DEFRA/epr-backend/blob/main/src/modules.md) in epr-backend. Each module's README says what the module serves and how it is laid out inside.
