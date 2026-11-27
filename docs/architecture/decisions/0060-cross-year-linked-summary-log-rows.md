@@ -74,7 +74,7 @@ Rules that compare the two years read the previous-year row as stored and the ro
 - answers a linked row may give later: a previous-year "No" to refused or stopped may become "Yes", because the load can be refused or stopped in the later year
 - values the template fills in on a linked row: the pre-filled "No" to whether PRNs or PERNs were issued counts as blank there
 
-After the deadline nothing is rejected, and a column outside the allow list still takes the previous-year value. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the other cross-year rules are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
+After the deadline a different value is not rejected, and a column outside the allow list still takes the previous-year value. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the other cross-year rules are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
 A previous-year row ID that matches no submitted row will be rejected ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then the row is stored as written and classified like any unlinked row.
 
