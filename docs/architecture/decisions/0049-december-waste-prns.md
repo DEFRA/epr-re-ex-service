@@ -6,7 +6,23 @@ Accepted. Extends [ADR-0036](./0036-event-sourced-waste-balance-stream.md).
 
 ## Context
 
-PRNs (and the exporter equivalent, PERNs) are to gain an `isDecemberWaste` flag. The driver is a statutory disclosure duty. Under the Producer Responsibility Obligations (Packaging and Packaging Waste) Regulations 2024 (SI 2024/1332, Schedule 8), a reprocessor "must ensure that any PRN it issues which relates to packaging waste received for recycling in December of a year specifies that fact" (para 24(4)); an exporter carries the equivalent duty for waste "received at an overseas reprocessing site for recycling in December" (para 27(3)). To discharge that duty the system must determine, per note, whether it relates to December-received waste — and must not let a note be tagged December for tonnage that was not received in December, since the flag would then misstate the fact the statute requires it to state. (December-tagged evidence is also commercially more valuable, which is the incentive to over-tag; but the load-bearing requirement here is the labelling duty, not the value.) "December waste" is therefore determinable from the summary log: every row that affects the balance already does so on a specific date fixed by the accreditation's processing type, and December membership is read from that same date (see "Which December" below).
+PRNs (and the exporter equivalent, PERNs) are to gain an `isDecemberWaste` flag. The driver is a statutory disclosure duty under the Producer Responsibility Obligations (Packaging and Packaging Waste) Regulations 2024 ([SI 2024/1332][si-2024-1332], Schedule 8). For reprocessors:
+
+> A reprocessor must ensure that any PRN it issues which relates to packaging waste received for recycling in December of a year specifies that fact.
+>
+> — [SI 2024/1332, Schedule 8, paragraph 24(4)][sch8-para24]
+
+Exporters carry the equivalent duty:
+
+> An exporter must ensure that any PERN it issues which relates to packaging waste received at an overseas reprocessing site for recycling in December of a year specifies that fact.
+>
+> — [SI 2024/1332, Schedule 8, paragraph 27(3)][sch8-para27]
+
+To discharge that duty the system must determine, per note, whether it relates to December-received waste — and must not let a note be tagged December for tonnage that was not received in December, since the flag would then misstate the fact the statute requires it to state.
+
+December-tagged evidence is also commercially more valuable, which is the incentive to over-tag; but the load-bearing requirement here is the labelling duty, not the value.
+
+"December waste" is therefore determinable from the summary log: every row that affects the balance already does so on a specific date fixed by the accreditation's processing type, and December membership is read from that same date (see "Which December" below).
 
 The `isDecemberWaste` field already exists on the PRN document, required, currently hard-coded `false`, and surfaced in every read response — but nothing sets or validates it, and it is not on the create payload.
 
@@ -17,11 +33,16 @@ The validation the business needs is a cap:
 - The cap nets off December PRNs that have been cancelled — reversals must restore December capacity.
 - December and non-December are **separate pools**: a non-December PRN checks a non-December balance, a December PRN checks a December balance. December tonnage is effectively reserved from ordinary PRNs.
 
-These caps are the mechanism we choose, not a shape the SI mandates: the Regulations impose truthfulness per note and per load (paras 24(1), 25, and the no-double-issuance condition at para 31(d)), not an aggregate December ceiling. The cap enforces that per-note truthfulness across a pooled balance.
+These caps are the mechanism we choose, not a shape the SI mandates: the Regulations impose truthfulness per note and per load (Schedule 8 [paras 24(1)][sch8-para24], [25][sch8-para25], and the no-double-issuance condition at [para 31(d)][sch8-para31]), not an aggregate December ceiling. The cap enforces that per-note truthfulness across a pooled balance.
 
 A further constraint shaped the decision: we want to avoid maintaining two separate ledgers with two concurrency guards.
 
-[ADR-0036](./0036-event-sourced-waste-balance-stream.md) established the substrate this builds on; the full model lives there. This ADR depends on four load-bearing facts from it, and fixes only the December extension: the balance is the `closingBalance` of the latest event, read once; a compound unique index on `(registrationId, accreditationId, number)` is the single optimistic-concurrency surface; a `summary-log-submitted` event carries a frozen `creditTotal` snapshot and applies `delta = creditTotal − previousCreditTotal`; and a PRN transition appends one balance-affecting event.
+[ADR-0036](./0036-event-sourced-waste-balance-stream.md) established the substrate this builds on; the full model lives there. This ADR fixes only the December extension, and depends on four load-bearing facts from it:
+
+1. The balance is the `closingBalance` of the latest event, read once.
+2. A compound unique index on `(registrationId, accreditationId, number)` is the single optimistic-concurrency surface.
+3. A `summary-log-submitted` event carries a frozen `creditTotal` snapshot and applies `delta = creditTotal − previousCreditTotal`.
+4. A PRN transition appends one balance-affecting event.
 
 ## Decision
 
@@ -29,11 +50,11 @@ Extend the existing stream with an **additive** December dimension, rather than 
 
 ### Declared at raise time, not derived
 
-The December duty runs in both directions: paras 24(4)/27(3) require the marker on any note relating to December-received waste, and under reg 117(4) omitting a true marker is an offence just as asserting a false one is (reg 117(3)(c)). A flag the operator may freely decline is therefore not safe.
+The December duty runs in both directions: Schedule 8 [paras 24(4)][sch8-para24]/[27(3)][sch8-para27] require the marker on any note relating to December-received waste, and under [reg 117(4)][reg-117] omitting a true marker is an offence just as asserting a false one is ([reg 117(3)(c)][reg-117]). A flag the operator may freely decline is therefore not safe.
 
 The system still cannot derive the flag per note, because a PRN is not bound to specific summary-log loads: it draws tonnage from an aggregate pool, so "does this note relate to December waste?" is an allocation question rather than a lookup. Per-note derivation presumes a per-load evidence model; the pooled balance this ADR extends does not carry that binding.
 
-What the model does guarantee is that the aggregate declaration stays truthful in both directions. The cap makes over-declaration impossible by construction; the explicit December pool lets the frontend require a December declaration whenever December-attributable capacity is being drawn, rather than leave it to free choice, which is how the omission direction (reg 117(4)) is discharged. The backend's contract is to honour and validate `isDecemberWaste` on the create payload and to keep both pools honest; requiring declaration when December capacity is spent is the frontend contract on top of it.
+What the model does guarantee is that the aggregate declaration stays truthful in both directions. The cap makes over-declaration impossible by construction; the explicit December pool lets the frontend require a December declaration whenever December-attributable capacity is being drawn, rather than leave it to free choice, which is how the omission direction ([reg 117(4)][reg-117]) is discharged. The backend's contract is to honour and validate `isDecemberWaste` on the create payload and to keep both pools honest; requiring declaration when December capacity is spent is the frontend contract on top of it.
 
 ### Additive fields, total stays total
 
@@ -50,10 +71,28 @@ closingBalance: {
 
 `nonDecember` is never stored — it is derived: `amount − decemberAmount`, `availableAmount − decemberAvailableAmount`. One dimension is added, not two.
 
-Every existing arithmetic rule from ADR-0036 stays byte-for-byte the same — the rules keep moving `amount` and `availableAmount` as the total. A thin December layer is added on top, keyed off a `pool` value carried on the event:
+Every existing arithmetic rule from ADR-0036 stays byte-for-byte the same — the rules keep moving `amount` and `availableAmount` as the total. A thin December layer is added on top: a `pool` value on PRN events, and a `decemberCreditTotal` on summary-log submissions.
 
-- PRN events carry a distinct `pool` value (`'general' | 'december'`), separate from the PRN's `isDecemberWaste` disclosure marker. This is the one place the ADR introduces a dimension tag, and it does so deliberately: a reprocessor-output PRN self-declares `isDecemberWaste: true` for the statutory disclosure yet must not touch a December pool, so reusing the PRN's flag on the event would force the event to state the opposite of the PRN it belongs to. The dimension is modelled as a value rather than a boolean flag so a future third pool is a one-line addition to the value set here, rather than a second flag to reconcile against the first. `pool` is resolved once, when the PRN's first balance event is written: it is `december` when `isDecemberWaste && (the accreditation accrues December capacity)`, and `general` otherwise. The year is not named because it is implicit — a December PRN is only raisable within its accreditation year's declaration window (see "Which December"). It is carried on the event **only when `december`**; **absent means `general`**, which readers coalesce, so every general PRN's payload and every pre-feature event stay byte-identical to before. Every balance event the PRN subsequently produces (`prn-issued`, and any reversal) carries its own copy of that resolved value; no event re-derives it or reads it from a sibling event. For exporter and reprocessor-input accreditations the value follows the disclosure; a reprocessor-output PRN's event always resolves to `general`, whatever the PRN self-declares, because output accreditations accrue no December capacity (see Scope). Events whose `pool` is `december` additionally move `decemberAmount` / `decemberAvailableAmount` by the same delta they already apply to the total; `general` events touch only the total fields. Reversals read the event's `pool`, so a cancelled December-pool PRN credits the December fields, restoring December capacity. Snapshotting `pool` onto the event (resolved once from the PRN flag and the accreditation, rather than re-read per event) keeps each event self-contained and replay-safe.
-- `summary-log-submitted` keeps `creditTotal` (the full sum, crediting the total fields as today) and gains one additive payload field, `decemberCreditTotal`. It reuses the row classification of the **same rule that computes `creditTotal`** (the `contributionFor` / `creditedTonnageByMonth` resolution in `credited-tonnage.js`: which rows credit or deduct, the tonnage column, and the balance-affecting date), but takes **only the credit rows** whose balance-affecting date falls in December, **and only for exporter and reprocessor-input accreditations** (a reprocessor-output accreditation accrues no `decemberCreditTotal` — see Scope). It is deliberately **credits-only**: a December-dated sent-on (deduction) row does **not** reduce `decemberCreditTotal`. Such a row still deducts from `creditTotal` and the total balance exactly as it did before December waste existed — the deduction lands on the general balance, never on the December portion. The accepted consequence is recorded under "Negative balances" and "Consequences". Concretely, `decemberCreditTotal` is the credit contributions of the `${accreditationYear}-12` bucket `creditedTonnageByMonth` resolves, with that bucket's December deductions excluded. Classification must reuse that resolver, **not** `reporting-date-fields.js`, which serves report-section periods and can name two dates for one exporter row. This is a legal requirement, not only a mechanical one: for exporters the resolver buckets on `DATE_RECEIVED_BY_OSR` — the date received at the overseas reprocessing site — which is precisely the date para 27(3) keys the December duty on. `reporting-date-fields.js` would offer `DATE_OF_EXPORT`, the export-date test of the predecessor 2005/2007 regime, which is the _wrong_ trigger for December under the 2024 Regs. The close rule applies the unchanged total delta plus a December delta (`current − previous`, previous absent treated as 0), so resubmissions that move tonnage in or out of December self-correct through the same machinery ADR-0036 already relies on.
+#### The `pool` value on PRN events
+
+PRN events carry a distinct `pool` value (`'general' | 'december'`), separate from the PRN's `isDecemberWaste` disclosure marker. This is the one place the ADR introduces a dimension tag, and it does so deliberately.
+
+- **Why not reuse the flag.** A reprocessor-output PRN self-declares `isDecemberWaste: true` for the statutory disclosure yet must not touch a December pool, so reusing the PRN's flag on the event would force the event to state the opposite of the PRN it belongs to.
+- **Why a value, not a boolean.** A future third pool is a one-line addition to the value set, rather than a second flag to reconcile against the first.
+- **Resolved once.** When the PRN's first balance event is written, `pool` is `december` when `isDecemberWaste && (the accreditation accrues December capacity)`, and `general` otherwise. For exporter and reprocessor-input accreditations the value therefore follows the disclosure; a reprocessor-output PRN's event always resolves to `general`, whatever the PRN self-declares, because output accreditations accrue no December capacity (see Scope). The year is not named because it is implicit — a December PRN is only raisable within its accreditation year's declaration window (see "Which December").
+- **Absent means `general`.** `pool` is carried on the event **only when `december`**; readers coalesce absence to `general`, so every general PRN's payload and every pre-feature event stay byte-identical to before.
+- **Copied, never re-derived.** Every balance event the PRN subsequently produces (`prn-issued`, and any reversal) carries its own copy of the resolved value; no event re-derives it or reads it from a sibling event. This keeps each event self-contained and replay-safe.
+- **Arithmetic.** Events whose `pool` is `december` additionally move `decemberAmount` / `decemberAvailableAmount` by the same delta they already apply to the total; `general` events touch only the total fields. Reversals read the event's `pool`, so a cancelled December-pool PRN credits the December fields, restoring December capacity.
+
+#### `decemberCreditTotal` on `summary-log-submitted`
+
+`summary-log-submitted` keeps `creditTotal` (the full sum, crediting the total fields as today) and gains one additive payload field, `decemberCreditTotal`: the credit contributions of the `${accreditationYear}-12` bucket that `creditedTonnageByMonth` resolves, with that bucket's December deductions excluded.
+
+- **Same classifier as `creditTotal`.** It reuses the `contributionFor` / `creditedTonnageByMonth` resolution in `credited-tonnage.js`: which rows credit or deduct, the tonnage column, and the balance-affecting date.
+- **Not `reporting-date-fields.js`.** That module serves report-section periods and can name two dates for one exporter row. This is a legal requirement, not only a mechanical one: for exporters the resolver buckets on `DATE_RECEIVED_BY_OSR` — the date received at the overseas reprocessing site — which is precisely the date [para 27(3)][sch8-para27] keys the December duty on. `reporting-date-fields.js` would offer `DATE_OF_EXPORT`, the export-date test of the predecessor 2005/2007 regime, which is the _wrong_ trigger for December under the 2024 Regs.
+- **Exporter and reprocessor-input only.** A reprocessor-output accreditation accrues no `decemberCreditTotal` (see Scope).
+- **Credits only.** A December-dated sent-on (deduction) row does **not** reduce `decemberCreditTotal`. Such a row still deducts from `creditTotal` and the total balance exactly as it did before December waste existed — the deduction lands on the general balance, never on the December portion. The accepted consequence is recorded under "Negative balances" and "Consequences".
+- **Close rule.** The unchanged total delta is applied plus a December delta (`current − previous`, previous absent treated as 0), so resubmissions that move tonnage in or out of December self-correct through the same machinery ADR-0036 already relies on.
 
 ### The checks
 
@@ -87,13 +126,20 @@ Because the December debit rides the same event append and the same slot-conflic
 
 Any dimension — December, the derived non-December, or the total — can go transiently negative. This is not new and is not troublesome: it is exactly the behaviour the total balance already has under ADR-0036. A PRN is issued against a frozen `creditTotal` snapshot; a later resubmission that reduces the relevant credit below what has already been issued drives that dimension's closing figure negative. The additive December dimension inherits this property unchanged. The `≥ tonnage` checks handle it correctly by construction: a dimension whose available figure is negative admits no further raises (every `tonnage` is at least 1), and capacity returns as later credit does. There is deliberately no clamp — clamping would lose the true arithmetic the `current − previous` delta depends on.
 
-Credits-only December accrual adds a second, non-resubmission route to a negative derived non-December. Because a December-dated sent-on row deducts from the total but not from `decemberAmount`, the derived `nonDecember = amount − decemberAmount` falls by the full sent-on tonnage while `decemberAmount` is unmoved. Receive 300t in December then send on 200t of it in December, and `decemberAmount` is 300, `amount` is 100, and the derived `nonDecember` is −200. This is how `availableAmount < decemberAvailableAmount` can arise with no resubmission at all, which is exactly why a December raise is bounded by the December field alone (see "The checks"). The `≥ tonnage` guards stay correct as guards; but note the December pool now measures December **credit earned**, not December credit **net of send-ons**, so it can exceed the net December contribution to the total. That over-statement is deliberate and is recorded as an accepted consequence below.
+Credits-only December accrual adds a second, non-resubmission route to a negative derived non-December. Because a December-dated sent-on row deducts from the total but not from `decemberAmount`, the derived `nonDecember = amount − decemberAmount` falls by the full sent-on tonnage while `decemberAmount` is unmoved. Receive 300t in December then send on 200t of it in December:
+
+| After                   | `amount` (t) | `decemberAmount` (t) | Derived `nonDecember` (t) |
+| ----------------------- | ------------ | -------------------- | ------------------------- |
+| Receive 300 in December | 300          | 300                  | 0                         |
+| Send on 200 in December | 100          | 300                  | −200                      |
+
+This is how `availableAmount < decemberAvailableAmount` can arise with no resubmission at all, which is exactly why a December raise is bounded by the December field alone (see "The checks"). The `≥ tonnage` guards stay correct as guards; but note the December pool now measures December **credit earned**, not December credit **net of send-ons**, so it can exceed the net December contribution to the total. That over-statement is deliberate and is recorded as an accepted consequence below.
 
 ### Scope
 
 PRNs require a non-null `accreditationId`; registered-only streams (`accreditationId: null`) raise no PRNs. December-waste therefore touches only accredited reprocessors and exporters, and the registered-only month-only date fields are out of scope.
 
-**Reprocessors issuing on output are outside the December dimension.** A reprocessor-output accreditation credits its balance from _processed_ rows, whose balance-affecting date is the date the load left site (`DATE_LOAD_LEFT_SITE`) — not a date the waste was _received for recycling_, which is the trigger paras 24(4)/27(3) key the December duty on. So an output accreditation accrues **no** `decemberCreditTotal`, and an output PRN's balance event always resolves to `pool: general` regardless of the PRN's self-declared `isDecemberWaste`. Output reprocessors still self-declare `isDecemberWaste` for the statutory disclosure, but here that flag is disclosure-only — it never accrues, reserves or debits a December balance, and their single balance is unchanged. The December dimension — the credit narrowing, the event `pool` value and the checks above — therefore applies only to exporter and reprocessor-input accreditations.
+**Reprocessors issuing on output are outside the December dimension.** A reprocessor-output accreditation credits its balance from _processed_ rows, whose balance-affecting date is the date the load left site (`DATE_LOAD_LEFT_SITE`) — not a date the waste was _received for recycling_, which is the trigger Schedule 8 [paras 24(4)][sch8-para24]/[27(3)][sch8-para27] key the December duty on. So an output accreditation accrues **no** `decemberCreditTotal`, and an output PRN's balance event always resolves to `pool: general` regardless of the PRN's self-declared `isDecemberWaste`. Output reprocessors still self-declare `isDecemberWaste` for the statutory disclosure, but here that flag is disclosure-only — it never accrues, reserves or debits a December balance, and their single balance is unchanged. The December dimension — the credit narrowing, the event `pool` value and the checks above — therefore applies only to exporter and reprocessor-input accreditations.
 
 ### Migration and enforcement — lazy and self-gating
 
@@ -130,12 +176,12 @@ The system was not live last December, and no summary log can carry a December-d
 - **December bucketing at submission time.** The `creditTotal` computation gains a parallel December sum, adding per-row date classification to the write path (bounded by submission size, as `creditTotal` already is).
 - **Absent-as-zero defaulting.** Readers of `closingBalance` must treat the December fields as 0 when absent, for the lifetime of events written before the December fields existed.
 - **Retroactive reduction is not unwound, and dimensions can go negative.** As with the total balance today, a resubmission that reduces December tonnage below what has already been issued cannot unwind an already-issued December PRN — the cap governs new raises, not settled ones — and can drive that dimension (or the derived non-December, or the total) transiently negative. This is the existing accepted behaviour of the balance, inherited unchanged; see "Negative balances". The `≥ tonnage` checks stay correct throughout, so no clamp or reconciliation is added.
-- **December accrues on credits only — a deliberate over-count in the operator's favour.** A December-dated sent-on (deduction) row reduces the total balance but not `decemberAmount` / `decemberAvailableAmount`, so the December pool can exceed the net December contribution to the total, and the derived non-December can go correspondingly negative (see "Negative balances"). The practical effect is that an operator can raise December PRNs against December tonnage it has since sent on, up to the December sent-on tonnage. This over-issuance is bounded by that tonnage and is accepted as an error in the operator's (RE's) favour: the December-labelling duty (paras 24(4)/27(3)) keys on tonnage **received for recycling in December**, which a later send-on does not un-receive, so a December cap set by December credits — not net of send-ons — stays aligned with the statutory trigger.
+- **December accrues on credits only — a deliberate over-count in the operator's favour.** A December-dated sent-on (deduction) row reduces the total balance but not `decemberAmount` / `decemberAvailableAmount`, so the December pool can exceed the net December contribution to the total, and the derived non-December can go correspondingly negative (see "Negative balances"). The practical effect is that an operator can raise December PRNs against December tonnage it has since sent on, up to the December sent-on tonnage. This over-issuance is bounded by that tonnage and is accepted as an error in the operator's (RE's) favour: the December-labelling duty (Schedule 8 [paras 24(4)][sch8-para24]/[27(3)][sch8-para27]) keys on tonnage **received for recycling in December**, which a later send-on does not un-receive, so a December cap set by December credits — not net of send-ons — stays aligned with the statutory trigger.
 
 ## Out of scope
 
 - **The frontend declaration flow.** How the operator is prompted to declare December (including requiring it when December-attributable capacity is being drawn, per "Declared at raise time, not derived") is a frontend concern; the backend's contract is to honour and validate `isDecemberWaste` on the create payload.
-- **How December-tagged evidence is treated downstream, and why it is more valuable.** The statutory driver for this ADR is the para 24(4)/27(3) labelling duty; how the December flag is consumed or priced downstream is out of scope. This ADR fixes only the balance model that keeps the flag honest.
+- **How December-tagged evidence is treated downstream, and why it is more valuable.** The statutory driver for this ADR is the Schedule 8 [para 24(4)][sch8-para24]/[27(3)][sch8-para27] labelling duty; how the December flag is consumed or priced downstream is out of scope. This ADR fixes only the balance model that keeps the flag honest.
 - **The exhaustive PRN transition-to-event mapping.** Owned by the write-side decider in `epr-backend` and the waste balance LLD, per ADR-0036.
 
 ## Related
@@ -145,6 +191,12 @@ The system was not live last December, and no summary log can carry a December-d
 - [ADR-0024](./0024-create-prn-api-strategy.md) — Create PRN API strategy
 - [ADR-0044](./0044-registration-and-accreditation-validity-and-status-rules.md) — accreditation validity and status rules (governs the dates behind "which December")
 - [ADR-0034](./0034-multi-year-accreditation-model.md) — multi-year accreditation model (year derived from `validFrom`; source of the PRN's `accreditationYear`)
-- [SI 2024/1332, Schedule 8](https://www.legislation.gov.uk/ukdsi/2024/9780348264654/schedule/8) — the statutory December-labelling duty: para 24(4) (reprocessors, keyed on receipt for recycling) and para 27(3) (exporters, keyed on receipt at the overseas reprocessing site). Predecessor wording: [SI 2005/3468, Schedule 5](https://www.legislation.gov.uk/uksi/2005/3468/schedule/5/made).
-- Bead `defra-3w6c` — the design record behind this ADR
-- PAE-000 — placeholder Jira reference (to be assigned)
+- [SI 2024/1332, Schedule 8][sch8] — the statutory December-labelling duty: [para 24(4)][sch8-para24] (reprocessors, keyed on receipt for recycling) and [para 27(3)][sch8-para27] (exporters, keyed on receipt at the overseas reprocessing site). Predecessor wording: [SI 2005/3468, Schedule 5](https://www.legislation.gov.uk/uksi/2005/3468/schedule/5/made).
+
+[si-2024-1332]: https://www.legislation.gov.uk/uksi/2024/1332/contents
+[sch8]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8
+[sch8-para24]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8/paragraph/24
+[sch8-para25]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8/paragraph/25
+[sch8-para27]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8/paragraph/27
+[sch8-para31]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8/paragraph/31
+[reg-117]: https://www.legislation.gov.uk/uksi/2024/1332/regulation/117
