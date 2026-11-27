@@ -59,7 +59,7 @@ When the ownership plan changes, the module boundaries follow it.
 A module has up to three entry points, and each lists its exports by name:
 
 - **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
-- **`plugin.js`** holds the module's Hapi plugins. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
+- **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers, or the factories that a migration runner builds adapters from. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
 - **`test-support.js`** holds the module's in-memory adapters, their plugins and its test builders. Only tests import it.
 
 Lint fences every module, so an import that reaches past a module's entry points fails. Lint cannot see a JSDoc type import or a test mock, so CI also refuses either one when it is aimed at a module's internals.
