@@ -1,0 +1,123 @@
+# 61. Structure of epr-backend modules
+
+Date: 2026-11-27
+
+## Status
+
+Proposed
+
+Supersedes [ADR 0027](0027-modular-monolith-structure.md)
+
+## Context
+
+[ADR 0027](0027-modular-monolith-structure.md) proposed splitting epr-backend into modules within one deployable service, so that two teams could work in it without treading on each other. The team took that approach, and the code has moved past what 0027 describes:
+
+- **Modules sit directly under `src/`,** such as `src/organisation-read-model/`, not under `src/modules/`.
+- **The public interface is in use now,** not a future step. Lint already fences the first modules, refusing any import into one except through its entry points.
+- **The reason for a boundary has changed.** Modules were drawn by team. What matters now is a clear boundary between responsibilities, and which service owns each kind of data, because some of that data is leaving re-ex, the reprocessor and exporter service that epr-backend belongs to.
+
+Much of epr-backend is still in the older layout, with domain types under `src/domain/`, repositories under `src/repositories/` and routes under `src/routes/`. The team has asked whether, for example, the organisations repository and domain types move into the organisations module. The organisation types, and the part of the repository that reads and writes organisations, do. The repository's writes to registrations and 2026 accreditations go to a module of their own, as the ownership rules below require. This ADR states the shape every module ends up in, so that anyone can compare a module with it and close the difference.
+
+## Decision
+
+### A module owns one responsibility, and everything that serves it
+
+A module is a directory directly under `src/`. It owns:
+
+- **its domain types** and the pure rules over them,
+- **the port for its data** and every adapter of that port, such as MongoDB and in-memory,
+- **its routes,**
+- **the application services and queue command handlers that serve its responsibility.**
+
+An application service or queue command handler that needs another module's data reads it through that module's port, and declares the port as a dependency, as the organisation read model's adapter does with overseas sites. One that serves no single module's responsibility, because it draws on several modules equally, is a module of its own.
+
+Domain vocabulary, such as a model's types or the format of a registration number, goes out through the owning module's public interface. Technical code with no domain owner, such as authentication, logging and the server setup, stays outside the modules. So a directory such as `src/common/`, `src/plugins/` or `src/server/`, which serves no domain responsibility of its own, is not a module.
+
+### Module boundaries follow who owns the data
+
+Re-ex is handing some of its data to other services over time, among them Reg Accred, the registration and accreditation service. Will Crossland set out the plan on Slack on 24 November 2026. The row for 2027+ accreditations follows [ADR 0056](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md):
+
+| Data                 | Now        | Near term  | Long term                                        |
+| -------------------- | ---------- | ---------- | ------------------------------------------------ |
+| Organisations        | re-ex      | re-ex      | Manage Account, or another service outside re-ex |
+| Registrations        | re-ex      | re-ex      | Reg Accred                                       |
+| 2026 accreditations  | re-ex      | re-ex      | Reg Accred                                       |
+| 2027+ accreditations | Reg Accred | Reg Accred | Reg Accred                                       |
+
+A module's boundary is drawn so that code leaves with the data it serves. That gives these rules:
+
+- **Code that serves or changes only registrations and accreditations sits in a module of its own,** so it can leave for Reg Accred by deleting that module.
+- **Code that edits an organisation as a whole,** such as a trading name change, sits with organisations, which stay in re-ex the longest.
+- **A port that serves data on both sides of the line splits along it.** The organisations repository's writes to registrations and 2026 accreditations leave its port for a port in a module of their own.
+- **Overseas sites are to move to Reg Accred,** which becomes the source of truth for every site, as both teams have agreed to explore. Code that edits a site then leaves, and re-ex reads the sites from Reg Accred, as it does 2027+ accreditations.
+- **2027+ accreditations already sit in Reg Accred, and re-ex reads them from it** behind the [organisation read model](0052-organisation-read-model.md)'s port.
+
+The `PUT` of `/v1/organisations/{id}` is an exception. It writes the whole organisation document, nested registrations and accreditations included, so it sidesteps every module's rules. It predates the admin frontend and should hardly be used now, and it sits with organisations.
+
+Everything else in epr-backend, such as waste records, waste balances, PRNs and reports, stays with re-ex, as [ADR 0056](0056-moving-to-read-only-view-of-organisations-registrations-and-accreditations.md) says. When the ownership plan changes, the module boundaries follow it.
+
+### Other code reaches a module only through its entry points
+
+A module has up to three entry points, and each lists its exports by name:
+
+- **`index.js`** is the public interface. It holds the module's types, including the type of each port it provides, and its pure rules. It loads no route, adapter or Hapi code.
+- **`plugin.js`** holds the module's Hapi plugins and the rest of its server-side wiring, such as the command handlers a queue consumer registers. Only code in `src/server/`, `src/plugins/` and `src/test/` imports it.
+- **`test-support.js`** holds the module's in-memory adapters, their plugins and its test builders, for other code's tests. Only tests import it. Some modules' `test-support.js` on main still exports a real MongoDB adapter, and those exports are to go.
+
+Lint fences each module, so an import that reaches past a module's entry points fails. A module gets its fence in the pull request that moves it to this shape, because lint fences only the modules its config names. Lint cannot see a JSDoc type import or a `vi.mock` path, so review has to catch one aimed at a module's internals.
+
+### What a module offers other code is a port
+
+A port is a capability other code uses, such as a repository or an application service. A module's index and its port are one interface, split by role:
+
+- **The port is how a caller asks the module to do something,** whether that is fetching, saving, sending or any other application service. Callers reach it from the request or from `server.app`.
+- **`index.js` describes what those requests take and return.** It holds the module's types, its constants, and the rules that answer questions about a value of those types. Callers import it.
+
+A repository that several modules reach into is a sign that a capability is missing. Its owning module presents it as a port, with an application service in front where callers need more than storage. A service that combines several modules' ports for one caller serves that caller's responsibility, so it is built in the caller's module and is not a port of its own.
+
+### Modules wire together through Hapi plugins that declare what they need
+
+- **A module's routes are a route plugin.**
+- **Each adapter of a port is a plugin of its own, named after the port.** It provides that port and nothing else, so Hapi refuses a server that registers two adapters of one port.
+- **Each plugin declares the ports it needs.** Hapi checks them when the server initialises, so a server with a missing provider refuses to start rather than failing on a request.
+- **The server setup makes the decisions.** It picks each adapter, reads config and feature flags, and passes each plugin plain values. A plugin never reads config or a feature flag.
+- **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it. A module's contract tests run its real adapter from inside the module, and that replaces nothing. A test outside the module that needs the real adapter registers the module's plugins on a test server.
+- **Code that runs beside the server, such as a migration runner, takes its ports from the started server's `server.app`.** It builds no adapter of its own.
+
+The how-to for all of this, with the helpers that implement it, is [`src/modules.md`](https://github.com/DEFRA/epr-backend/blob/main/src/modules.md) in epr-backend. Each module's README says what the module serves and how it is laid out inside.
+
+### Modules move to this shape one at a time
+
+Each module moves in its own pull request, or in a few small ones where it is large. A move changes structure only. It changes no behaviour, removes no test and keeps coverage at 100%. Until every module has moved, the older layout and the module layout sit side by side.
+
+### Open question: one plugin per module
+
+Today a module that offers routes and a port has a route plugin and one plugin for each adapter. The server setup registers the adapter, so the test server can register the in-memory one, and the route plugin does not care which.
+
+A module could instead expose a single plugin that takes the adapter as an option, which would make the server setup one line per module. That plugin would then carry the adapter choice as well as the routes. It would also have to serve a module that offers only a port, and a server that wants a port without its routes.
+
+This ADR leaves the question open. One module trials a single plugin, and a later ADR records what the trial shows. Until then, every other module keeps a route plugin and a plugin for each adapter.
+
+## Consequences
+
+### Advantages
+
+- **Anyone can compare a module with the target** and see what is left to move.
+- **Code leaves with its data.** When registrations and accreditations go to Reg Accred, the code that serves only them goes by deleting a module.
+- **A badly wired server fails when it starts,** because Hapi checks every declared dependency at initialisation.
+- **Tests swap a port, not its internals,** so a test exercises the same wiring as production apart from the adapter.
+
+### Disadvantages
+
+- **Each module has more files,** with a plugin for each adapter and up to three entry points.
+- **The boundary is enforced by lint, not at runtime.** Hapi gives no plugin privacy, so any plugin can depend on any port by name.
+- **Domain code that moves into a module loses the layering rule.** Lint stops code in `src/domain/` importing routes, adapters or the server, but no rule does the same inside a module. `src/modules.md` is where a rule for each module is added.
+- **Lint misses some imports.** A JSDoc type import or a `vi.mock` path can reach a module's internals without failing lint.
+
+### Risks and mitigations
+
+| Risk                                                     | Mitigation                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A move to the module shape changes behaviour by accident | Each move changes structure only, keeps every test and holds coverage at 100%                                      |
+| Modules drift from the shape as new code lands           | Each moved module is fenced in lint, and every module README points at `src/modules.md` for how to build the shape |
+| The single-plugin trial pulls modules in two directions  | Only the trial module changes until a later ADR records the result                                                 |

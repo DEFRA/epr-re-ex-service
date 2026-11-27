@@ -4,7 +4,7 @@ Date: 2026-01-26
 
 ## Status
 
-Proposed
+Superseded by [ADR 0061](0061-structure-of-epr-backend-modules.md)
 
 ## Context
 
