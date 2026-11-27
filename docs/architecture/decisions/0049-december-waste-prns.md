@@ -192,8 +192,6 @@ The system was not live last December, and no summary log can carry a December-d
 - [ADR-0044](./0044-registration-and-accreditation-validity-and-status-rules.md) — accreditation validity and status rules (governs the dates behind "which December")
 - [ADR-0034](./0034-multi-year-accreditation-model.md) — multi-year accreditation model (year derived from `validFrom`; source of the PRN's `accreditationYear`)
 - [SI 2024/1332, Schedule 8][sch8] — the statutory December-labelling duty: [para 24(4)][sch8-para24] (reprocessors, keyed on receipt for recycling) and [para 27(3)][sch8-para27] (exporters, keyed on receipt at the overseas reprocessing site). Predecessor wording: [SI 2005/3468, Schedule 5](https://www.legislation.gov.uk/uksi/2005/3468/schedule/5/made).
-- Bead `defra-3w6c` — the design record behind this ADR
-- PAE-000 — placeholder Jira reference (to be assigned)
 
 [si-2024-1332]: https://www.legislation.gov.uk/uksi/2024/1332/contents
 [sch8]: https://www.legislation.gov.uk/uksi/2024/1332/schedule/8
