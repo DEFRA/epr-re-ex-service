@@ -7,7 +7,7 @@ Date: 2026-11-19
 - **Problem:** an exporter's load can straddle the year boundary (exported in December 2026 and received overseas in January 2027, or received in 2026 and exported in 2027). Under ADR-0048 each year is sealed, so the load can't be completed and an accredited exporter is never credited for it.
 - **Operator's view:** from 2027 the operator puts the 2026 row's ID in a new previous-year row ID column on a 2027 row, and enters only what happened in 2027.
 - **What we do:** validation reads the latest submitted 2026 row once and fills in the rest. The 2027 row state then holds the complete load, so the waste balance, reports and exports need no change.
-- **Guard rails:** a linked row may only supply a fixed list of export and overseas columns, so template formulas and defaults can't overwrite real 2026 values. The export date is checked against the accreditation for that date's year.
+- **Guard rails:** a linked row may only supply a fixed list of export and overseas columns, so template formulas and defaults can't overwrite real 2026 values. Until 2026 closes, a linked row that gives a different value from its 2026 row is rejected: the change belongs in the 2026 log. The export date is checked against the accreditation for that date's year.
 - **Costs:** a 2026 resubmission supersedes in-flight 2027 logs until 2026 closes (end of February or 20 March). Until 2026 closes, a 2026 resubmission or accreditation change made after 2027 is submitted leaves the 2027 waste balance stale until the next 2027 upload. This is a known gap that needs follow-up work ([PAE-2302](https://eaflood.atlassian.net/browse/PAE-2302)) before January 2027. The 2027 templates need a `ROW_ID` change before they go out.
 
 ## Status
@@ -68,7 +68,13 @@ A resolved row is **filled in** before any other validation runs. The table sche
 
 The allow list keeps fill-in independent of the template. A formula the operator never touched, such as a net weight computed as 0 from blank weights, or a dropdown left on its default, is outside the list and cannot override the previous-year value. So fill-in needs no knowledge of the template's formulas or defaults, and a partly filled row cannot produce a partly computed load.
 
-Rules that compare the two years read the previous-year row as stored and the row as entered. They run together in one step after fill-in, not in the field checks, which see only the filled-in row. Before the previous year's correction deadline, a supplied allowed value that differs from one the previous-year row already holds is rejected ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)); a value in any other column is ignored. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the other cross-year rules are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
+Rules that compare the two years read the previous-year row as stored and the row as entered. They run together in one step after fill-in, not in the field checks, which see only the filled-in row. Before the previous year's correction deadline, a linked row that gives a value different from one the previous-year row already holds is rejected, in every column except the two row IDs, whether or not the column is on the allow list: the change belongs in the previous year's log ([PAE-2102](https://eaflood.atlassian.net/browse/PAE-2102)). The table schema declares three exceptions:
+
+- columns that may differ: the template's formula columns (net weight and tonnage received for export), whose inputs are compared instead
+- answers a linked row may give later: a previous-year "No" to refused or stopped may become "Yes", because the load can be refused or stopped in the later year
+- values the template fills in on a linked row: the pre-filled "No" to whether PRNs or PERNs were issued counts as blank there
+
+After the deadline a different value is not rejected, and a column outside the allow list still takes the previous-year value. Earlier-year dates ([PAE-2101](https://eaflood.atlassian.net/browse/PAE-2101)) and the other cross-year rules are decided under their own tickets. Overrides after the deadline ([PAE-2107](https://eaflood.atlassian.net/browse/PAE-2107)) are out of scope: they would correct columns outside the list.
 
 A previous-year row ID that matches no submitted row will be rejected ([PAE-2097](https://eaflood.atlassian.net/browse/PAE-2097)). Until then the row is stored as written and classified like any unlinked row.
 
@@ -166,7 +172,7 @@ This decision accepts the gap only as a starting point. Closing it is follow-up 
 - **A blank cell cannot clear a value.** The operator corrects the previous-year row instead.
 - **Cross-field checks are looser on linked rows**, by up to about 0.025 t on the tonnage received for export.
 - **Later-year row states carry earlier-year dates.** Any new reader that places rows by date must count only its own year.
-- **A value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error.
+- **After the previous year closes, a value outside the allow list is ignored, not rejected.** The check page shows the previous-year value, but the operator gets no error. Before then a different value is rejected.
 - **Fill-in depends on the `ROW_ID` template change** landing before the 2027 templates go out.
 - **A previous-year row that is missing a report-mandatory receipt value blocks every later-year report.** The report-mandatory check reads the whole log, and a linked row inherits the supplier details from the previous year. If the previous-year row lacks them, no later-year report can be created for that registration. The issue also names a column the linked row cannot supply. Only a previous-year resubmission fixes it, and only until the previous year closes. Until then the regulator sees those reports as outstanding. This needs follow-up work: the issue should name the previous-year row, and the behaviour after the deadline needs deciding.
 - **The waste-records exports repeat a linked load in both years**, with its receipt and export tonnages on both rows. Adding two years' exports together double-counts the load, and the `PREVIOUS_YEAR_ROW_ID` column is the only thing that marks it. This needs follow-up work: say so wherever the export's columns are explained to the people who use it.
