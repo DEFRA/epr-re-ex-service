@@ -79,7 +79,7 @@ A repository that several modules reach into is a sign that a capability is miss
 - **Each adapter of a port is a plugin of its own, named after the port.** It provides that port and nothing else, so Hapi refuses a server that registers two adapters of one port.
 - **Each plugin declares the ports it needs.** Hapi checks them when the server initialises, so a server with a missing provider refuses to start rather than failing on a request.
 - **The server setup makes the decisions.** It picks each adapter, reads config and feature flags, and passes each plugin plain values. A plugin never reads config or a feature flag.
-- **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it.
+- **The test server registers a port's in-memory adapter** where production registers the MongoDB one. Tests replace a port, never anything built from it. A test that runs a port's real MongoDB adapter against a real database, as a contract test does, replaces nothing.
 - **Code that runs beside the server, such as a migration runner, takes its ports from the started server's `server.app`.** It builds no adapter of its own.
 
 The how-to for all of this, with the helpers that implement it, is [`src/modules.md`](https://github.com/DEFRA/epr-backend/blob/main/src/modules.md) in epr-backend. Each module's README says what the module serves and how it is laid out inside.
