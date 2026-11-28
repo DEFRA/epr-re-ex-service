@@ -32,10 +32,10 @@
     "@types/node": "26.6.6",
     "husky": "9.1.7",
     "lint-staged": "17.6.1",
-    "mongodb": "7.9.0",
+    "mongodb": "7.9.1",
     "prettier": "3.10.1",
-    "renovate": "44.251.0",
+    "renovate": "44.257.5",
     "typescript": "7.0.2",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   }
 }
